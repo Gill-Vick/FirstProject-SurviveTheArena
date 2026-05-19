@@ -1,11 +1,10 @@
 body {
-    text-align: center;
-    font-family: Arial;
-    margin-top: 100px;
+    margin: 0;
+    overflow: hidden;
+    background: black;
 }
 
-button {
-    padding: 20px;
-    font-size: 24px;
-    cursor: pointer;
+canvas {
+    display: block;
+    background: #111;
 }
