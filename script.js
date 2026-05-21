@@ -8,7 +8,17 @@ canvas.height = window.innerHeight;
 // Game State
 // =====================================
 
-let gameOver = false;
+let gameState = "menu";
+// menu
+// playing
+// gameover
+
+// =====================================
+// Score
+// =====================================
+
+let score = 0;
+let startTime = 0;
 
 // =====================================
 // Player
@@ -26,13 +36,109 @@ const player = {
 // Enemies
 // =====================================
 
-const enemies = [];
+let enemies = [];
 
-// Spawn enemy every second
+// =====================================
+// Buttons
+// =====================================
+
+const startButton = {
+    x: canvas.width / 2 - 100,
+    y: canvas.height / 2,
+    width: 200,
+    height: 70
+};
+
+const homeButton = {
+    x: canvas.width / 2 - 100,
+    y: canvas.height / 2 + 100,
+    width: 200,
+    height: 70
+};
+
+// =====================================
+// Mouse Input
+// =====================================
+
+canvas.addEventListener("click", (e) => {
+
+    const rect = canvas.getBoundingClientRect();
+
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    // =========================
+    // Start Button
+    // =========================
+
+    if (gameState === "menu") {
+
+        if (
+            mouseX > startButton.x &&
+            mouseX < startButton.x + startButton.width &&
+            mouseY > startButton.y &&
+            mouseY < startButton.y + startButton.height
+        ) {
+
+            startGame();
+        }
+    }
+
+    // =========================
+    // Home Button
+    // =========================
+
+    if (gameState === "gameover") {
+
+        if (
+            mouseX > homeButton.x &&
+            mouseX < homeButton.x + homeButton.width &&
+            mouseY > homeButton.y &&
+            mouseY < homeButton.y + homeButton.height
+        ) {
+
+            resetGame();
+        }
+    }
+
+});
+
+// =====================================
+// Start Game
+// =====================================
+
+function startGame() {
+
+    gameState = "playing";
+
+    startTime = Date.now();
+
+    enemies = [];
+
+    player.x = canvas.width / 2;
+    player.y = canvas.height / 2;
+}
+
+// =====================================
+// Reset Game
+// =====================================
+
+function resetGame() {
+
+    gameState = "menu";
+
+    enemies = [];
+
+    score = 0;
+}
+
+// =====================================
+// Enemy Spawning
+// =====================================
 
 setInterval(() => {
 
-    if (!gameOver) {
+    if (gameState === "playing") {
         spawnEnemy();
     }
 
@@ -45,30 +151,24 @@ function spawnEnemy() {
 
     const size = 40;
 
-    // Random side spawning
-
     const side = Math.floor(Math.random() * 4);
 
     if (side === 0) {
-        // Top
         x = Math.random() * canvas.width;
         y = -size;
     }
 
     else if (side === 1) {
-        // Bottom
         x = Math.random() * canvas.width;
         y = canvas.height + size;
     }
 
     else if (side === 2) {
-        // Left
         x = -size;
         y = Math.random() * canvas.height;
     }
 
     else {
-        // Right
         x = canvas.width + size;
         y = Math.random() * canvas.height;
     }
@@ -102,9 +202,15 @@ window.addEventListener("keyup", (e) => {
 
 function update() {
 
-    if (gameOver) {
+    if (gameState !== "playing") {
         return;
     }
+
+    // =========================
+    // Score Timer
+    // =========================
+
+    score = ((Date.now() - startTime) / 1000).toFixed(1);
 
     // =========================
     // Player Movement
@@ -127,7 +233,7 @@ function update() {
     }
 
     // =========================
-    // Keep Player On Screen
+    // Screen Boundaries
     // =========================
 
     if (player.x < 0) {
@@ -152,21 +258,13 @@ function update() {
 
     enemies.forEach((enemy) => {
 
-        // Direction toward player
-
         const dx = player.x - enemy.x;
         const dy = player.y - enemy.y;
 
-        // Distance
-
         const distance = Math.sqrt(dx * dx + dy * dy);
-
-        // Normalize direction
 
         const velocityX = dx / distance;
         const velocityY = dy / distance;
-
-        // Move enemy
 
         enemy.x += velocityX * enemy.speed;
         enemy.y += velocityY * enemy.speed;
@@ -182,25 +280,60 @@ function update() {
             player.y + player.size > enemy.y
         ) {
 
-            gameOver = true;
+            gameState = "gameover";
         }
 
     });
+
 }
 
 // =====================================
-// Draw
+// Draw Menu
 // =====================================
 
-function draw() {
+function drawMenu() {
 
-    // Clear Screen
+    ctx.fillStyle = "white";
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.font = "70px Arial";
 
-    // =========================
-    // Draw Player
-    // =========================
+    ctx.textAlign = "center";
+
+    ctx.fillText(
+        "SURVIVE THE ARENA",
+        canvas.width / 2,
+        200
+    );
+
+    // Start Button
+
+    ctx.fillStyle = "lime";
+
+    ctx.fillRect(
+        startButton.x,
+        startButton.y,
+        startButton.width,
+        startButton.height
+    );
+
+    ctx.fillStyle = "black";
+
+    ctx.font = "35px Arial";
+
+    ctx.fillText(
+        "START",
+        canvas.width / 2,
+        startButton.y + 47
+    );
+}
+
+// =====================================
+// Draw Game
+// =====================================
+
+function drawGame() {
+
+    // Player
 
     ctx.fillStyle = player.color;
 
@@ -211,9 +344,7 @@ function draw() {
         player.size
     );
 
-    // =========================
-    // Draw Enemies
-    // =========================
+    // Enemies
 
     enemies.forEach((enemy) => {
 
@@ -228,23 +359,87 @@ function draw() {
 
     });
 
-    // =========================
-    // Game Over Text
-    // =========================
+    // Score
 
-    if (gameOver) {
+    ctx.fillStyle = "white";
 
-        ctx.fillStyle = "white";
+    ctx.font = "30px Arial";
 
-        ctx.font = "60px Arial";
+    ctx.textAlign = "left";
 
-        ctx.textAlign = "center";
+    ctx.fillText(
+        `Time: ${score}`,
+        20,
+        40
+    );
+}
 
-        ctx.fillText(
-            "GAME OVER",
-            canvas.width / 2,
-            canvas.height / 2
-        );
+// =====================================
+// Draw Game Over
+// =====================================
+
+function drawGameOver() {
+
+    ctx.fillStyle = "white";
+
+    ctx.font = "80px Arial";
+
+    ctx.textAlign = "center";
+
+    ctx.fillText(
+        "GAME OVER",
+        canvas.width / 2,
+        220
+    );
+
+    ctx.font = "40px Arial";
+
+    ctx.fillText(
+        `Survived: ${score} Seconds`,
+        canvas.width / 2,
+        300
+    );
+
+    // Home Button
+
+    ctx.fillStyle = "lime";
+
+    ctx.fillRect(
+        homeButton.x,
+        homeButton.y,
+        homeButton.width,
+        homeButton.height
+    );
+
+    ctx.fillStyle = "black";
+
+    ctx.font = "28px Arial";
+
+    ctx.fillText(
+        "RETURN HOME",
+        canvas.width / 2,
+        homeButton.y + 45
+    );
+}
+
+// =====================================
+// Draw
+// =====================================
+
+function draw() {
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (gameState === "menu") {
+        drawMenu();
+    }
+
+    else if (gameState === "playing") {
+        drawGame();
+    }
+
+    else if (gameState === "gameover") {
+        drawGameOver();
     }
 }
 
