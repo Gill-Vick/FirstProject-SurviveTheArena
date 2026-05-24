@@ -54,6 +54,17 @@ let particles = [];
 
 let screenShake = 0;
 
+let mouseX = 0;
+let mouseY = 0;
+
+let swordSwing = false;
+let swordAngle = 0;
+let aimAngle = 0;
+let swordTimer = 0;
+
+const swordLength = 110;
+const swordDuration = 3;
+
 let lastSpawn = 0;
 
 // =====================================
@@ -79,6 +90,17 @@ const homeButton = {
 // =====================================
 
 canvas.addEventListener("click", (e) => {
+
+    if (gameState === "playing") {
+
+        swordSwing = true;
+    
+        swordTimer = swordDuration;
+    
+        swordAngle = aimAngle;
+    
+        attackEnemies();
+    }
 
     const rect = canvas.getBoundingClientRect();
 
@@ -118,6 +140,20 @@ canvas.addEventListener("click", (e) => {
             resetGame();
         }
     }
+
+});
+
+canvas.addEventListener("mousemove", (e) => {
+
+    const rect = canvas.getBoundingClientRect();
+
+    mouseX = e.clientX - rect.left;
+    mouseY = e.clientY - rect.top;
+
+    const dx = mouseX - (player.x + player.size / 2);
+    const dy = mouseY - (player.y + player.size / 2);
+
+    aimAngle = Math.atan2(dy, dx);
 
 });
 
@@ -183,12 +219,16 @@ function spawnEnemy() {
         y = Math.random() * canvas.height;
     }
 
+    const enemyHP = 1 + Math.floor(score / 20);
+
     enemies.push({
         x,
         y,
         size,
         speed: 2 * enemySpeedMultiplier,
-        color: "red"
+        color: "red",
+        hp: enemyHP,
+        maxHp: enemyHP
     });
 }
 
@@ -259,6 +299,69 @@ window.addEventListener("keyup", (e) => {
 // =====================================
 // Update
 // =====================================
+
+function attackEnemies() {
+
+    enemies.forEach((enemy, index) => {
+
+        const enemyCenterX = enemy.x + enemy.size / 2;
+        const enemyCenterY = enemy.y + enemy.size / 2;
+
+        const dx = enemyCenterX - (player.x + player.size / 2);
+        const dy = enemyCenterY - (player.y + player.size / 2);
+
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        // Enemy within sword range
+
+        if (distance < swordLength) {
+
+            const angleToEnemy = Math.atan2(dy, dx);
+
+            let angleDifference = Math.abs(angleToEnemy - swordAngle);
+
+            // Fix angle wrapping
+
+            if (angleDifference > Math.PI) {
+                angleDifference = Math.PI * 2 - angleDifference;
+            }
+
+            // Sword swing cone
+
+            if (angleDifference < 1.0) {
+
+                enemy.hp--;
+
+                // Hit particles
+
+                for (let i = 0; i < 10; i++) {
+
+                    particles.push({
+                        x: enemyCenterX,
+                        y: enemyCenterY,
+                        size: Math.random() * 5 + 2,
+                        vx: (Math.random() - 0.5) * 8,
+                        vy: (Math.random() - 0.5) * 8,
+                        life: 20,
+                        color: "red"
+                    });
+
+                }
+
+                // Enemy dies
+
+                if (enemy.hp <= 0) {
+
+                    screenShake = 8;
+
+                    enemies.splice(index, 1);
+                }
+            }
+        }
+
+    });
+
+}
 
 function update() {
 
@@ -379,6 +482,16 @@ function update() {
     
     });
 
+    if (swordTimer > 0) {
+
+        swordTimer--;
+    
+    }
+    else {
+    
+        swordSwing = false;
+    }
+
 }
 
 // =====================================
@@ -442,6 +555,61 @@ function drawGame() {
 
     ctx.shadowBlur = 0;
 
+    if (swordSwing) {
+
+        ctx.save();
+    
+        ctx.translate(
+            player.x + player.size / 2,
+            player.y + player.size / 2
+        );
+    
+        ctx.rotate(swordAngle);
+    
+        ctx.strokeStyle = "white";
+    
+        ctx.lineWidth = 8;
+    
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = "white";
+    
+        ctx.beginPath();
+    
+        ctx.moveTo(0, 0);
+    
+        ctx.lineTo(swordLength-25, 0);
+    
+        ctx.stroke();
+    
+        ctx.restore();
+    }
+
+    ctx.save();
+
+    ctx.translate(
+        player.x + player.size / 2,
+        player.y + player.size / 2
+    );
+
+    ctx.rotate(aimAngle);
+
+    ctx.strokeStyle = "cyan";
+
+    ctx.lineWidth = 3;
+
+    ctx.globalAlpha = 0.4;
+
+    ctx.beginPath();
+
+    ctx.moveTo(0, 0);
+    ctx.lineTo(50, 0);
+
+    ctx.stroke();
+
+    ctx.restore();
+
+    ctx.globalAlpha = 1;
+
     // Enemies
 
     enemies.forEach((enemy) => {
@@ -460,7 +628,26 @@ function drawGame() {
 
         ctx.shadowBlur = 0;
 
+        ctx.fillStyle = "black";
+
+        ctx.fillRect(
+            enemy.x,
+            enemy.y - 12,
+            enemy.size,
+            6
+        );
+
+        ctx.fillStyle = "lime";
+
+        ctx.fillRect(
+            enemy.x,
+            enemy.y - 12,
+            enemy.size * (enemy.hp / enemy.maxHp),
+            6
+        );
+
     });
+
 
     // Score
 
