@@ -1,6 +1,8 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
+ctx.imageSmoothingEnabled = false;
+
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
@@ -47,6 +49,10 @@ const player = {
 // =====================================
 
 let enemies = [];
+
+let particles = [];
+
+let screenShake = 0;
 
 let lastSpawn = 0;
 
@@ -226,6 +232,20 @@ window.addEventListener("keydown", (e) => {
             player.x += dx * dashDistance;
             player.y += dy * dashDistance;
 
+            for (let i = 0; i < 20; i++) {
+
+                particles.push({
+                    x: player.x + player.size / 2,
+                    y: player.y + player.size / 2,
+                    size: Math.random() * 6 + 2,
+                    vx: (Math.random() - 0.5) * 10,
+                    vy: (Math.random() - 0.5) * 10,
+                    life: 30,
+                    color: "cyan"
+                });
+            
+            }
+
             dashCooldown = dashCooldownTime;
         }
     }
@@ -339,9 +359,24 @@ function update() {
             player.y + player.size > enemy.y
         ) {
 
+            screenShake = 20;
+
             gameState = "gameover";
         }
 
+    });
+
+    particles.forEach((particle, index) => {
+
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+    
+        particle.life--;
+    
+        if (particle.life <= 0) {
+            particles.splice(index, 1);
+        }
+    
     });
 
 }
@@ -393,6 +428,8 @@ function drawMenu() {
 function drawGame() {
 
     // Player
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = "lime";
 
     ctx.fillStyle = player.color;
 
@@ -403,9 +440,14 @@ function drawGame() {
         player.size
     );
 
+    ctx.shadowBlur = 0;
+
     // Enemies
 
     enemies.forEach((enemy) => {
+
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = "red";
 
         ctx.fillStyle = enemy.color;
 
@@ -416,15 +458,20 @@ function drawGame() {
             enemy.size
         );
 
+        ctx.shadowBlur = 0;
+
     });
 
     // Score
 
     ctx.fillStyle = "white";
 
-    ctx.font = "30px Arial";
+    ctx.font = "bold 30px Arial";
 
     ctx.textAlign = "left";
+
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = "white";
 
     ctx.fillText(
         `Time: ${score}`,
@@ -437,6 +484,30 @@ function drawGame() {
         20,
         80
     );
+
+    ctx.shadowBlur = 0;
+
+    particles.forEach((particle) => {
+
+        ctx.fillStyle = particle.color;
+    
+        ctx.globalAlpha = particle.life / 30;
+    
+        ctx.beginPath();
+    
+        ctx.arc(
+            particle.x,
+            particle.y,
+            particle.size,
+            0,
+            Math.PI * 2
+        );
+    
+        ctx.fill();
+    
+        ctx.globalAlpha = 1;
+    
+    });
 }
 
 // =====================================
@@ -491,9 +562,58 @@ function drawGameOver() {
 // Draw
 // =====================================
 
+function drawGrid() {
+
+    const gridSize = 50;
+
+    ctx.strokeStyle = "#1a1a1a";
+
+    ctx.lineWidth = 1;
+
+    const offset = Date.now() * 0.02 % gridSize;
+
+    // Vertical lines
+
+    for (let x = -gridSize; x < canvas.width + gridSize; x += gridSize) {
+
+        ctx.beginPath();
+
+        ctx.moveTo(x + offset, 0);
+        ctx.lineTo(x + offset, canvas.height);
+
+        ctx.stroke();
+    }
+
+    // Horizontal lines
+
+    for (let y = -gridSize; y < canvas.height + gridSize; y += gridSize) {
+
+        ctx.beginPath();
+
+        ctx.moveTo(0, y + offset);
+        ctx.lineTo(canvas.width, y + offset);
+
+        ctx.stroke();
+    }
+}
+
 function draw() {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    drawGrid();
+
+    ctx.save();
+
+    if (screenShake > 0) {
+
+        const shakeX = (Math.random() - 0.5) * screenShake;
+        const shakeY = (Math.random() - 0.5) * screenShake;
+
+        ctx.translate(shakeX, shakeY);
+
+        screenShake *= 0.9;
+    }
 
     if (gameState === "menu") {
         drawMenu();
@@ -506,6 +626,8 @@ function draw() {
     else if (gameState === "gameover") {
         drawGameOver();
     }
+
+    ctx.restore();
 }
 
 // =====================================
