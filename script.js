@@ -20,6 +20,16 @@ let gameState = "menu";
 let score = 0;
 let startTime = 0;
 
+let enemySpawnRate = 1000;
+let enemySpeedMultiplier = 1;
+
+// Dash
+
+let dashCooldown = 0;
+const dashCooldownTime = 1000;
+
+const dashDistance = 120;
+
 // =====================================
 // Player
 // =====================================
@@ -37,6 +47,8 @@ const player = {
 // =====================================
 
 let enemies = [];
+
+let lastSpawn = 0;
 
 // =====================================
 // Buttons
@@ -136,14 +148,6 @@ function resetGame() {
 // Enemy Spawning
 // =====================================
 
-setInterval(() => {
-
-    if (gameState === "playing") {
-        spawnEnemy();
-    }
-
-}, 1000);
-
 function spawnEnemy() {
 
     let x;
@@ -177,7 +181,7 @@ function spawnEnemy() {
         x,
         y,
         size,
-        speed: 2,
+        speed: 2 * enemySpeedMultiplier,
         color: "red"
     });
 }
@@ -189,7 +193,43 @@ function spawnEnemy() {
 const keys = {};
 
 window.addEventListener("keydown", (e) => {
+
     keys[e.key] = true;
+
+    // =========================
+    // Dash
+    // =========================
+
+    if (
+        e.code === "Space" &&
+        dashCooldown <= 0 &&
+        gameState === "playing"
+    ) {
+
+        let dx = 0;
+        let dy = 0;
+
+        if (keys["w"]) dy = -1;
+        if (keys["s"]) dy = 1;
+        if (keys["a"]) dx = -1;
+        if (keys["d"]) dx = 1;
+
+        // Prevent divide by zero
+
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance > 0) {
+
+            dx /= distance;
+            dy /= distance;
+
+            player.x += dx * dashDistance;
+            player.y += dy * dashDistance;
+
+            dashCooldown = dashCooldownTime;
+        }
+    }
+
 });
 
 window.addEventListener("keyup", (e) => {
@@ -212,9 +252,28 @@ function update() {
 
     score = ((Date.now() - startTime) / 1000).toFixed(1);
 
+    const survivalTime = (Date.now() - startTime) / 1000;
+
+    // Increase difficulty over time
+
+    enemySpawnRate = Math.max(250, 1000 - survivalTime * 20);
+
+    enemySpeedMultiplier = 1 + survivalTime * 0.02;
+
+    if (Date.now() - lastSpawn > enemySpawnRate) {
+
+        spawnEnemy();
+    
+        lastSpawn = Date.now();
+    }
+
     // =========================
     // Player Movement
     // =========================
+
+    if (dashCooldown > 0) {
+        dashCooldown -= 16;
+    }
 
     if (keys["w"]) {
         player.y -= player.speed;
@@ -371,6 +430,12 @@ function drawGame() {
         `Time: ${score}`,
         20,
         40
+    );
+
+    ctx.fillText(
+        `Dash: ${dashCooldown <= 0 ? "READY" : "COOLDOWN"}`,
+        20,
+        80
     );
 }
 
