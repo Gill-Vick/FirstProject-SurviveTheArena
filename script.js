@@ -58,12 +58,18 @@ let mouseX = 0;
 let mouseY = 0;
 
 let swordSwing = false;
+
 let swordAngle = 0;
-let aimAngle = 0;
+
 let swordTimer = 0;
 
+let swingProgress = 0;
+
+const swingArc = Math.PI * 1.2;
+let aimAngle = 0;
+
 const swordLength = 110;
-const swordDuration = 3;
+const swordDuration = 15;
 
 let lastSpawn = 0;
 
@@ -93,13 +99,20 @@ canvas.addEventListener("click", (e) => {
 
     if (gameState === "playing") {
 
-        swordSwing = true;
-    
-        swordTimer = swordDuration;
-    
-        swordAngle = aimAngle;
-    
-        attackEnemies();
+        if (!swordSwing) {
+
+            swordSwing = true;
+        
+            swordTimer = swordDuration;
+        
+            swingProgress = 0;
+        
+            swordAngle = aimAngle;
+
+            enemies.forEach(enemy => {
+                enemy.hitThisSwing = false;
+            });
+        }
     }
 
     const rect = canvas.getBoundingClientRect();
@@ -228,7 +241,8 @@ function spawnEnemy() {
         speed: 2 * enemySpeedMultiplier,
         color: "red",
         hp: enemyHP,
-        maxHp: enemyHP
+        maxHp: enemyHP,
+        hitThisSwing: false
     });
 }
 
@@ -318,8 +332,13 @@ function attackEnemies() {
 
             const angleToEnemy = Math.atan2(dy, dx);
 
-            let angleDifference = Math.abs(angleToEnemy - swordAngle);
+            const currentAngle =
+                swordAngle
+                - swingArc / 2
+                + swingArc * swingProgress;
 
+            let angleDifference =
+                Math.abs(angleToEnemy - currentAngle);
             // Fix angle wrapping
 
             if (angleDifference > Math.PI) {
@@ -328,9 +347,13 @@ function attackEnemies() {
 
             // Sword swing cone
 
-            if (angleDifference < 1.0) {
+            if (
+                angleDifference < 0.5 &&
+                !enemy.hitThisSwing
+            ) {
 
                 enemy.hp--;
+                enemy.hitThisSwing = true;
 
                 // Hit particles
 
@@ -482,14 +505,18 @@ function update() {
     
     });
 
-    if (swordTimer > 0) {
+    if (swordSwing) {
 
         swordTimer--;
     
-    }
-    else {
+        swingProgress = 1 - (swordTimer / swordDuration);
     
-        swordSwing = false;
+        attackEnemies();
+    
+        if (swordTimer <= 0) {
+    
+            swordSwing = false;
+        }
     }
 
 }
@@ -564,22 +591,61 @@ function drawGame() {
             player.y + player.size / 2
         );
     
-        ctx.rotate(swordAngle);
+        // Swing animation
     
-        ctx.strokeStyle = "white";
+        const currentAngle =
+            swordAngle
+            - swingArc / 2
+            + swingArc * swingProgress;
     
-        ctx.lineWidth = 8;
+        ctx.rotate(currentAngle);
+    
+        // Glow
     
         ctx.shadowBlur = 20;
         ctx.shadowColor = "white";
     
+        // Sword Handle
+    
+        ctx.strokeStyle = "#654321";
+    
+        ctx.lineWidth = 10;
+    
         ctx.beginPath();
     
         ctx.moveTo(0, 0);
+        ctx.lineTo(20, 0);
     
+        ctx.stroke();
+    
+        // Sword Blade
+    
+        ctx.strokeStyle = "white";
+    
+        ctx.lineWidth = 6;
+    
+        ctx.beginPath();
+    
+        ctx.moveTo(20, 0);
         ctx.lineTo(swordLength-25, 0);
     
         ctx.stroke();
+    
+        // Sword Tip
+    
+        ctx.fillStyle = "cyan";
+    
+        ctx.beginPath();
+    
+        ctx.arc(
+            swordLength-25,
+            0,
+            5,
+            0,
+            Math.PI * 2
+        );
+    
+        ctx.fill();
     
         ctx.restore();
     }
