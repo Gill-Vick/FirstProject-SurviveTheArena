@@ -1,899 +1,1048 @@
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
+//OLD CODE AS REFERENCE FOR WHEN NEEDED (MAJOR ARCHITECTURE REWORK IN PROGRESS)
 
-ctx.imageSmoothingEnabled = false;
+// const canvas = document.getElementById("gameCanvas");
+// const ctx = canvas.getContext("2d");
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+// ctx.imageSmoothingEnabled = false;
 
-// =====================================
-// Game State
-// =====================================
+// canvas.width = window.innerWidth;
+// canvas.height = window.innerHeight;
 
-let gameState = "menu";
-// menu
-// playing
-// gameover
+// // =====================================
+// // Game State
+// // =====================================
 
-// =====================================
-// Score
-// =====================================
+// let gameState = "menu";
+// // menu
+// // playing
+// // gameover
 
-let score = 0;
-let startTime = 0;
+// // =====================================
+// // Score
+// // =====================================
 
-let enemySpawnRate = 1000;
-let enemySpeedMultiplier = 1;
+// let score = 0;
+// let startTime = 0;
 
-// Dash
+// // =====================================
+// // Wave
+// // =====================================
 
-let dashCooldown = 0;
-const dashCooldownTime = 1000;
+// let wave = 1;
 
-const dashDistance = 120;
+// let waveActive = false;
+// let waveTransition = false;
 
-// =====================================
-// Player
-// =====================================
+// let enemiesRemaining = 0;
 
-const player = {
-    x: canvas.width / 2,
-    y: canvas.height / 2,
-    size: 40,
-    speed: 5,
-    color: "lime"
-};
+// let waveMessageTimer = 0;
 
-// =====================================
-// Enemies
-// =====================================
+// let enemySpawnRate = 1000;
+// let enemySpeedMultiplier = 1;
 
-let enemies = [];
+// // Dash
 
-let particles = [];
+// let dashCooldown = 0;
+// const dashCooldownTime = 1000;
 
-let screenShake = 0;
+// const dashDistance = 120;
 
-let mouseX = 0;
-let mouseY = 0;
+// // =====================================
+// // Player
+// // =====================================
 
-let swordSwing = false;
+// const player = {
+//     x: canvas.width / 2,
+//     y: canvas.height / 2,
+//     size: 40,
+//     speed: 5,
+//     color: "lime"
+// };
 
-let swordAngle = 0;
+// // =====================================
+// // Enemies
+// // =====================================
 
-let swordTimer = 0;
+// let enemies = [];
 
-let swingProgress = 0;
+// let particles = [];
 
-const swingArc = Math.PI * 1.2;
-let aimAngle = 0;
+// let screenShake = 0;
 
-const swordLength = 110;
-const swordDuration = 15;
+// let mouseX = 0;
+// let mouseY = 0;
 
-let lastSpawn = 0;
+// let swordSwing = false;
 
-// =====================================
-// Buttons
-// =====================================
+// let swordAngle = 0;
 
-const startButton = {
-    x: canvas.width / 2 - 100,
-    y: canvas.height / 2,
-    width: 200,
-    height: 70
-};
+// let swordTimer = 0;
 
-const homeButton = {
-    x: canvas.width / 2 - 100,
-    y: canvas.height / 2 + 100,
-    width: 200,
-    height: 70
-};
+// let swingProgress = 0;
 
-// =====================================
-// Mouse Input
-// =====================================
+// const swingArc = Math.PI * 1.2;
+// let aimAngle = 0;
 
-canvas.addEventListener("click", (e) => {
+// const swordLength = 110;
+// const swordDuration = 15;
 
-    if (gameState === "playing") {
+// let lastSpawn = 0;
 
-        if (!swordSwing) {
+// // =====================================
+// // Buttons
+// // =====================================
 
-            swordSwing = true;
+// const startButton = {
+//     x: canvas.width / 2 - 100,
+//     y: canvas.height / 2,
+//     width: 200,
+//     height: 70
+// };
+
+// const homeButton = {
+//     x: canvas.width / 2 - 100,
+//     y: canvas.height / 2 + 100,
+//     width: 200,
+//     height: 70
+// };
+
+// // =====================================
+// // Mouse Input
+// // =====================================
+
+// canvas.addEventListener("click", (e) => {
+
+//     if (gameState === "playing") {
+
+//         if (!swordSwing) {
+
+//             swordSwing = true;
         
-            swordTimer = swordDuration;
+//             swordTimer = swordDuration;
         
-            swingProgress = 0;
+//             swingProgress = 0;
         
-            swordAngle = aimAngle;
+//             swordAngle = aimAngle;
 
-            enemies.forEach(enemy => {
-                enemy.hitThisSwing = false;
-            });
-        }
-    }
+//             enemies.forEach(enemy => {
+//                 enemy.hitThisSwing = false;
+//             });
+//         }
+//     }
 
-    const rect = canvas.getBoundingClientRect();
+//     const rect = canvas.getBoundingClientRect();
 
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+//     const mouseX = e.clientX - rect.left;
+//     const mouseY = e.clientY - rect.top;
 
-    // =========================
-    // Start Button
-    // =========================
+//     // =========================
+//     // Start Button
+//     // =========================
 
-    if (gameState === "menu") {
+//     if (gameState === "menu") {
 
-        if (
-            mouseX > startButton.x &&
-            mouseX < startButton.x + startButton.width &&
-            mouseY > startButton.y &&
-            mouseY < startButton.y + startButton.height
-        ) {
+//         if (
+//             mouseX > startButton.x &&
+//             mouseX < startButton.x + startButton.width &&
+//             mouseY > startButton.y &&
+//             mouseY < startButton.y + startButton.height
+//         ) {
 
-            startGame();
-        }
-    }
+//             startGame();
+//         }
+//     }
 
-    // =========================
-    // Home Button
-    // =========================
+//     // =========================
+//     // Home Button
+//     // =========================
 
-    if (gameState === "gameover") {
+//     if (gameState === "gameover") {
 
-        if (
-            mouseX > homeButton.x &&
-            mouseX < homeButton.x + homeButton.width &&
-            mouseY > homeButton.y &&
-            mouseY < homeButton.y + homeButton.height
-        ) {
+//         if (
+//             mouseX > homeButton.x &&
+//             mouseX < homeButton.x + homeButton.width &&
+//             mouseY > homeButton.y &&
+//             mouseY < homeButton.y + homeButton.height
+//         ) {
 
-            resetGame();
-        }
-    }
+//             resetGame();
+//         }
+//     }
 
-});
+// });
 
-canvas.addEventListener("mousemove", (e) => {
+// canvas.addEventListener("mousemove", (e) => {
 
-    const rect = canvas.getBoundingClientRect();
+//     const rect = canvas.getBoundingClientRect();
 
-    mouseX = e.clientX - rect.left;
-    mouseY = e.clientY - rect.top;
+//     mouseX = e.clientX - rect.left;
+//     mouseY = e.clientY - rect.top;
 
-    const dx = mouseX - (player.x + player.size / 2);
-    const dy = mouseY - (player.y + player.size / 2);
+//     const dx = mouseX - (player.x + player.size / 2);
+//     const dy = mouseY - (player.y + player.size / 2);
 
-    aimAngle = Math.atan2(dy, dx);
+//     aimAngle = Math.atan2(dy, dx);
 
-});
+// });
 
-// =====================================
-// Start Game
-// =====================================
+// // =====================================
+// // Start Game
+// // =====================================
 
-function startGame() {
+// function startGame() {
 
-    gameState = "playing";
+//     gameState = "playing";
 
-    startTime = Date.now();
+//     startTime = Date.now();
 
-    enemies = [];
+//     enemies = [];
+//     particles = [];
+    
+//     wave = 1;
+//     waveTransition = false;
+//     waveActive = false;
+    
+//     startWave();
 
-    player.x = canvas.width / 2;
-    player.y = canvas.height / 2;
-}
+//     player.x = canvas.width / 2;
+//     player.y = canvas.height / 2;
+// }
 
-// =====================================
-// Reset Game
-// =====================================
+// // =====================================
+// // Reset Game
+// // =====================================
 
-function resetGame() {
+// function resetGame() {
 
-    gameState = "menu";
+//     gameState = "menu";
 
-    enemies = [];
+//     enemies = [];
 
-    score = 0;
-}
+//     score = 0;
+// }
 
-// =====================================
-// Enemy Spawning
-// =====================================
+// // =====================================
+// // Enemy Spawning
+// // =====================================
 
-function spawnEnemy() {
+// function startWave() {
 
-    let x;
-    let y;
+//     waveActive = true;
 
-    const size = 40;
+//     waveTransition = false;
 
-    const side = Math.floor(Math.random() * 4);
+//     waveMessageTimer = 120;
 
-    if (side === 0) {
-        x = Math.random() * canvas.width;
-        y = -size;
-    }
+//     const gruntCount = 5 + wave * 2;
 
-    else if (side === 1) {
-        x = Math.random() * canvas.width;
-        y = canvas.height + size;
-    }
+//     const tankCount = Math.floor(wave / 3);
 
-    else if (side === 2) {
-        x = -size;
-        y = Math.random() * canvas.height;
-    }
+//     enemiesRemaining = gruntCount + tankCount;
 
-    else {
-        x = canvas.width + size;
-        y = Math.random() * canvas.height;
-    }
+//     // Spawn Grunts
 
-    const enemyHP = 1 + Math.floor(score / 20);
+//     for (let i = 0; i < gruntCount; i++) {
 
-    enemies.push({
-        x,
-        y,
-        size,
-        speed: 2 * enemySpeedMultiplier,
-        color: "red",
-        hp: enemyHP,
-        maxHp: enemyHP,
-        hitThisSwing: false
-    });
-}
+//         setTimeout(() => {
 
-// =====================================
-// Keyboard Input
-// =====================================
+//             spawnEnemy("grunt");
 
-const keys = {};
+//         }, i * 400);
 
-window.addEventListener("keydown", (e) => {
+//     }
 
-    keys[e.key] = true;
+//     // Spawn Tanks
 
-    // =========================
-    // Dash
-    // =========================
+//     for (let i = 0; i < tankCount; i++) {
 
-    if (
-        e.code === "Space" &&
-        dashCooldown <= 0 &&
-        gameState === "playing"
-    ) {
+//         setTimeout(() => {
 
-        let dx = 0;
-        let dy = 0;
+//             spawnEnemy("tank");
 
-        if (keys["w"]) dy = -1;
-        if (keys["s"]) dy = 1;
-        if (keys["a"]) dx = -1;
-        if (keys["d"]) dx = 1;
+//         }, gruntCount * 400 + i * 800);
 
-        // Prevent divide by zero
+//     }
 
-        const distance = Math.sqrt(dx * dx + dy * dy);
+// }
 
-        if (distance > 0) {
+// function spawnEnemy(type = "grunt") {
 
-            dx /= distance;
-            dy /= distance;
+//     let enemyData;
 
-            player.x += dx * dashDistance;
-            player.y += dy * dashDistance;
+//     if (type === "tank") {
 
-            for (let i = 0; i < 20; i++) {
+//         enemyData = {
+//             size: 70,
+//             speed: 1,
+//             color: "darkred",
+//             hpMultiplier: 4
+//         };
 
-                particles.push({
-                    x: player.x + player.size / 2,
-                    y: player.y + player.size / 2,
-                    size: Math.random() * 6 + 2,
-                    vx: (Math.random() - 0.5) * 10,
-                    vy: (Math.random() - 0.5) * 10,
-                    life: 30,
-                    color: "cyan"
-                });
+//     }
+//     else {
+
+//         enemyData = {
+//             size: 40,
+//             speed: 2,
+//             color: "red",
+//             hpMultiplier: 1
+//         };
+
+//     }
+
+//     let x;
+//     let y;
+
+//     const size = enemyData.size;
+
+//     const side = Math.floor(Math.random() * 4);
+
+//     if (side === 0) {
+//         x = Math.random() * canvas.width;
+//         y = -size;
+//     }
+
+//     else if (side === 1) {
+//         x = Math.random() * canvas.width;
+//         y = canvas.height + size;
+//     }
+
+//     else if (side === 2) {
+//         x = -size;
+//         y = Math.random() * canvas.height;
+//     }
+
+//     else {
+//         x = canvas.width + size;
+//         y = Math.random() * canvas.height;
+//     }
+
+//     const enemyHP = (1 + Math.floor(score / 20)) * enemyData.hpMultiplier;
+
+//     enemies.push({
+//         x,
+//         y,
+
+//         size: enemyData.size,
+
+//         speed:
+//             enemyData.speed *
+//             enemySpeedMultiplier,
+
+//         color: enemyData.color,
+
+//         hp: enemyHP,
+//         maxHp: enemyHP,
+
+//         type,
+
+//         hitThisSwing: false
+//     });
+// }
+
+// // =====================================
+// // Keyboard Input
+// // =====================================
+
+// const keys = {};
+
+// window.addEventListener("keydown", (e) => {
+
+//     keys[e.key] = true;
+
+//     // =========================
+//     // Dash
+//     // =========================
+
+//     if (
+//         e.code === "Space" &&
+//         dashCooldown <= 0 &&
+//         gameState === "playing"
+//     ) {
+
+//         let dx = 0;
+//         let dy = 0;
+
+//         if (keys["w"]) dy = -1;
+//         if (keys["s"]) dy = 1;
+//         if (keys["a"]) dx = -1;
+//         if (keys["d"]) dx = 1;
+
+//         // Prevent divide by zero
+
+//         const distance = Math.sqrt(dx * dx + dy * dy);
+
+//         if (distance > 0) {
+
+//             dx /= distance;
+//             dy /= distance;
+
+//             player.x += dx * dashDistance;
+//             player.y += dy * dashDistance;
+
+//             for (let i = 0; i < 20; i++) {
+
+//                 particles.push({
+//                     x: player.x + player.size / 2,
+//                     y: player.y + player.size / 2,
+//                     size: Math.random() * 6 + 2,
+//                     vx: (Math.random() - 0.5) * 10,
+//                     vy: (Math.random() - 0.5) * 10,
+//                     life: 30,
+//                     color: "cyan"
+//                 });
             
-            }
+//             }
 
-            dashCooldown = dashCooldownTime;
-        }
-    }
+//             dashCooldown = dashCooldownTime;
+//         }
+//     }
 
-});
+// });
 
-window.addEventListener("keyup", (e) => {
-    keys[e.key] = false;
-});
+// window.addEventListener("keyup", (e) => {
+//     keys[e.key] = false;
+// });
 
-// =====================================
-// Update
-// =====================================
+// // =====================================
+// // Update
+// // =====================================
 
-function attackEnemies() {
+// function attackEnemies() {
 
-    enemies.forEach((enemy, index) => {
+//     enemies.forEach((enemy, index) => {
 
-        const enemyCenterX = enemy.x + enemy.size / 2;
-        const enemyCenterY = enemy.y + enemy.size / 2;
+//         const enemyCenterX = enemy.x + enemy.size / 2;
+//         const enemyCenterY = enemy.y + enemy.size / 2;
 
-        const dx = enemyCenterX - (player.x + player.size / 2);
-        const dy = enemyCenterY - (player.y + player.size / 2);
+//         const dx = enemyCenterX - (player.x + player.size / 2);
+//         const dy = enemyCenterY - (player.y + player.size / 2);
 
-        const distance = Math.sqrt(dx * dx + dy * dy);
+//         const distance = Math.sqrt(dx * dx + dy * dy);
 
-        // Enemy within sword range
+//         // Enemy within sword range
 
-        if (distance < swordLength) {
+//         if (distance < swordLength) {
 
-            const angleToEnemy = Math.atan2(dy, dx);
+//             const angleToEnemy = Math.atan2(dy, dx);
 
-            const currentAngle =
-                swordAngle
-                - swingArc / 2
-                + swingArc * swingProgress;
+//             const currentAngle =
+//                 swordAngle
+//                 - swingArc / 2
+//                 + swingArc * swingProgress;
 
-            let angleDifference =
-                Math.abs(angleToEnemy - currentAngle);
-            // Fix angle wrapping
+//             let angleDifference =
+//                 Math.abs(angleToEnemy - currentAngle);
+//             // Fix angle wrapping
 
-            if (angleDifference > Math.PI) {
-                angleDifference = Math.PI * 2 - angleDifference;
-            }
+//             if (angleDifference > Math.PI) {
+//                 angleDifference = Math.PI * 2 - angleDifference;
+//             }
 
-            // Sword swing cone
+//             // Sword swing cone
 
-            if (
-                angleDifference < 0.5 &&
-                !enemy.hitThisSwing
-            ) {
+//             if (
+//                 angleDifference < 0.5 &&
+//                 !enemy.hitThisSwing
+//             ) {
 
-                enemy.hp--;
-                enemy.hitThisSwing = true;
+//                 enemy.hp--;
+//                 enemy.hitThisSwing = true;
 
-                // Hit particles
+//                 // Hit particles
 
-                for (let i = 0; i < 10; i++) {
+//                 for (let i = 0; i < 10; i++) {
 
-                    particles.push({
-                        x: enemyCenterX,
-                        y: enemyCenterY,
-                        size: Math.random() * 5 + 2,
-                        vx: (Math.random() - 0.5) * 8,
-                        vy: (Math.random() - 0.5) * 8,
-                        life: 20,
-                        color: "red"
-                    });
+//                     particles.push({
+//                         x: enemyCenterX,
+//                         y: enemyCenterY,
+//                         size: Math.random() * 5 + 2,
+//                         vx: (Math.random() - 0.5) * 8,
+//                         vy: (Math.random() - 0.5) * 8,
+//                         life: 20,
+//                         color: "red"
+//                     });
 
-                }
+//                 }
 
-                // Enemy dies
+//                 // Enemy dies
 
-                if (enemy.hp <= 0) {
+//                 if (enemy.hp <= 0) {
 
-                    screenShake = 8;
+//                     enemiesRemaining--;
 
-                    enemies.splice(index, 1);
-                }
-            }
-        }
+//                     screenShake = 8;
 
-    });
+//                     enemies.splice(index, 1);
+//                 }
+//             }
+//         }
 
-}
+//     });
 
-function update() {
+// }
 
-    if (gameState !== "playing") {
-        return;
-    }
+// function update() {
 
-    // =========================
-    // Score Timer
-    // =========================
+//     if (gameState !== "playing") {
+//         return;
+//     }
 
-    score = ((Date.now() - startTime) / 1000).toFixed(1);
+//     // =========================
+//     // Score Timer
+//     // =========================
 
-    const survivalTime = (Date.now() - startTime) / 1000;
+//     score = ((Date.now() - startTime) / 1000).toFixed(1);
 
-    // Increase difficulty over time
+//     const survivalTime = (Date.now() - startTime) / 1000;
 
-    enemySpawnRate = Math.max(250, 1000 - survivalTime * 20);
+//     // Increase difficulty over time
 
-    enemySpeedMultiplier = 1 + survivalTime * 0.02;
+//     enemySpawnRate = Math.max(250, 1000 - survivalTime * 20);
 
-    if (Date.now() - lastSpawn > enemySpawnRate) {
+//     enemySpeedMultiplier = 1 + survivalTime * 0.02;
 
-        spawnEnemy();
+//     // =========================
+//     // Player Movement
+//     // =========================
+
+//     if (dashCooldown > 0) {
+//         dashCooldown -= 16;
+//     }
+
+//     if (keys["w"]) {
+//         player.y -= player.speed;
+//     }
+
+//     if (keys["s"]) {
+//         player.y += player.speed;
+//     }
+
+//     if (keys["a"]) {
+//         player.x -= player.speed;
+//     }
+
+//     if (keys["d"]) {
+//         player.x += player.speed;
+//     }
+
+//     // =========================
+//     // Screen Boundaries
+//     // =========================
+
+//     if (player.x < 0) {
+//         player.x = 0;
+//     }
+
+//     if (player.y < 0) {
+//         player.y = 0;
+//     }
+
+//     if (player.x + player.size > canvas.width) {
+//         player.x = canvas.width - player.size;
+//     }
+
+//     if (player.y + player.size > canvas.height) {
+//         player.y = canvas.height - player.size;
+//     }
+
+//     // =========================
+//     // Enemy AI
+//     // =========================
+
+//     enemies.forEach((enemy) => {
+
+//         const dx = player.x - enemy.x;
+//         const dy = player.y - enemy.y;
+
+//         const distance = Math.sqrt(dx * dx + dy * dy);
+
+//         const velocityX = dx / distance;
+//         const velocityY = dy / distance;
+
+//         enemy.x += velocityX * enemy.speed;
+//         enemy.y += velocityY * enemy.speed;
+
+//         // =========================
+//         // Collision Detection
+//         // =========================
+
+//         if (
+//             player.x < enemy.x + enemy.size &&
+//             player.x + player.size > enemy.x &&
+//             player.y < enemy.y + enemy.size &&
+//             player.y + player.size > enemy.y
+//         ) {
+
+//             screenShake = 20;
+
+//             gameState = "gameover";
+//         }
+
+//     });
+
+//     particles.forEach((particle, index) => {
+
+//         particle.x += particle.vx;
+//         particle.y += particle.vy;
     
-        lastSpawn = Date.now();
-    }
-
-    // =========================
-    // Player Movement
-    // =========================
-
-    if (dashCooldown > 0) {
-        dashCooldown -= 16;
-    }
-
-    if (keys["w"]) {
-        player.y -= player.speed;
-    }
-
-    if (keys["s"]) {
-        player.y += player.speed;
-    }
-
-    if (keys["a"]) {
-        player.x -= player.speed;
-    }
-
-    if (keys["d"]) {
-        player.x += player.speed;
-    }
-
-    // =========================
-    // Screen Boundaries
-    // =========================
-
-    if (player.x < 0) {
-        player.x = 0;
-    }
-
-    if (player.y < 0) {
-        player.y = 0;
-    }
-
-    if (player.x + player.size > canvas.width) {
-        player.x = canvas.width - player.size;
-    }
-
-    if (player.y + player.size > canvas.height) {
-        player.y = canvas.height - player.size;
-    }
-
-    // =========================
-    // Enemy AI
-    // =========================
-
-    enemies.forEach((enemy) => {
-
-        const dx = player.x - enemy.x;
-        const dy = player.y - enemy.y;
-
-        const distance = Math.sqrt(dx * dx + dy * dy);
-
-        const velocityX = dx / distance;
-        const velocityY = dy / distance;
-
-        enemy.x += velocityX * enemy.speed;
-        enemy.y += velocityY * enemy.speed;
-
-        // =========================
-        // Collision Detection
-        // =========================
-
-        if (
-            player.x < enemy.x + enemy.size &&
-            player.x + player.size > enemy.x &&
-            player.y < enemy.y + enemy.size &&
-            player.y + player.size > enemy.y
-        ) {
-
-            screenShake = 20;
-
-            gameState = "gameover";
-        }
-
-    });
-
-    particles.forEach((particle, index) => {
-
-        particle.x += particle.vx;
-        particle.y += particle.vy;
+//         particle.life--;
     
-        particle.life--;
+//         if (particle.life <= 0) {
+//             particles.splice(index, 1);
+//         }
     
-        if (particle.life <= 0) {
-            particles.splice(index, 1);
-        }
+//     });
+
+//     if (swordSwing) {
+
+//         swordTimer--;
     
-    });
-
-    if (swordSwing) {
-
-        swordTimer--;
+//         swingProgress = 1 - (swordTimer / swordDuration);
     
-        swingProgress = 1 - (swordTimer / swordDuration);
+//         attackEnemies();
     
-        attackEnemies();
+//         if (swordTimer <= 0) {
     
-        if (swordTimer <= 0) {
+//             swordSwing = false;
+//         }
+//     }
+
+//     if (
+//         waveActive &&
+//         enemies.length === 0 &&
+//         !waveTransition
+//     ) {
     
-            swordSwing = false;
-        }
-    }
-
-}
-
-// =====================================
-// Draw Menu
-// =====================================
-
-function drawMenu() {
-
-    ctx.fillStyle = "white";
-
-    ctx.font = "70px Arial";
-
-    ctx.textAlign = "center";
-
-    ctx.fillText(
-        "SURVIVE THE ARENA",
-        canvas.width / 2,
-        200
-    );
-
-    // Start Button
-
-    ctx.fillStyle = "lime";
-
-    ctx.fillRect(
-        startButton.x,
-        startButton.y,
-        startButton.width,
-        startButton.height
-    );
-
-    ctx.fillStyle = "black";
-
-    ctx.font = "35px Arial";
-
-    ctx.fillText(
-        "START",
-        canvas.width / 2,
-        startButton.y + 47
-    );
-}
-
-// =====================================
-// Draw Game
-// =====================================
-
-function drawGame() {
-
-    // Player
-    ctx.shadowBlur = 20;
-    ctx.shadowColor = "lime";
-
-    ctx.fillStyle = player.color;
-
-    ctx.fillRect(
-        player.x,
-        player.y,
-        player.size,
-        player.size
-    );
-
-    ctx.shadowBlur = 0;
-
-    if (swordSwing) {
-
-        ctx.save();
+//         waveTransition = true;
     
-        ctx.translate(
-            player.x + player.size / 2,
-            player.y + player.size / 2
-        );
+//         waveActive = false;
     
-        // Swing animation
+//         setTimeout(() => {
     
-        const currentAngle =
-            swordAngle
-            - swingArc / 2
-            + swingArc * swingProgress;
+//             wave++;
     
-        ctx.rotate(currentAngle);
+//             startWave();
     
-        // Glow
+//         }, 3000);
     
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = "white";
+//     }
+
+// }
+
+// // =====================================
+// // Draw Menu
+// // =====================================
+
+// function drawMenu() {
+
+//     ctx.fillStyle = "white";
+
+//     ctx.font = "70px Arial";
+
+//     ctx.textAlign = "center";
+
+//     ctx.fillText(
+//         "SURVIVE THE ARENA",
+//         canvas.width / 2,
+//         200
+//     );
+
+//     // Start Button
+
+//     ctx.fillStyle = "lime";
+
+//     ctx.fillRect(
+//         startButton.x,
+//         startButton.y,
+//         startButton.width,
+//         startButton.height
+//     );
+
+//     ctx.fillStyle = "black";
+
+//     ctx.font = "35px Arial";
+
+//     ctx.fillText(
+//         "START",
+//         canvas.width / 2,
+//         startButton.y + 47
+//     );
+// }
+
+// // =====================================
+// // Draw Game
+// // =====================================
+
+// function drawGame() {
+
+//     // Player
+//     ctx.shadowBlur = 20;
+//     ctx.shadowColor = "lime";
+
+//     ctx.fillStyle = player.color;
+
+//     ctx.fillRect(
+//         player.x,
+//         player.y,
+//         player.size,
+//         player.size
+//     );
+
+//     ctx.shadowBlur = 0;
+
+//     if (swordSwing) {
+
+//         ctx.save();
     
-        // Sword Handle
+//         ctx.translate(
+//             player.x + player.size / 2,
+//             player.y + player.size / 2
+//         );
     
-        ctx.strokeStyle = "#654321";
+//         // Swing animation
     
-        ctx.lineWidth = 10;
+//         const currentAngle =
+//             swordAngle
+//             - swingArc / 2
+//             + swingArc * swingProgress;
     
-        ctx.beginPath();
+//         ctx.rotate(currentAngle);
     
-        ctx.moveTo(0, 0);
-        ctx.lineTo(20, 0);
+//         // Glow
     
-        ctx.stroke();
+//         ctx.shadowBlur = 20;
+//         ctx.shadowColor = "white";
     
-        // Sword Blade
+//         // Sword Handle
     
-        ctx.strokeStyle = "white";
+//         ctx.strokeStyle = "#654321";
     
-        ctx.lineWidth = 6;
+//         ctx.lineWidth = 10;
     
-        ctx.beginPath();
+//         ctx.beginPath();
     
-        ctx.moveTo(20, 0);
-        ctx.lineTo(swordLength-25, 0);
+//         ctx.moveTo(0, 0);
+//         ctx.lineTo(20, 0);
     
-        ctx.stroke();
+//         ctx.stroke();
     
-        // Sword Tip
+//         // Sword Blade
     
-        ctx.fillStyle = "cyan";
+//         ctx.strokeStyle = "white";
     
-        ctx.beginPath();
+//         ctx.lineWidth = 6;
     
-        ctx.arc(
-            swordLength-25,
-            0,
-            5,
-            0,
-            Math.PI * 2
-        );
+//         ctx.beginPath();
     
-        ctx.fill();
+//         ctx.moveTo(20, 0);
+//         ctx.lineTo(swordLength-25, 0);
     
-        ctx.restore();
-    }
-
-    ctx.save();
-
-    ctx.translate(
-        player.x + player.size / 2,
-        player.y + player.size / 2
-    );
-
-    ctx.rotate(aimAngle);
-
-    ctx.strokeStyle = "cyan";
-
-    ctx.lineWidth = 3;
-
-    ctx.globalAlpha = 0.4;
-
-    ctx.beginPath();
-
-    ctx.moveTo(0, 0);
-    ctx.lineTo(50, 0);
-
-    ctx.stroke();
-
-    ctx.restore();
-
-    ctx.globalAlpha = 1;
-
-    // Enemies
-
-    enemies.forEach((enemy) => {
-
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = "red";
-
-        ctx.fillStyle = enemy.color;
-
-        ctx.fillRect(
-            enemy.x,
-            enemy.y,
-            enemy.size,
-            enemy.size
-        );
-
-        ctx.shadowBlur = 0;
-
-        ctx.fillStyle = "black";
-
-        ctx.fillRect(
-            enemy.x,
-            enemy.y - 12,
-            enemy.size,
-            6
-        );
-
-        ctx.fillStyle = "lime";
-
-        ctx.fillRect(
-            enemy.x,
-            enemy.y - 12,
-            enemy.size * (enemy.hp / enemy.maxHp),
-            6
-        );
-
-    });
-
-
-    // Score
-
-    ctx.fillStyle = "white";
-
-    ctx.font = "bold 30px Arial";
-
-    ctx.textAlign = "left";
-
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = "white";
-
-    ctx.fillText(
-        `Time: ${score}`,
-        20,
-        40
-    );
-
-    ctx.fillText(
-        `Dash: ${dashCooldown <= 0 ? "READY" : "COOLDOWN"}`,
-        20,
-        80
-    );
-
-    ctx.shadowBlur = 0;
-
-    particles.forEach((particle) => {
-
-        ctx.fillStyle = particle.color;
+//         ctx.stroke();
     
-        ctx.globalAlpha = particle.life / 30;
+//         // Sword Tip
     
-        ctx.beginPath();
+//         ctx.fillStyle = "cyan";
     
-        ctx.arc(
-            particle.x,
-            particle.y,
-            particle.size,
-            0,
-            Math.PI * 2
-        );
+//         ctx.beginPath();
     
-        ctx.fill();
+//         ctx.arc(
+//             swordLength-25,
+//             0,
+//             5,
+//             0,
+//             Math.PI * 2
+//         );
     
-        ctx.globalAlpha = 1;
+//         ctx.fill();
     
-    });
-}
+//         ctx.restore();
+//     }
 
-// =====================================
-// Draw Game Over
-// =====================================
+//     ctx.save();
 
-function drawGameOver() {
+//     ctx.translate(
+//         player.x + player.size / 2,
+//         player.y + player.size / 2
+//     );
 
-    ctx.fillStyle = "white";
+//     ctx.rotate(aimAngle);
 
-    ctx.font = "80px Arial";
+//     ctx.strokeStyle = "cyan";
 
-    ctx.textAlign = "center";
+//     ctx.lineWidth = 3;
 
-    ctx.fillText(
-        "GAME OVER",
-        canvas.width / 2,
-        220
-    );
+//     ctx.globalAlpha = 0.4;
 
-    ctx.font = "40px Arial";
+//     ctx.beginPath();
 
-    ctx.fillText(
-        `Survived: ${score} Seconds`,
-        canvas.width / 2,
-        300
-    );
+//     ctx.moveTo(0, 0);
+//     ctx.lineTo(50, 0);
 
-    // Home Button
+//     ctx.stroke();
 
-    ctx.fillStyle = "lime";
+//     ctx.restore();
 
-    ctx.fillRect(
-        homeButton.x,
-        homeButton.y,
-        homeButton.width,
-        homeButton.height
-    );
+//     ctx.globalAlpha = 1;
 
-    ctx.fillStyle = "black";
+//     // Enemies
 
-    ctx.font = "28px Arial";
+//     enemies.forEach((enemy) => {
 
-    ctx.fillText(
-        "RETURN HOME",
-        canvas.width / 2,
-        homeButton.y + 45
-    );
-}
+//         ctx.shadowBlur = 20;
+//         ctx.shadowColor = "red";
 
-// =====================================
-// Draw
-// =====================================
+//         ctx.fillStyle = enemy.color;
 
-function drawGrid() {
+//         ctx.fillRect(
+//             enemy.x,
+//             enemy.y,
+//             enemy.size,
+//             enemy.size
+//         );
 
-    const gridSize = 50;
+//         ctx.shadowBlur = 0;
 
-    ctx.strokeStyle = "#1a1a1a";
+//         ctx.fillStyle = "black";
 
-    ctx.lineWidth = 1;
+//         ctx.fillRect(
+//             enemy.x,
+//             enemy.y - 12,
+//             enemy.size,
+//             6
+//         );
 
-    const offset = Date.now() * 0.02 % gridSize;
+//         ctx.fillStyle = "lime";
 
-    // Vertical lines
+//         ctx.fillRect(
+//             enemy.x,
+//             enemy.y - 12,
+//             enemy.size * (enemy.hp / enemy.maxHp),
+//             6
+//         );
 
-    for (let x = -gridSize; x < canvas.width + gridSize; x += gridSize) {
+//     });
 
-        ctx.beginPath();
 
-        ctx.moveTo(x + offset, 0);
-        ctx.lineTo(x + offset, canvas.height);
+//     // Score
 
-        ctx.stroke();
-    }
+//     ctx.fillStyle = "white";
 
-    // Horizontal lines
+//     ctx.font = "bold 30px Arial";
 
-    for (let y = -gridSize; y < canvas.height + gridSize; y += gridSize) {
+//     ctx.textAlign = "left";
 
-        ctx.beginPath();
+//     ctx.fillText(
+//         `Wave: ${wave}`,
+//         20,
+//         120
+//     );
 
-        ctx.moveTo(0, y + offset);
-        ctx.lineTo(canvas.width, y + offset);
+//     ctx.shadowBlur = 10;
+//     ctx.shadowColor = "white";
 
-        ctx.stroke();
-    }
-}
+//     ctx.fillText(
+//         `Time: ${score}`,
+//         20,
+//         40
+//     );
 
-function draw() {
+//     ctx.fillText(
+//         `Dash: ${dashCooldown <= 0 ? "READY" : "COOLDOWN"}`,
+//         20,
+//         80
+//     );
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+//     ctx.shadowBlur = 0;
 
-    drawGrid();
+//     particles.forEach((particle) => {
 
-    ctx.save();
+//         ctx.fillStyle = particle.color;
+    
+//         ctx.globalAlpha = particle.life / 30;
+    
+//         ctx.beginPath();
+    
+//         ctx.arc(
+//             particle.x,
+//             particle.y,
+//             particle.size,
+//             0,
+//             Math.PI * 2
+//         );
+    
+//         ctx.fill();
+    
+//         ctx.globalAlpha = 1;
+    
+//     });
 
-    if (screenShake > 0) {
+//     if (waveMessageTimer > 0) {
 
-        const shakeX = (Math.random() - 0.5) * screenShake;
-        const shakeY = (Math.random() - 0.5) * screenShake;
+//         waveMessageTimer--;
+    
+//         ctx.textAlign = "center";
+    
+//         ctx.font = "60px Arial";
+    
+//         ctx.fillStyle = "white";
+    
+//         ctx.fillText(
+//             `WAVE ${wave}`,
+//             canvas.width / 2,
+//             150
+//         );
+    
+//     }
 
-        ctx.translate(shakeX, shakeY);
+//     if (waveTransition) {
 
-        screenShake *= 0.9;
-    }
+//         ctx.textAlign = "center";
+    
+//         ctx.font = "70px Arial";
+    
+//         ctx.fillStyle = "gold";
+    
+//         ctx.fillText(
+//             "WAVE COMPLETE",
+//             canvas.width / 2,
+//             canvas.height / 2
+//         );
+    
+//     }
+// }
 
-    if (gameState === "menu") {
-        drawMenu();
-    }
+// // =====================================
+// // Draw Game Over
+// // =====================================
 
-    else if (gameState === "playing") {
-        drawGame();
-    }
+// function drawGameOver() {
 
-    else if (gameState === "gameover") {
-        drawGameOver();
-    }
+//     ctx.fillStyle = "white";
 
-    ctx.restore();
-}
+//     ctx.font = "80px Arial";
 
-// =====================================
-// Game Loop
-// =====================================
+//     ctx.textAlign = "center";
 
-function gameLoop() {
+//     ctx.fillText(
+//         "GAME OVER",
+//         canvas.width / 2,
+//         220
+//     );
 
-    update();
+//     ctx.font = "40px Arial";
 
-    draw();
+//     ctx.fillText(
+//         `Survived: ${score} Seconds`,
+//         canvas.width / 2,
+//         300
+//     );
 
-    requestAnimationFrame(gameLoop);
-}
+//     // Home Button
 
-gameLoop();
+//     ctx.fillStyle = "lime";
+
+//     ctx.fillRect(
+//         homeButton.x,
+//         homeButton.y,
+//         homeButton.width,
+//         homeButton.height
+//     );
+
+//     ctx.fillStyle = "black";
+
+//     ctx.font = "28px Arial";
+
+//     ctx.fillText(
+//         "RETURN HOME",
+//         canvas.width / 2,
+//         homeButton.y + 45
+//     );
+// }
+
+// // =====================================
+// // Draw
+// // =====================================
+
+// function drawGrid() {
+
+//     const gridSize = 50;
+
+//     ctx.strokeStyle = "#1a1a1a";
+
+//     ctx.lineWidth = 1;
+
+//     const offset = Date.now() * 0.02 % gridSize;
+
+//     // Vertical lines
+
+//     for (let x = -gridSize; x < canvas.width + gridSize; x += gridSize) {
+
+//         ctx.beginPath();
+
+//         ctx.moveTo(x + offset, 0);
+//         ctx.lineTo(x + offset, canvas.height);
+
+//         ctx.stroke();
+//     }
+
+//     // Horizontal lines
+
+//     for (let y = -gridSize; y < canvas.height + gridSize; y += gridSize) {
+
+//         ctx.beginPath();
+
+//         ctx.moveTo(0, y + offset);
+//         ctx.lineTo(canvas.width, y + offset);
+
+//         ctx.stroke();
+//     }
+// }
+
+// function draw() {
+
+//     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+//     drawGrid();
+
+//     ctx.save();
+
+//     if (screenShake > 0) {
+
+//         const shakeX = (Math.random() - 0.5) * screenShake;
+//         const shakeY = (Math.random() - 0.5) * screenShake;
+
+//         ctx.translate(shakeX, shakeY);
+
+//         screenShake *= 0.9;
+//     }
+
+//     if (gameState === "menu") {
+//         drawMenu();
+//     }
+
+//     else if (gameState === "playing") {
+//         drawGame();
+//     }
+
+//     else if (gameState === "gameover") {
+//         drawGameOver();
+//     }
+
+//     ctx.restore();
+// }
+
+// // =====================================
+// // Game Loop
+// // =====================================
+
+// function gameLoop() {
+
+//     update();
+
+//     draw();
+
+//     requestAnimationFrame(gameLoop);
+// }
+
+// gameLoop();

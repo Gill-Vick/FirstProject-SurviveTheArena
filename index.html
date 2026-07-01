@@ -2,6 +2,50 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <title>Survive The Arena</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- ===================================== -->
+    <!-- Script order matters! Several files    -->
+    <!-- read things like "canvas" or "PLAYER"  -->
+    <!-- as soon as they load, not just inside  -->
+    <!-- functions - so dependencies must come  -->
+    <!-- first.                                 -->
+    <!-- ===================================== -->
+
+    <!-- Core -->
+    <script src="js/core/constants.js"></script>
+    <script src="js/core/game.js"></script>
+
+    <!-- Entities (need canvas + constants) -->
+    <script src="js/entities/player.js"></script>
+    <script src="js/entities/enemies.js"></script>
+
+    <!-- UI (needs canvas) -->
+    <script src="js/ui/ui.js"></script>
+
+    <!-- Effects & Waves (need Game/player/enemies) -->
+    <script src="js/effects.js"></script>
+    <script src="js/wave.js"></script>
+
+    <!-- Input (needs canvas, player, ui, game functions) -->
+    <script src="js/core/input.js"></script>
+
+    <!-- Main (starts the loop last) -->
+    <script src="js/core/main.js"></script>
+
+</body>
+</html>
+
+
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Survive The Arena</title>
 
@@ -11,7 +55,15 @@
 
     <canvas id="gameCanvas"></canvas>
 
-    <script src="script.js"></script>
+    <script src="js/core/constants.js"></script>
+    <script src="js/core/game.js"></script>
+    <script src="js/entities/player.js"></script>
+    <script src="js/entities/enemies.js"></script>
+    <script src="js/waves.js"></script>
+    <script src="js/effects.js"></script>
+    <script src="js/ui/ui.js"></script>
+    <script src="js/input.js"></script>
+    <script src="js/main.js"></script>
 
 </body>
-</html>
+</html> -->
