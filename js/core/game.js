@@ -46,6 +46,8 @@ const Game = {
 
     particles: [],
 
+    damageNumbers: [],
+
     screenShake: 0
 
 };
@@ -83,6 +85,8 @@ function startGame() {
 
     Game.particles = [];
 
+    Game.damageNumbers = [];
+
     player = new Player();
 
     startWave();
@@ -106,6 +110,8 @@ function resetGame() {
     Game.projectiles = [];
 
     Game.particles = [];
+
+    Game.damageNumbers = [];
 
 }
 
@@ -138,6 +144,8 @@ function update() {
 
     Game.particles.forEach(particle => particle.update());
 
+    Game.damageNumbers.forEach(number => number.update());
+
     cleanupEntities();
 
     updateWave();
@@ -162,7 +170,14 @@ function cleanupEntities() {
         Game.projectiles.filter(projectile => !projectile.isDead());
 
     Game.particles =
-        Game.particles.filter(particle => !particle.isDead());
+        Game.particles.filter(
+            particle => !particle.isDead()
+        );
+    
+    Game.damageNumbers =
+        Game.damageNumbers.filter(
+            number => !number.isDead()
+        );
 
 }
 

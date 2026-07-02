@@ -27,6 +27,14 @@ class Enemy {
 
         this.hitThisSwing = false;
 
+        // Knockback
+
+        this.knockbackX = 0;
+        this.knockbackY = 0;
+
+        // Hit flash
+
+        this.flashTimer = 0;        
     }
 
     // =====================================
@@ -35,12 +43,29 @@ class Enemy {
 
     update() {
 
+        // Apply knockback first
+    
+        this.x += this.knockbackX;
+        this.y += this.knockbackY;
+    
+        this.knockbackX *= 0.82;
+        this.knockbackY *= 0.82;
+    
+        if (Math.abs(this.knockbackX) < 0.05)
+            this.knockbackX = 0;
+    
+        if (Math.abs(this.knockbackY) < 0.05)
+            this.knockbackY = 0;
+    
+        if (this.flashTimer > 0)
+            this.flashTimer--;
+    
         this.move();
-
+    
         this.attack();
-
+    
         this.checkPlayerCollision();
-
+    
     }
 
     // =====================================
@@ -53,6 +78,9 @@ class Enemy {
     // its distance).
 
     move() {
+
+        if (this.knockbackX !== 0 || this.knockbackY !== 0)
+            return;
 
         const dx = player.x - this.x;
         const dy = player.y - this.y;
@@ -107,15 +135,54 @@ class Enemy {
     // Combat
     // =====================================
 
-    takeDamage(amount) {
+    takeDamage(amount, crit = false) {
 
         this.hp -= amount;
 
+        this.flashTimer = 5;
+    
+        const centerX =
+            this.x + this.size / 2;
+    
+        const centerY =
+            this.y + this.size / 2;
+    
         Particle.createHitBurst(
-            this.x + this.size / 2,
-            this.y + this.size / 2
+            centerX,
+            centerY
         );
+    
+        Game.damageNumbers.push(
+    
+            new DamageNumber(
+    
+                centerX,
+    
+                centerY - 10,
+    
+                amount,
+    
+                crit
+    
+            )
+    
+        );
+    
+    }
 
+    applyKnockback(fromX, fromY, force = 12) {
+
+        const dx = this.x + this.size / 2 - fromX;
+        const dy = this.y + this.size / 2 - fromY;
+    
+        const distance = Math.sqrt(dx * dx + dy * dy);
+    
+        if (distance === 0)
+            return;
+    
+        this.knockbackX += (dx / distance) * force;
+        this.knockbackY += (dy / distance) * force;
+    
     }
 
     isDead() {
@@ -137,6 +204,11 @@ class Enemy {
         ctx.shadowColor = this.color;
 
         ctx.fillStyle = this.color;
+
+        ctx.fillStyle =
+            this.flashTimer > 0
+                ? "white"
+                : this.color;
 
         ctx.fillRect(
 

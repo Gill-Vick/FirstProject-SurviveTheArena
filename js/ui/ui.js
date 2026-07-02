@@ -95,6 +95,8 @@ function drawGame() {
 
     Game.particles.forEach(particle => particle.draw());
 
+    Game.damageNumbers.forEach(number => number.draw());
+
     drawHUD();
 
     drawWaveMessages();

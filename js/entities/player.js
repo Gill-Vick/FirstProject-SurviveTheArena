@@ -221,7 +221,27 @@ class Player {
 
             if (angleDifference < 0.5) {
 
-                enemy.takeDamage(SWORD.DAMAGE);
+                const critical =
+                    Math.random() < 0.05;
+            
+                const damage =
+                    critical
+                        ? SWORD.DAMAGE * 2
+                        : SWORD.DAMAGE;
+            
+                enemy.takeDamage(
+                    damage,
+                    critical
+                );
+
+                enemy.applyKnockback(
+
+                    this.x + this.size / 2,
+                    this.y + this.size / 2,
+                
+                    critical ? 18 : 12
+                
+                );
 
                 enemy.hitThisSwing = true;
 
@@ -267,59 +287,114 @@ class Player {
     }
 
     drawSword() {
-
         if (!this.swordSwing)
             return;
-
+    
         ctx.save();
-
+    
+        // Move origin to the player's center
         ctx.translate(
             this.x + this.size / 2,
             this.y + this.size / 2
         );
-
-        const currentAngle =
-            this.swordAngle -
-            SWORD.ARC / 2 +
-            SWORD.ARC * this.swingProgress;
-
+    
+        const trailLag = 0.15;
+        const prevProgress = Math.max(0, this.swingProgress - trailLag);
+        
+        const currentAngle = this.swordAngle - SWORD.ARC / 2 + SWORD.ARC * this.swingProgress;
+        const previousAngle = this.swordAngle - SWORD.ARC / 2 + SWORD.ARC * prevProgress;
+        const angleDiff = currentAngle - previousAngle;
+    
+        const bladeLength = SWORD.LENGTH;
+    
+        // =====================================
+        // 1. THE SHARP TRAIL
+        // =====================================
+        if (angleDiff > 0) {
+            ctx.save();
+            ctx.rotate(currentAngle);
+    
+            // Gradient for the trail so it fades out smoothly into the past
+            let trailGrad = ctx.createRadialGradient(0, 0, bladeLength * 0.4, 0, 0, bladeLength);
+            trailGrad.addColorStop(0, "rgba(0, 255, 255, 0)");
+            trailGrad.addColorStop(0.85, "rgba(0, 255, 255, 0.15)");
+            trailGrad.addColorStop(1, "rgba(255, 255, 255, 0.4)");
+    
+            ctx.fillStyle = trailGrad;
+            ctx.beginPath();
+            ctx.moveTo(bladeLength - 5, 0);
+            ctx.arc(0, 0, bladeLength - 5, 0, -angleDiff, true);
+            ctx.lineTo(bladeLength - 35, 0); 
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+    
+        // Rotate to current angle for the physical sword
         ctx.rotate(currentAngle);
-
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = "white";
-
-        ctx.strokeStyle = "#654321";
-        ctx.lineWidth = 10;
-
+    
+        // =====================================
+        // 2. THE ENERGY GLOW (Rendered underneath)
+        // =====================================
+        ctx.save();
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = "#00ffff";
+        ctx.fillStyle = "rgba(0, 255, 255, 0.8)";
         ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(20, 0);
-        ctx.stroke();
-
-        ctx.strokeStyle = "white";
-        ctx.lineWidth = 6;
-
+        // A sleek, thin energy core running down the blade
+        ctx.moveTo(20, -1);
+        ctx.lineTo(bladeLength - 10, 0);
+        ctx.lineTo(20, 1);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+    
+        // =====================================
+        // 3. HIGH-QUALITY METAL BLADE (Tapered & Sharp)
+        // =====================================
+        // Metallic sleek gradient
+        let metalGrad = ctx.createLinearGradient(0, -6, 0, 6);
+        metalGrad.addColorStop(0, "#ffffff"); // Highlighted edge
+        metalGrad.addColorStop(0.3, "#bdc3c7"); // Mid-tone steel
+        metalGrad.addColorStop(0.5, "#95a5a6"); // Center ridge
+        metalGrad.addColorStop(1, "#7f8c8d"); // Shadow edge
+    
+        ctx.fillStyle = metalGrad;
+        ctx.beginPath();
+        ctx.moveTo(20, -5);               // Base top
+        ctx.lineTo(bladeLength - 15, -2); // Tapering top
+        ctx.lineTo(bladeLength, 0);       // Ultra-sharp point tip
+        ctx.lineTo(bladeLength - 15, 2);  // Tapering bottom
+        ctx.lineTo(20, 5);                // Base bottom
+        ctx.closePath();
+        ctx.fill();
+    
+        // Center blade ridge line for 3D depth
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+        ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(20, 0);
-        ctx.lineTo(SWORD.LENGTH - 25, 0);
+        ctx.lineTo(bladeLength - 10, 0);
         ctx.stroke();
-
-        ctx.fillStyle = "cyan";
-
+    
+        // =====================================
+        // 4. THE CROSSGUARD & HILT
+        // =====================================
+        // Sleek metallic crossguard
+        ctx.fillStyle = "#34495e";
+        ctx.fillRect(16, -10, 5, 20);
+    
+        // Leather wrapped handle
+        ctx.fillStyle = "#5c4033";
+        ctx.fillRect(0, -3, 16, 6);
+    
+        // Steel Pommel (end cap)
+        ctx.fillStyle = "#bdc3c7";
         ctx.beginPath();
-
-        ctx.arc(
-            SWORD.LENGTH - 25,
-            0,
-            5,
-            0,
-            Math.PI * 2
-        );
-
+        ctx.arc(0, 0, 4, 0, Math.PI * 2);
         ctx.fill();
-
+    
         ctx.restore();
-
     }
 
     drawAimIndicator() {
