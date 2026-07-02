@@ -5,6 +5,15 @@
 const keys = {};
 
 // =====================================
+// Mouse State
+// =====================================
+
+let mouseX = 0;
+let mouseY = 0;
+
+let aimAngle = 0;
+
+// =====================================
 // Mouse Input
 // =====================================
 
@@ -14,6 +23,12 @@ canvas.addEventListener("mousemove", (e) => {
 
     mouseX = e.clientX - rect.left;
     mouseY = e.clientY - rect.top;
+
+    // player doesn't exist until startGame() runs,
+    // so skip aiming while on the menu screen.
+
+    if (!player)
+        return;
 
     const dx =
         mouseX - (player.x + player.size / 2);
@@ -54,7 +69,7 @@ canvas.addEventListener("click", (e) => {
 
         case "playing":
 
-            swingSword();
+            player.swingSword();
 
             break;
 
@@ -97,7 +112,7 @@ window.addEventListener("keydown", (e) => {
 
         e.preventDefault();
 
-        dash();
+        player.dash();
 
     }
 

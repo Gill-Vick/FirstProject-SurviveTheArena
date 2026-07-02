@@ -81,14 +81,19 @@ function drawMenu() {
 // =====================================
 // Game
 // =====================================
+//
+// Every entity draws itself now - no more
+// drawEnemies()/drawParticles() functions.
 
 function drawGame() {
 
-    drawPlayer();
+    player.draw();
 
-    drawEnemies();
+    Game.enemies.forEach(enemy => enemy.draw());
 
-    drawParticles();
+    Game.projectiles.forEach(projectile => projectile.draw());
+
+    Game.particles.forEach(particle => particle.draw());
 
     drawHUD();
 
@@ -140,7 +145,7 @@ function drawHUD() {
 
     ctx.fillText(
 
-        `Dash: ${dashCooldown <= 0 ? "READY" : "COOLDOWN"}`,
+        `Dash: ${player.dashCooldown <= 0 ? "READY" : "COOLDOWN"}`,
 
         20,
 

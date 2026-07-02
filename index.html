@@ -10,25 +10,46 @@
     <canvas id="gameCanvas"></canvas>
 
     <!-- ===================================== -->
-    <!-- Script order matters! Several files    -->
-    <!-- read things like "canvas" or "PLAYER"  -->
-    <!-- as soon as they load, not just inside  -->
-    <!-- functions - so dependencies must come  -->
-    <!-- first.                                 -->
+    <!-- Load order rules:                      -->
+    <!--                                        -->
+    <!-- 1. constants + game.js first (canvas,  -->
+    <!--    ctx, Game are read by other files   -->
+    <!--    as soon as they load)               -->
+    <!--                                        -->
+    <!-- 2. Enemy BEFORE any subclass (Grunt,    -->
+    <!--    Tank, Spitter, Runner, Boss) -       -->
+    <!--    "extends" needs the parent class to  -->
+    <!--    already exist                        -->
+    <!--                                        -->
+    <!-- 3. wave.js needs every enemy class     -->
+    <!--    already defined, since ENEMY_CLASSES-->
+    <!--    reads them immediately               -->
+    <!--                                        -->
+    <!-- 4. ui.js needs canvas (button coords)  -->
+    <!--                                        -->
+    <!-- 5. input.js/main.js go last            -->
     <!-- ===================================== -->
 
     <!-- Core -->
     <script src="js/core/constants.js"></script>
     <script src="js/core/game.js"></script>
 
-    <!-- Entities (need canvas + constants) -->
+    <!-- Entities -->
+    <script src="js/entities/enemy.js"></script>
+    <script src="js/entities/grunt.js"></script>
+    <script src="js/entities/tank.js"></script>
+    <script src="js/entities/spitter.js"></script>
+    <script src="js/entities/runner.js"></script>
+    <script src="js/entities/boss.js"></script>
+    <script src="js/entities/elite.js"></script>
     <script src="js/entities/player.js"></script>
-    <script src="js/entities/enemies.js"></script>
+    <script src="js/entities/particle.js"></script>
+    <script src="js/entities/projectile.js"></script>
 
-    <!-- UI (needs canvas) -->
+    <!-- UI -->
     <script src="js/ui/ui.js"></script>
 
-    <!-- Effects & Waves (need Game/player/enemies) -->
+    <!-- Effects & Waves -->
     <script src="js/effects.js"></script>
     <script src="js/wave.js"></script>
 
@@ -40,30 +61,3 @@
 
 </body>
 </html>
-
-
-<!-- <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Survive The Arena</title>
-
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-
-    <canvas id="gameCanvas"></canvas>
-
-    <script src="js/core/constants.js"></script>
-    <script src="js/core/game.js"></script>
-    <script src="js/entities/player.js"></script>
-    <script src="js/entities/enemies.js"></script>
-    <script src="js/waves.js"></script>
-    <script src="js/effects.js"></script>
-    <script src="js/ui/ui.js"></script>
-    <script src="js/input.js"></script>
-    <script src="js/main.js"></script>
-
-</body>
-</html> -->

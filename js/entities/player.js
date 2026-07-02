@@ -1,370 +1,356 @@
 // =====================================
-// Player
+// Player Class
 // =====================================
 
-const player = {
+class Player {
 
-    x: canvas.width / 2,
-    y: canvas.height / 2,
+    constructor() {
 
-    size: PLAYER.SIZE,
+        this.x = canvas.width / 2;
+        this.y = canvas.height / 2;
 
-    speed: PLAYER.SPEED,
+        this.size = PLAYER.SIZE;
+        this.speed = PLAYER.SPEED;
+        this.color = PLAYER.COLOR;
 
-    color: PLAYER.COLOR
+        // Sword
 
-};
+        this.swordSwing = false;
+        this.swordAngle = 0;
+        this.swordTimer = 0;
+        this.swingProgress = 0;
 
-// =====================================
-// Mouse
-// =====================================
+        // Dash
 
-let mouseX = 0;
-let mouseY = 0;
+        this.dashCooldown = 0;
 
-let aimAngle = 0;
+    }
 
-// =====================================
-// Sword
-// =====================================
+    // =====================================
+    // Update
+    // =====================================
 
-let swordSwing = false;
+    update() {
 
-let swordAngle = 0;
+        this.updateMovement();
 
-let swordTimer = 0;
+        this.updateDash();
 
-let swingProgress = 0;
+        this.updateSword();
 
-// =====================================
-// Dash
-// =====================================
+        this.keepOnScreen();
 
-let dashCooldown = 0;
+    }
 
-// =====================================
-// Player Update
-// =====================================
+    // =====================================
+    // Movement
+    // =====================================
 
-function updatePlayer() {
+    updateMovement() {
 
-    updateMovement();
+        if (keys["w"])
+            this.y -= this.speed;
 
-    updateDash();
+        if (keys["s"])
+            this.y += this.speed;
 
-    keepPlayerOnScreen();
+        if (keys["a"])
+            this.x -= this.speed;
 
-}
+        if (keys["d"])
+            this.x += this.speed;
 
-// =====================================
-// Movement
-// =====================================
+    }
 
-function updateMovement() {
+    keepOnScreen() {
 
-    if (keys["w"])
-        player.y -= player.speed;
+        this.x = Math.max(
+            0,
+            Math.min(
+                canvas.width - this.size,
+                this.x
+            )
+        );
 
-    if (keys["s"])
-        player.y += player.speed;
+        this.y = Math.max(
+            0,
+            Math.min(
+                canvas.height - this.size,
+                this.y
+            )
+        );
 
-    if (keys["a"])
-        player.x -= player.speed;
+    }
 
-    if (keys["d"])
-        player.x += player.speed;
+    // =====================================
+    // Dash
+    // =====================================
 
-}
+    updateDash() {
 
-// =====================================
-// Dash
-// =====================================
+        if (this.dashCooldown > 0)
+            this.dashCooldown -= 16;
 
-function updateDash() {
+    }
 
-    if (dashCooldown > 0)
-        dashCooldown -= 16;
+    dash() {
 
-}
-
-function dash() {
-
-    if (dashCooldown > 0)
-        return;
-
-    let dx = 0;
-    let dy = 0;
-
-    if (keys["w"]) dy = -1;
-    if (keys["s"]) dy = 1;
-    if (keys["a"]) dx = -1;
-    if (keys["d"]) dx = 1;
-
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    if (distance === 0)
-        return;
-
-    dx /= distance;
-    dy /= distance;
-
-    player.x += dx * DASH.DISTANCE;
-    player.y += dy * DASH.DISTANCE;
-
-    dashCooldown = DASH.COOLDOWN;
-
-    createDashParticles();
-
-}
-
-// =====================================
-// Sword
-// =====================================
-
-function swingSword() {
-
-    if (swordSwing)
-        return;
-
-    swordSwing = true;
-
-    swordTimer = SWORD.DURATION;
-
-    swingProgress = 0;
-
-    swordAngle = aimAngle;
-
-    Game.enemies.forEach(enemy => {
-
-        enemy.hitThisSwing = false;
-
-    });
-
-}
-
-function updateSword() {
-
-    if (!swordSwing)
-        return;
-
-    swordTimer--;
-
-    swingProgress = 1 - (swordTimer / SWORD.DURATION);
-
-    attackEnemies();
-
-    if (swordTimer <= 0)
-        swordSwing = false;
-
-}
-
-// =====================================
-// Combat
-// =====================================
-
-function attackEnemies() {
-
-    Game.enemies.forEach((enemy, index) => {
-
-        const enemyCenterX =
-            enemy.x + enemy.size / 2;
-
-        const enemyCenterY =
-            enemy.y + enemy.size / 2;
-
-        const dx =
-            enemyCenterX -
-            (player.x + player.size / 2);
-
-        const dy =
-            enemyCenterY -
-            (player.y + player.size / 2);
-
-        const distance =
-            Math.sqrt(dx * dx + dy * dy);
-
-        if (distance > SWORD.LENGTH)
+        if (this.dashCooldown > 0)
             return;
 
-        const angleToEnemy =
-            Math.atan2(dy, dx);
+        let dx = 0;
+        let dy = 0;
 
-        const currentAngle =
-            swordAngle -
-            SWORD.ARC / 2 +
-            SWORD.ARC * swingProgress;
+        if (keys["w"]) dy = -1;
+        if (keys["s"]) dy = 1;
+        if (keys["a"]) dx = -1;
+        if (keys["d"]) dx = 1;
 
-        let angleDifference =
-            Math.abs(angleToEnemy - currentAngle);
+        const distance = Math.sqrt(dx * dx + dy * dy);
 
-        if (angleDifference > Math.PI)
-            angleDifference =
-                Math.PI * 2 - angleDifference;
+        if (distance === 0)
+            return;
 
-        if (
-            angleDifference < 0.5 &&
-            !enemy.hitThisSwing
-        ) {
+        dx /= distance;
+        dy /= distance;
 
-            enemy.hp -= SWORD.DAMAGE;
+        this.x += dx * DASH.DISTANCE;
+        this.y += dy * DASH.DISTANCE;
 
-            enemy.hitThisSwing = true;
+        this.dashCooldown = DASH.COOLDOWN;
 
-            createHitParticles(
-                enemyCenterX,
-                enemyCenterY
-            );
+        Particle.createDashBurst(
+            this.x + this.size / 2,
+            this.y + this.size / 2
+        );
 
-            if (enemy.hp <= 0) {
+    }
 
-                Game.enemiesRemaining--;
+    // =====================================
+    // Sword
+    // =====================================
 
-                Game.screenShake =
-                    EFFECTS.SHAKE_ON_KILL;
+    swingSword() {
 
-                Game.enemies.splice(index, 1);
+        if (this.swordSwing)
+            return;
+
+        this.swordSwing = true;
+
+        this.swordTimer = SWORD.DURATION;
+
+        this.swingProgress = 0;
+
+        this.swordAngle = aimAngle;
+
+        Game.enemies.forEach(enemy => {
+
+            enemy.hitThisSwing = false;
+
+        });
+
+    }
+
+    updateSword() {
+
+        if (!this.swordSwing)
+            return;
+
+        this.swordTimer--;
+
+        this.swingProgress =
+            1 - (this.swordTimer / SWORD.DURATION);
+
+        this.attackEnemies();
+
+        if (this.swordTimer <= 0)
+            this.swordSwing = false;
+
+    }
+
+    // =====================================
+    // Combat
+    // =====================================
+    //
+    // No more manual splice() here - a hit
+    // enemy is just flagged dead via takeDamage().
+    // Game.cleanupEntities() removes it after
+    // the update pass, so nothing gets skipped.
+
+    attackEnemies() {
+
+        Game.enemies.forEach(enemy => {
+
+            if (enemy.hitThisSwing)
+                return;
+
+            const enemyCenterX =
+                enemy.x + enemy.size / 2;
+
+            const enemyCenterY =
+                enemy.y + enemy.size / 2;
+
+            const dx =
+                enemyCenterX -
+                (this.x + this.size / 2);
+
+            const dy =
+                enemyCenterY -
+                (this.y + this.size / 2);
+
+            const distance =
+                Math.sqrt(dx * dx + dy * dy);
+
+            if (distance > SWORD.LENGTH)
+                return;
+
+            const angleToEnemy =
+                Math.atan2(dy, dx);
+
+            const currentAngle =
+                this.swordAngle -
+                SWORD.ARC / 2 +
+                SWORD.ARC * this.swingProgress;
+
+            let angleDifference =
+                Math.abs(angleToEnemy - currentAngle);
+
+            if (angleDifference > Math.PI)
+                angleDifference =
+                    Math.PI * 2 - angleDifference;
+
+            if (angleDifference < 0.5) {
+
+                enemy.takeDamage(SWORD.DAMAGE);
+
+                enemy.hitThisSwing = true;
+
+                if (enemy.isDead()) {
+
+                    Game.enemiesRemaining--;
+
+                    Game.screenShake =
+                        EFFECTS.SHAKE_ON_KILL;
+
+                }
 
             }
 
-        }
+        });
 
-    });
+    }
 
-}
+    // =====================================
+    // Drawing
+    // =====================================
 
-// =====================================
-// Helpers
-// =====================================
+    draw() {
 
-function keepPlayerOnScreen() {
+        ctx.shadowBlur = EFFECTS.PLAYER_GLOW;
+        ctx.shadowColor = PLAYER.COLOR;
 
-    player.x = Math.max(
-        0,
-        Math.min(
-            canvas.width - player.size,
-            player.x
-        )
-    );
+        ctx.fillStyle = this.color;
 
-    player.y = Math.max(
-        0,
-        Math.min(
-            canvas.height - player.size,
-            player.y
-        )
-    );
+        ctx.fillRect(
+            this.x,
+            this.y,
+            this.size,
+            this.size
+        );
 
-}
+        ctx.shadowBlur = 0;
 
-// =====================================
-// Drawing
-// =====================================
+        this.drawSword();
 
-function drawPlayer() {
+        this.drawAimIndicator();
 
-    ctx.shadowBlur = EFFECTS.PLAYER_GLOW;
-    ctx.shadowColor = PLAYER.COLOR;
+    }
 
-    ctx.fillStyle = player.color;
+    drawSword() {
 
-    ctx.fillRect(
-        player.x,
-        player.y,
-        player.size,
-        player.size
-    );
+        if (!this.swordSwing)
+            return;
 
-    ctx.shadowBlur = 0;
+        ctx.save();
 
-    drawSword();
+        ctx.translate(
+            this.x + this.size / 2,
+            this.y + this.size / 2
+        );
 
-    drawAimIndicator();
+        const currentAngle =
+            this.swordAngle -
+            SWORD.ARC / 2 +
+            SWORD.ARC * this.swingProgress;
 
-}
+        ctx.rotate(currentAngle);
 
-function drawSword() {
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = "white";
 
-    if (!swordSwing)
-        return;
+        ctx.strokeStyle = "#654321";
+        ctx.lineWidth = 10;
 
-    ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(20, 0);
+        ctx.stroke();
 
-    ctx.translate(
-        player.x + player.size / 2,
-        player.y + player.size / 2
-    );
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 6;
 
-    const currentAngle =
-        swordAngle -
-        SWORD.ARC / 2 +
-        SWORD.ARC * swingProgress;
+        ctx.beginPath();
+        ctx.moveTo(20, 0);
+        ctx.lineTo(SWORD.LENGTH - 25, 0);
+        ctx.stroke();
 
-    ctx.rotate(currentAngle);
+        ctx.fillStyle = "cyan";
 
-    ctx.shadowBlur = 20;
-    ctx.shadowColor = "white";
+        ctx.beginPath();
 
-    ctx.strokeStyle = "#654321";
-    ctx.lineWidth = 10;
+        ctx.arc(
+            SWORD.LENGTH - 25,
+            0,
+            5,
+            0,
+            Math.PI * 2
+        );
 
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(20, 0);
-    ctx.stroke();
+        ctx.fill();
 
-    ctx.strokeStyle = "white";
-    ctx.lineWidth = 6;
+        ctx.restore();
 
-    ctx.beginPath();
-    ctx.moveTo(20, 0);
-    ctx.lineTo(SWORD.LENGTH - 25, 0);
-    ctx.stroke();
+    }
 
-    ctx.fillStyle = "cyan";
+    drawAimIndicator() {
 
-    ctx.beginPath();
+        ctx.save();
 
-    ctx.arc(
-        SWORD.LENGTH - 25,
-        0,
-        5,
-        0,
-        Math.PI * 2
-    );
+        ctx.translate(
+            this.x + this.size / 2,
+            this.y + this.size / 2
+        );
 
-    ctx.fill();
+        ctx.rotate(aimAngle);
 
-    ctx.restore();
+        ctx.globalAlpha = 0.4;
 
-}
+        ctx.strokeStyle = "cyan";
 
-function drawAimIndicator() {
+        ctx.lineWidth = 3;
 
-    ctx.save();
+        ctx.beginPath();
 
-    ctx.translate(
-        player.x + player.size / 2,
-        player.y + player.size / 2
-    );
+        ctx.moveTo(0, 0);
 
-    ctx.rotate(aimAngle);
+        ctx.lineTo(50, 0);
 
-    ctx.globalAlpha = 0.4;
+        ctx.stroke();
 
-    ctx.strokeStyle = "cyan";
+        ctx.restore();
 
-    ctx.lineWidth = 3;
+        ctx.globalAlpha = 1;
 
-    ctx.beginPath();
-
-    ctx.moveTo(0, 0);
-
-    ctx.lineTo(50, 0);
-
-    ctx.stroke();
-
-    ctx.restore();
-
-    ctx.globalAlpha = 1;
+    }
 
 }

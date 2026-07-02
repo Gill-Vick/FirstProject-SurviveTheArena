@@ -41,6 +41,10 @@ const DASH = {
 // =====================================
 // Enemy Types
 // =====================================
+//
+// Each subclass in entities/ reads its own
+// stats from here. Adding a new enemy type
+// later just means adding a new entry.
 
 const ENEMY_TYPES = {
 
@@ -58,7 +62,81 @@ const ENEMY_TYPES = {
         SPEED: 1,
         COLOR: "darkred",
         HP_MULTIPLIER: 4
+    },
+
+    spitter: {
+
+        SIZE: 36,
+        SPEED: 1.6,
+        COLOR: "purple",
+        HP_MULTIPLIER: 1.5,
+
+        // Distance (px) it tries to hold from the player
+
+        PREFERRED_RANGE: 260,
+
+        SHOOT_COOLDOWN: 90,
+
+        PROJECTILE_SPEED: 7,
+        PROJECTILE_COLOR: "violet"
+
+    },
+
+    runner: {
+
+        SIZE: 30,
+        SPEED: 3,
+        COLOR: "orange",
+        HP_MULTIPLIER: 0.75,
+
+        CHARGE_COOLDOWN: 150,
+        CHARGE_DURATION: 40,
+        CHARGE_MULTIPLIER: 3
+
     }
+
+};
+
+// =====================================
+// Elite Modifier
+// =====================================
+//
+// Elites aren't a new class - makeElite()
+// in entities/elite.js buffs an existing
+// enemy instance and flags it. Applies to
+// grunt/tank/spitter/runner, not the boss.
+
+const ELITE = {
+
+    HP_MULTIPLIER: 3,
+    SIZE_MULTIPLIER: 1.3,
+    SPEED_MULTIPLIER: 1.15,
+
+    GLOW_COLOR: "gold",
+
+    UNLOCK_WAVE: 3,
+    CHANCE: 0.15
+
+};
+
+// =====================================
+// Boss
+// =====================================
+
+const BOSS = {
+
+    SIZE: 120,
+    SPEED: 0.8,
+    COLOR: "#8b0000",
+
+    BASE_HP: 80,
+    HP_PER_WAVE: 25,
+
+    ATTACK_COOLDOWN: 150,
+
+    PROJECTILE_COUNT: 10,
+    PROJECTILE_SPEED: 6,
+    PROJECTILE_COLOR: "#ff4500"
 
 };
 
@@ -73,6 +151,15 @@ const WAVES = {
     GRUNTS_PER_WAVE: 2,
 
     TANK_EVERY: 3,
+
+    SPITTER_UNLOCK_WAVE: 2,
+    SPITTER_EVERY: 2,
+
+    RUNNER_UNLOCK_WAVE: 3,
+    RUNNER_EVERY: 4,
+
+    BOSS_EVERY: 5,
+    BOSS_ESCORT_GRUNTS: 3,
 
     TRANSITION_TIME: 3000
 

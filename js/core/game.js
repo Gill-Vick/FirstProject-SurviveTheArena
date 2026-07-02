@@ -13,6 +13,10 @@ canvas.height = window.innerHeight;
 // =====================================
 // Main Game Object
 // =====================================
+//
+// Game no longer stores raw enemy/particle
+// data - it stores instances of classes that
+// know how to update and draw themselves.
 
 const Game = {
 
@@ -38,11 +42,18 @@ const Game = {
 
     enemies: [],
 
+    projectiles: [],
+
     particles: [],
 
     screenShake: 0
 
 };
+
+// The player is created fresh each run inside
+// startGame(). It doesn't exist yet on page load.
+
+let player;
 
 // =====================================
 // Game Functions
@@ -68,10 +79,11 @@ function startGame() {
 
     Game.enemies = [];
 
+    Game.projectiles = [];
+
     Game.particles = [];
 
-    player.x = canvas.width / 2;
-    player.y = canvas.height / 2;
+    player = new Player();
 
     startWave();
 
@@ -91,9 +103,15 @@ function resetGame() {
 
     Game.enemies = [];
 
+    Game.projectiles = [];
+
     Game.particles = [];
 
 }
+
+// =====================================
+// Update
+// =====================================
 
 function update() {
 
@@ -110,17 +128,47 @@ function update() {
     Game.enemySpeedMultiplier =
         1 + survivalTime * DIFFICULTY.SPEED_SCALE;
 
-    updatePlayer();
+    // Every entity updates itself now.
 
-    updateEnemies();
+    player.update();
 
-    updateParticles();
+    Game.enemies.forEach(enemy => enemy.update());
 
-    updateSword();
+    Game.projectiles.forEach(projectile => projectile.update());
+
+    Game.particles.forEach(particle => particle.update());
+
+    cleanupEntities();
 
     updateWave();
 
 }
+
+// =====================================
+// Cleanup
+// =====================================
+//
+// Dead entities are removed here, once per
+// frame, after everything has updated. This
+// replaces the old splice-during-forEach
+// pattern that could skip entities.
+
+function cleanupEntities() {
+
+    Game.enemies =
+        Game.enemies.filter(enemy => !enemy.isDead());
+
+    Game.projectiles =
+        Game.projectiles.filter(projectile => !projectile.isDead());
+
+    Game.particles =
+        Game.particles.filter(particle => !particle.isDead());
+
+}
+
+// =====================================
+// Draw
+// =====================================
 
 function draw() {
 
