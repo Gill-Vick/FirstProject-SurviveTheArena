@@ -7,47 +7,39 @@
 // Particle class. This file just handles
 // the scrolling background grid.
 
+// =====================================
+// Grid (Inside effects.js)
+// =====================================
+
 function drawGrid() {
 
     ctx.strokeStyle = CANVAS.GRID_COLOR;
     ctx.lineWidth = 1;
 
-    const offset =
-        (Date.now() * 0.02) %
-        CANVAS.GRID_SIZE;
+    // Fixed at 0 so the floor stays completely locked to your cracks and rocks
+    const offset = 0; 
 
-    // Vertical
-
+    // Vertical Lines
     for (
-        let x = -CANVAS.GRID_SIZE;
-        x < canvas.width + CANVAS.GRID_SIZE;
+        let x = 0;
+        x < canvas.width;
         x += CANVAS.GRID_SIZE
     ) {
-
         ctx.beginPath();
-
-        ctx.moveTo(x + offset, 0);
-        ctx.lineTo(x + offset, canvas.height);
-
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
         ctx.stroke();
-
     }
 
-    // Horizontal
-
+    // Horizontal Lines
     for (
-        let y = -CANVAS.GRID_SIZE;
-        y < canvas.height + CANVAS.GRID_SIZE;
+        let y = 0;
+        y < canvas.height;
         y += CANVAS.GRID_SIZE
     ) {
-
         ctx.beginPath();
-
-        ctx.moveTo(0, y + offset);
-        ctx.lineTo(canvas.width, y + offset);
-
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
         ctx.stroke();
-
     }
-
 }

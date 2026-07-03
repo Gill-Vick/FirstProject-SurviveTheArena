@@ -89,6 +89,8 @@ function startGame() {
 
     player = new Player();
 
+    generateArena();
+
     startWave();
 
 }
@@ -173,7 +175,7 @@ function cleanupEntities() {
         Game.particles.filter(
             particle => !particle.isDead()
         );
-    
+
     Game.damageNumbers =
         Game.damageNumbers.filter(
             number => !number.isDead()
@@ -184,58 +186,83 @@ function cleanupEntities() {
 // =====================================
 // Draw
 // =====================================
+//
+// IMPORTANT ORDERING FIX:
+//
+// drawLightingSystem() used to run AFTER
+// entities were drawn, meaning the dark
+// overlay + light glow painted directly on
+// top of the player/enemies - dimming and
+// washing them out. It's now drawn BEFORE
+// entities, so it only tints the floor.
+// Entities render fully opaque on top and
+// stay readable no matter how dramatic the
+// lighting gets. Pillars still draw AFTER
+// entities so they keep occluding characters
+// that walk behind them.
 
 function draw() {
 
-    ctx.clearRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
+    // 1. FLOOR LEVEL: Flat stone floor base
+
+    ctx.fillStyle = "#2b2927"; 
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // 2. DECORATION LEVEL: Floor grid lines
 
     drawGrid();
 
+    // 3. GROUND SHADOW LEVEL: Pillar shadows on the floor
+
+    drawPillarShadows();
+
     ctx.save();
 
+    // Screen shake matrix calculation
+
     if (Game.screenShake > 0) {
-
-        const shakeX =
-            (Math.random() - 0.5) *
-            Game.screenShake;
-
-        const shakeY =
-            (Math.random() - 0.5) *
-            Game.screenShake;
-
+        const shakeX = (Math.random() - 0.5) * Game.screenShake;
+        const shakeY = (Math.random() - 0.5) * Game.screenShake;
         ctx.translate(shakeX, shakeY);
-
         Game.screenShake *= 0.9;
-
     }
 
     switch (Game.state) {
-
         case "menu":
-
             drawMenu();
-
             break;
 
         case "playing":
 
-            drawGame();
+            // 4. LIGHTING PASS: floor-only. Everything drawn
+            // after this is fully opaque and unaffected by it.
 
+            drawLightingSystem();
+
+            // 5. ENTITIES PASS: always fully visible
+
+            player.draw();
+            Game.enemies.forEach(enemy => enemy.draw());
+            Game.projectiles.forEach(projectile => projectile.draw());
+            Game.particles.forEach(particle => particle.draw());
+
+            // 6. FOREGROUND OBJECT PASS: pillars occlude characters
+            // that walk behind them
+
+            drawPillars();
+            drawTorches();
+
+            // 7. UI PASS: always on top, always readable
+
+            Game.damageNumbers.forEach(number => number.draw());
+            drawHUD();
+            drawWaveMessages();
             break;
 
         case "gameover":
-
             drawGameOver();
-
             break;
-
     }
 
     ctx.restore();
-
 }

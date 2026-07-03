@@ -86,21 +86,20 @@ function drawMenu() {
 // drawEnemies()/drawParticles() functions.
 
 function drawGame() {
-
+    // 1. Draw Ground Elements & Entities
     player.draw();
-
     Game.enemies.forEach(enemy => enemy.draw());
-
     Game.projectiles.forEach(projectile => projectile.draw());
-
     Game.particles.forEach(particle => particle.draw());
 
+    // 2. Draw Tall Structures over the characters
+    drawPillars();
+    drawTorches();
+
+    // 3. Draw UI/Text
     Game.damageNumbers.forEach(number => number.draw());
-
     drawHUD();
-
     drawWaveMessages();
-
 }
 
 // =====================================

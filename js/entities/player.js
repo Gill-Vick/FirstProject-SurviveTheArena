@@ -119,11 +119,6 @@ class Player {
 
         this.dashCooldown = DASH.COOLDOWN;
 
-        Particle.createDashBurst(
-            this.x + this.size / 2,
-            this.y + this.size / 2
-        );
-
     }
 
     // =====================================
