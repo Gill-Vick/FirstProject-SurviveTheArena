@@ -27,6 +27,7 @@ class Tank extends Enemy {
         });
 
         this.type = "tank";
+        this.knockbackImmune = true;
 
     }
 
