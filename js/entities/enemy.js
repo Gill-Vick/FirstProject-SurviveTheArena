@@ -172,6 +172,9 @@ class Enemy {
 
     applyKnockback(fromX, fromY, force = 12) {
 
+        if (this.knockbackImmune)
+            return;
+
         const dx = this.x + this.size / 2 - fromX;
         const dy = this.y + this.size / 2 - fromY;
     

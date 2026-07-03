@@ -173,86 +173,65 @@ class Player {
     // the update pass, so nothing gets skipped.
 
     attackEnemies() {
-
         Game.enemies.forEach(enemy => {
-
             if (enemy.hitThisSwing)
                 return;
 
-            const enemyCenterX =
-                enemy.x + enemy.size / 2;
+            // Player Center
+            const playerCenterX = this.x + this.size / 2;
+            const playerCenterY = this.y + this.size / 2;
 
-            const enemyCenterY =
-                enemy.y + enemy.size / 2;
+            // =========================================================
+            // NEW: Find the closest point on the enemy box to the player
+            // =========================================================
+            // This clamps the player's center coordinates inside the enemy's 
+            // structural rectangle footprint to find the exact closest point of impact.
+            const closestX = Math.max(enemy.x, Math.min(playerCenterX, enemy.x + enemy.size));
+            const closestY = Math.max(enemy.y, Math.min(playerCenterY, enemy.y + enemy.size));
 
-            const dx =
-                enemyCenterX -
-                (this.x + this.size / 2);
+            // Calculate vector and distance to that closest point
+            const dx = closestX - playerCenterX;
+            const dy = closestY - playerCenterY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
 
-            const dy =
-                enemyCenterY -
-                (this.y + this.size / 2);
-
-            const distance =
-                Math.sqrt(dx * dx + dy * dy);
-
+            // If the sword tip doesn't reach the closest edge/corner, it's a miss
             if (distance > SWORD.LENGTH)
                 return;
 
-            const angleToEnemy =
-                Math.atan2(dy, dx);
+            // Use the angle to this closest intersection point for the arc calculation
+            const angleToEnemy = Math.atan2(dy, dx);
 
             const currentAngle =
                 this.swordAngle -
                 SWORD.ARC / 2 +
                 SWORD.ARC * this.swingProgress;
 
-            let angleDifference =
-                Math.abs(angleToEnemy - currentAngle);
+            let angleDifference = Math.abs(angleToEnemy - currentAngle);
 
             if (angleDifference > Math.PI)
-                angleDifference =
-                    Math.PI * 2 - angleDifference;
+                angleDifference = Math.PI * 2 - angleDifference;
 
+            // Check if the sword arc overlaps our target angle
             if (angleDifference < 0.5) {
-
-                const critical =
-                    Math.random() < 0.05;
+                const critical = Math.random() < 0.05;
+                const damage = critical ? SWORD.DAMAGE * 2 : SWORD.DAMAGE;
             
-                const damage =
-                    critical
-                        ? SWORD.DAMAGE * 2
-                        : SWORD.DAMAGE;
-            
-                enemy.takeDamage(
-                    damage,
-                    critical
-                );
+                enemy.takeDamage(damage, critical);
 
                 enemy.applyKnockback(
-
-                    this.x + this.size / 2,
-                    this.y + this.size / 2,
-                
+                    playerCenterX,
+                    playerCenterY,
                     critical ? 18 : 12
-                
                 );
 
                 enemy.hitThisSwing = true;
 
                 if (enemy.isDead()) {
-
                     Game.enemiesRemaining--;
-
-                    Game.screenShake =
-                        EFFECTS.SHAKE_ON_KILL;
-
+                    Game.screenShake = EFFECTS.SHAKE_ON_KILL;
                 }
-
             }
-
         });
-
     }
 
     // =====================================

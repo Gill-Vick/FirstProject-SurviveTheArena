@@ -19,15 +19,15 @@ class Spitter extends Enemy {
                 ENEMY_TYPES.spitter.SPEED *
                 Game.enemySpeedMultiplier,
 
-            hp:
-                (1 + Math.floor(Game.score / DIFFICULTY.HP_SCALE_TIME))
-                * ENEMY_TYPES.spitter.HP_MULTIPLIER,
+            hp: 1 + Math.floor((Game.wave - 1) / 5),
 
             color: ENEMY_TYPES.spitter.COLOR
 
         });
 
         this.type = "spitter";
+
+        this.knockbackImmune = true;
 
         this.shootCooldown =
             ENEMY_TYPES.spitter.SHOOT_COOLDOWN;

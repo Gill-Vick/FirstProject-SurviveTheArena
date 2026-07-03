@@ -17,9 +17,7 @@ class Grunt extends Enemy {
                 ENEMY_TYPES.grunt.SPEED *
                 Game.enemySpeedMultiplier,
 
-            hp:
-                (1 + Math.floor(Game.score / DIFFICULTY.HP_SCALE_TIME))
-                * ENEMY_TYPES.grunt.HP_MULTIPLIER,
+            hp: 1 + Math.floor((Game.wave - 1) / 3),
 
             color: ENEMY_TYPES.grunt.COLOR
 

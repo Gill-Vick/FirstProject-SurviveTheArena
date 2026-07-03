@@ -61,7 +61,7 @@ const ENEMY_TYPES = {
         SIZE: 70,
         SPEED: 1,
         COLOR: "darkred",
-        HP_MULTIPLIER: 4
+        HP_MULTIPLIER: 1
     },
 
     spitter: {
@@ -69,7 +69,7 @@ const ENEMY_TYPES = {
         SIZE: 36,
         SPEED: 1.6,
         COLOR: "purple",
-        HP_MULTIPLIER: 1.5,
+        HP_MULTIPLIER: 0.5,
 
         // Distance (px) it tries to hold from the player
 
@@ -87,7 +87,7 @@ const ENEMY_TYPES = {
         SIZE: 30,
         SPEED: 3,
         COLOR: "orange",
-        HP_MULTIPLIER: 0.75,
+        HP_MULTIPLIER: 0.5,
 
         CHARGE_COOLDOWN: 150,
         CHARGE_DURATION: 40,
@@ -108,14 +108,14 @@ const ENEMY_TYPES = {
 
 const ELITE = {
 
-    HP_MULTIPLIER: 3,
-    SIZE_MULTIPLIER: 1.3,
-    SPEED_MULTIPLIER: 1.15,
+    HP_MULTIPLIER: 2,
+    SIZE_MULTIPLIER: 1.2,
+    SPEED_MULTIPLIER: 1.3,
 
     GLOW_COLOR: "gold",
 
     UNLOCK_WAVE: 3,
-    CHANCE: 0.15
+    CHANCE: 0.10
 
 };
 
@@ -129,13 +129,13 @@ const BOSS = {
     SPEED: 0.8,
     COLOR: "#8b0000",
 
-    BASE_HP: 80,
-    HP_PER_WAVE: 25,
+    BASE_HP: 20,
+    HP_PER_WAVE: 5,
 
-    ATTACK_COOLDOWN: 150,
+    ATTACK_COOLDOWN: 120,
 
     PROJECTILE_COUNT: 10,
-    PROJECTILE_SPEED: 6,
+    PROJECTILE_SPEED: 7,
     PROJECTILE_COLOR: "#ff4500"
 
 };

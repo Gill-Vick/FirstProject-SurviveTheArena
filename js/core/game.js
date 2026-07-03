@@ -117,6 +117,12 @@ function resetGame() {
 
 }
 
+function getWaveSpeedMultiplier() {
+
+    return 1 + (Game.wave - 1) * 0.08;
+
+}
+
 // =====================================
 // Update
 // =====================================
@@ -130,11 +136,7 @@ function update() {
         (Date.now() - Game.startTime) / 1000
     ).toFixed(1);
 
-    const survivalTime =
-        (Date.now() - Game.startTime) / 1000;
-
-    Game.enemySpeedMultiplier =
-        1 + survivalTime * DIFFICULTY.SPEED_SCALE;
+    Game.enemySpeedMultiplier = getWaveSpeedMultiplier();
 
     // Every entity updates itself now.
 

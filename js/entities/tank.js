@@ -20,9 +20,7 @@ class Tank extends Enemy {
                 ENEMY_TYPES.tank.SPEED *
                 Game.enemySpeedMultiplier,
 
-            hp:
-                (1 + Math.floor(Game.score / DIFFICULTY.HP_SCALE_TIME))
-                * ENEMY_TYPES.tank.HP_MULTIPLIER,
+            hp: 3 + Math.floor((Game.wave - 1) / 3) * 2,
 
             color: ENEMY_TYPES.tank.COLOR
 
