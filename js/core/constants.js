@@ -71,19 +71,19 @@ const COINS = {
 const SHOP_ITEMS = {
 
     shield: {
-        price: 10,
+        price: 75,
         name: "Wooden Shield",
         desc: "Blocks 1 hit + 1s invuln"
     },
 
     bow: {
-        price: 10,
+        price: 100,
         name: "Shortbow",
         desc: "Press E — 2 dmg arrow (2s cd)"
     },
 
     wetStone: {
-        price: 10,
+        price: 200,
         name: "Wet Stone",
         desc: "Sword deals 2 damage"
     }
