@@ -5,6 +5,9 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
+const menuBackground = new Image();
+menuBackground.src = "MainMenu.png";
+
 ctx.imageSmoothingEnabled = false;
 
 canvas.width = window.innerWidth;
@@ -21,6 +24,8 @@ canvas.height = window.innerHeight;
 const Game = {
 
     state: "menu",
+
+    menuView: "main",
 
     score: 0,
 
@@ -95,9 +100,23 @@ function startGame() {
 
 }
 
+function onEnemyKilled(enemy) {
+
+    Game.enemiesRemaining--;
+
+    const reward = COINS[enemy.type] ?? COINS.grunt;
+
+    Save.addCoins(reward);
+
+    Game.screenShake = EFFECTS.SHAKE_ON_KILL;
+
+}
+
 function resetGame() {
 
     Game.state = "menu";
+
+    Game.menuView = "main";
 
     Game.score = 0;
 

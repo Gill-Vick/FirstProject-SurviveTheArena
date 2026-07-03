@@ -3,28 +3,84 @@
 // =====================================
 
 const startButton = {
+    x: canvas.width / 2 - 110,
+    y: canvas.height / 2 - 30,
+    width: 220,
+    height: 60
+};
 
-    x: canvas.width / 2 - 100,
+const shopButton = {
+    x: canvas.width / 2 - 110,
+    y: canvas.height / 2 + 50,
+    width: 220,
+    height: 60
+};
 
-    y: canvas.height / 2,
-
-    width: 200,
-
-    height: 70
-
+const shopBackButton = {
+    x: 40,
+    y: 40,
+    width: 140,
+    height: 50
 };
 
 const homeButton = {
-
     x: canvas.width / 2 - 100,
-
     y: canvas.height / 2 + 100,
-
     width: 200,
-
     height: 70
-
 };
+
+const SHOP_ROW_HEIGHT = 100;
+const SHOP_ROW_START = 200;
+const SHOP_BUY_WIDTH = 120;
+const SHOP_BUY_HEIGHT = 44;
+
+function getShopBuyButton(index) {
+
+    return {
+        x: canvas.width - SHOP_BUY_WIDTH - 60,
+        y: SHOP_ROW_START + index * SHOP_ROW_HEIGHT,
+        width: SHOP_BUY_WIDTH,
+        height: SHOP_BUY_HEIGHT
+    };
+
+}
+
+function hitRect(btn, x, y) {
+
+    return (
+        x > btn.x &&
+        x < btn.x + btn.width &&
+        y > btn.y &&
+        y < btn.y + btn.height
+    );
+
+}
+
+function drawButton(btn, label, fill, textColor) {
+
+    ctx.fillStyle = fill;
+    ctx.fillRect(btn.x, btn.y, btn.width, btn.height);
+
+    ctx.fillStyle = textColor;
+    ctx.font = "28px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(
+        label,
+        btn.x + btn.width / 2,
+        btn.y + btn.height / 2 + 10
+    );
+
+}
+
+function drawCoinDisplay(x, y, size) {
+
+    ctx.fillStyle = "gold";
+    ctx.font = `bold ${size}px Arial`;
+    ctx.textAlign = "left";
+    ctx.fillText(`Coins: ${Save.coins}`, x, y);
+
+}
 
 // =====================================
 // Menu
@@ -32,74 +88,115 @@ const homeButton = {
 
 function drawMenu() {
 
+    ctx.drawImage(
+        menuBackground,
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
     ctx.fillStyle = "white";
-
-    ctx.font = "70px Arial";
-
+    ctx.font = "80px Arial";
     ctx.textAlign = "center";
+    ctx.fillText("SURVIVE THE ARENA", canvas.width / 2, 140);
 
-    ctx.fillText(
+    drawCoinDisplay(canvas.width - 220, 50, 32);
 
-        "SURVIVE THE ARENA",
+    if (Game.menuView === "shop") {
+        drawShop();
+        return;
+    }
 
-        canvas.width / 2,
-
-        200
-
-    );
-
-    ctx.fillStyle = "lime";
-
-    ctx.fillRect(
-
-        startButton.x,
-
-        startButton.y,
-
-        startButton.width,
-
-        startButton.height
-
-    );
-
-    ctx.fillStyle = "black";
-
-    ctx.font = "35px Arial";
-
-    ctx.fillText(
-
-        "START",
-
-        canvas.width / 2,
-
-        startButton.y + 47
-
-    );
+    drawButton(startButton, "START", "lime", "black");
+    drawButton(shopButton, "SHOP", "#c9a227", "black");
 
 }
 
-// =====================================
-// Game
-// =====================================
-//
-// Every entity draws itself now - no more
-// drawEnemies()/drawParticles() functions.
+function drawShop() {
 
-function drawGame() {
-    // 1. Draw Ground Elements & Entities
-    player.draw();
-    Game.enemies.forEach(enemy => enemy.draw());
-    Game.projectiles.forEach(projectile => projectile.draw());
-    Game.particles.forEach(particle => particle.draw());
+    ctx.fillStyle = "white";
+    ctx.font = "48px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("SHOP", canvas.width / 2, 120);
 
-    // 2. Draw Tall Structures over the characters
-    drawPillars();
-    drawTorches();
+    drawButton(shopBackButton, "BACK", "#555", "white");
 
-    // 3. Draw UI/Text
-    Game.damageNumbers.forEach(number => number.draw());
-    drawHUD();
-    drawWaveMessages();
+    const ids = ["shield", "bow", "wetStone"];
+
+    ids.forEach((id, i) => {
+
+        const item = SHOP_ITEMS[id];
+        const rowY = SHOP_ROW_START + i * SHOP_ROW_HEIGHT;
+        const buyBtn = getShopBuyButton(i);
+        const owned = Save.owns(id);
+        const canBuy = !owned && Save.canAfford(item.price);
+
+        ctx.fillStyle = "rgba(0,0,0,0.45)";
+        ctx.fillRect(50, rowY - 10, canvas.width - 100, SHOP_ROW_HEIGHT - 16);
+
+        ctx.fillStyle = "white";
+        ctx.font = "bold 30px Arial";
+        ctx.textAlign = "left";
+        ctx.fillText(item.name, 70, rowY + 22);
+
+        ctx.font = "22px Arial";
+        ctx.fillStyle = "#ccc";
+        ctx.fillText(item.desc, 70, rowY + 52);
+
+        ctx.fillStyle = "gold";
+        ctx.font = "24px Arial";
+        ctx.fillText(`${item.price} coins`, 70, rowY + 78);
+
+        if (owned) {
+
+            drawButton(buyBtn, "OWNED", "#444", "#aaa");
+
+        } else if (canBuy) {
+
+            drawButton(buyBtn, "BUY", "lime", "black");
+
+        } else {
+
+            drawButton(buyBtn, "BUY", "#663333", "#888");
+
+        }
+
+    });
+
+}
+
+function handleMenuClick(x, y) {
+
+    if (Game.menuView === "shop") {
+
+        if (hitRect(shopBackButton, x, y)) {
+            Game.menuView = "main";
+            return;
+        }
+
+        const ids = ["shield", "bow", "wetStone"];
+
+        ids.forEach((id, i) => {
+
+            if (hitRect(getShopBuyButton(i), x, y))
+                Save.purchase(id);
+
+        });
+
+        return;
+
+    }
+
+    if (hitRect(startButton, x, y))
+        startGame();
+
+    if (hitRect(shopButton, x, y))
+        Game.menuView = "shop";
+
 }
 
 // =====================================
@@ -109,50 +206,40 @@ function drawGame() {
 function drawHUD() {
 
     ctx.fillStyle = "white";
-
     ctx.font = "bold 30px Arial";
-
     ctx.textAlign = "left";
 
+    ctx.fillText(`Time: ${Game.score}`, 20, 40);
+    ctx.fillText(`Wave: ${Game.wave}`, 20, 80);
+    ctx.fillText(`Enemies: ${Game.enemiesRemaining}`, 20, 120);
     ctx.fillText(
-
-        `Time: ${Game.score}`,
-
-        20,
-
-        40
-
-    );
-
-    ctx.fillText(
-
-        `Wave: ${Game.wave}`,
-
-        20,
-
-        80
-
-    );
-
-    ctx.fillText(
-
-        `Enemies: ${Game.enemiesRemaining}`,
-
-        20,
-
-        120
-
-    );
-
-    ctx.fillText(
-
         `Dash: ${player.dashCooldown <= 0 ? "READY" : "COOLDOWN"}`,
-
         20,
-
         160
-
     );
+
+    drawCoinDisplay(20, 200, 26);
+
+    if (Save.inventory.bow) {
+
+        ctx.fillText(
+            `Bow: ${player.bowCooldown <= 0 ? "READY [E]" : "COOLDOWN"}`,
+            20,
+            240
+        );
+
+    }
+
+    if (Save.inventory.shield) {
+
+        ctx.fillStyle = player.shieldActive ? "#4da6ff" : "#666";
+        ctx.fillText(
+            `Shield: ${player.shieldActive ? "ACTIVE" : "USED"}`,
+            20,
+            Save.inventory.bow ? 280 : 240
+        );
+
+    }
 
 }
 
@@ -167,40 +254,18 @@ function drawWaveMessages() {
         Game.waveMessageTimer--;
 
         ctx.textAlign = "center";
-
         ctx.font = "60px Arial";
-
         ctx.fillStyle = "white";
-
-        ctx.fillText(
-
-            `WAVE ${Game.wave}`,
-
-            canvas.width / 2,
-
-            150
-
-        );
+        ctx.fillText(`WAVE ${Game.wave}`, canvas.width / 2, 150);
 
     }
 
     if (Game.waveTransition) {
 
         ctx.textAlign = "center";
-
         ctx.font = "70px Arial";
-
         ctx.fillStyle = "gold";
-
-        ctx.fillText(
-
-            "WAVE COMPLETE",
-
-            canvas.width / 2,
-
-            canvas.height / 2
-
-        );
+        ctx.fillText("WAVE COMPLETE", canvas.width / 2, canvas.height / 2);
 
     }
 
@@ -213,59 +278,25 @@ function drawWaveMessages() {
 function drawGameOver() {
 
     ctx.fillStyle = "white";
-
     ctx.font = "80px Arial";
-
     ctx.textAlign = "center";
-
-    ctx.fillText(
-
-        "GAME OVER",
-
-        canvas.width / 2,
-
-        220
-
-    );
+    ctx.fillText("GAME OVER", canvas.width / 2, 220);
 
     ctx.font = "40px Arial";
-
     ctx.fillText(
-
         `Survived: ${Game.score} Seconds`,
-
         canvas.width / 2,
-
         300
-
     );
 
-    ctx.fillStyle = "lime";
-
-    ctx.fillRect(
-
-        homeButton.x,
-
-        homeButton.y,
-
-        homeButton.width,
-
-        homeButton.height
-
-    );
-
-    ctx.fillStyle = "black";
-
-    ctx.font = "28px Arial";
-
+    ctx.fillStyle = "gold";
+    ctx.font = "32px Arial";
     ctx.fillText(
-
-        "RETURN HOME",
-
+        `Total Coins: ${Save.coins}`,
         canvas.width / 2,
-
-        homeButton.y + 45
-
+        360
     );
+
+    drawButton(homeButton, "RETURN HOME", "lime", "black");
 
 }

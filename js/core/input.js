@@ -51,19 +51,7 @@ canvas.addEventListener("click", (e) => {
 
         case "menu":
 
-            if (
-
-                x > startButton.x &&
-                x < startButton.x + startButton.width &&
-
-                y > startButton.y &&
-                y < startButton.y + startButton.height
-
-            ) {
-
-                startGame();
-
-            }
+            handleMenuClick(x, y);
 
             break;
 
@@ -113,6 +101,17 @@ window.addEventListener("keydown", (e) => {
         e.preventDefault();
 
         player.dash();
+
+    }
+
+    if (
+
+        e.key.toLowerCase() === "e" &&
+        Game.state === "playing"
+
+    ) {
+
+        player.fireBow();
 
     }
 

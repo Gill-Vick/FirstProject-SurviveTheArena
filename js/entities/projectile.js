@@ -1,17 +1,6 @@
 // =====================================
 // Projectile Class
 // =====================================
-//
-// Nothing spawns these yet - this is the
-// class Spitter (and any future ranged
-// weapon) will push into Game.projectiles.
-// The game loop already updates/draws
-// Game.projectiles, so hooking this up
-// later is just:
-//
-//   Game.projectiles.push(
-//       new Projectile(x, y, angle, { ... })
-//   );
 
 class Projectile {
 
@@ -29,11 +18,9 @@ class Projectile {
 
         this.life = options.life ?? 90;
 
-    }
+        this.owner = options.owner ?? "enemy";
 
-    // =====================================
-    // Update
-    // =====================================
+    }
 
     update() {
 
@@ -42,7 +29,10 @@ class Projectile {
 
         this.life--;
 
-        this.checkPlayerCollision();
+        if (this.owner === "player")
+            this.checkEnemyCollision();
+        else
+            this.checkPlayerCollision();
 
     }
 
@@ -62,13 +52,6 @@ class Projectile {
 
     }
 
-    // =====================================
-    // Collision With Player
-    // =====================================
-    //
-    // Same "one touch = game over" rule the
-    // player already lives by against enemies.
-
     checkPlayerCollision() {
 
         if (!player)
@@ -85,21 +68,85 @@ class Projectile {
 
         if (distance < this.size + player.size / 2) {
 
-            Game.screenShake = EFFECTS.SHAKE_ON_DEATH;
-
-            Game.state = "gameover";
-
-            this.life = 0;
+            if (player.takeHit())
+                this.life = 0;
+            else
+                this.life = 0;
 
         }
 
     }
 
-    // =====================================
-    // Drawing
-    // =====================================
+    checkEnemyCollision() {
+
+        const px = this.x;
+        const py = this.y;
+
+        for (const enemy of Game.enemies) {
+
+            if (
+
+                px > enemy.x - this.size &&
+                px < enemy.x + enemy.size + this.size &&
+                py > enemy.y - this.size &&
+                py < enemy.y + enemy.size + this.size
+
+            ) {
+
+                enemy.takeDamage(this.damage);
+
+                enemy.applyKnockback(px, py, 10);
+
+                if (enemy.isDead())
+                    onEnemyKilled(enemy);
+
+                this.life = 0;
+
+                return;
+
+            }
+
+        }
+
+    }
 
     draw() {
+
+        if (this.owner === "player") {
+
+            ctx.save();
+
+            ctx.translate(this.x, this.y);
+
+            ctx.rotate(this.angle);
+
+            // Shaft
+            ctx.fillStyle = "#5c4033";
+            ctx.fillRect(-14, -1.5, 22, 3);
+
+            // Arrowhead
+            ctx.fillStyle = "#bdc3c7";
+            ctx.beginPath();
+            ctx.moveTo(10, 0);
+            ctx.lineTo(4, -4);
+            ctx.lineTo(4, 4);
+            ctx.closePath();
+            ctx.fill();
+
+            // Fletching
+            ctx.fillStyle = "#8b0000";
+            ctx.beginPath();
+            ctx.moveTo(-14, 0);
+            ctx.lineTo(-10, -4);
+            ctx.lineTo(-10, 4);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+
+            return;
+
+        }
 
         ctx.fillStyle = this.color;
 

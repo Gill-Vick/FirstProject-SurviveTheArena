@@ -26,7 +26,68 @@ const SWORD = {
     LENGTH: 110,
     DURATION: 15,
     ARC: Math.PI * 1.2,
-    DAMAGE: 1
+    DAMAGE: 1,
+    DAMAGE_UPGRADED: 2
+};
+
+// =====================================
+// Bow (shop item)
+// =====================================
+
+const BOW = {
+    COOLDOWN: 2000,
+    DAMAGE: 2,
+    SPEED: 14,
+    SIZE: 6,
+    COLOR: "#8b6914"
+};
+
+// =====================================
+// Shield (shop item)
+// =====================================
+
+const SHIELD = {
+    INVULN_MS: 1000,
+    OUTLINE_COLOR: "#4da6ff",
+    OUTLINE_WIDTH: 4
+};
+
+// =====================================
+// Coin Rewards
+// =====================================
+
+const COINS = {
+    grunt: 1,
+    tank: 2,
+    spitter: 2,
+    runner: 3,
+    boss: 20
+};
+
+// =====================================
+// Shop
+// =====================================
+
+const SHOP_ITEMS = {
+
+    shield: {
+        price: 10,
+        name: "Wooden Shield",
+        desc: "Blocks 1 hit + 1s invuln"
+    },
+
+    bow: {
+        price: 10,
+        name: "Shortbow",
+        desc: "Press E — 2 dmg arrow (2s cd)"
+    },
+
+    wetStone: {
+        price: 10,
+        name: "Wet Stone",
+        desc: "Sword deals 2 damage"
+    }
+
 };
 
 // =====================================

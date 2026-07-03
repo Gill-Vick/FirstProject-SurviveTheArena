@@ -24,6 +24,16 @@ class Player {
 
         this.dashCooldown = 0;
 
+        // Shield (per run, refilled if owned)
+
+        this.shieldActive = Save.inventory.shield;
+
+        this.invulnTimer = 0;
+
+        // Bow
+
+        this.bowCooldown = 0;
+
     }
 
     // =====================================
@@ -36,9 +46,53 @@ class Player {
 
         this.updateDash();
 
+        this.updateBow();
+
         this.updateSword();
 
+        this.updateInvuln();
+
         this.keepOnScreen();
+
+    }
+
+    updateInvuln() {
+
+        if (this.invulnTimer > 0)
+            this.invulnTimer -= 16;
+
+    }
+
+    takeHit() {
+
+        if (this.invulnTimer > 0)
+            return false;
+
+        if (this.shieldActive) {
+
+            this.shieldActive = false;
+
+            this.invulnTimer = SHIELD.INVULN_MS;
+
+            Game.screenShake = EFFECTS.SHAKE_ON_KILL;
+
+            return false;
+
+        }
+
+        Game.screenShake = EFFECTS.SHAKE_ON_DEATH;
+
+        Game.state = "gameover";
+
+        return true;
+
+    }
+
+    getSwordDamage() {
+
+        return Save.inventory.wetStone
+            ? SWORD.DAMAGE_UPGRADED
+            : SWORD.DAMAGE;
 
     }
 
@@ -118,6 +172,49 @@ class Player {
         this.y += dy * DASH.DISTANCE;
 
         this.dashCooldown = DASH.COOLDOWN;
+
+    }
+
+    // =====================================
+    // Bow
+    // =====================================
+
+    updateBow() {
+
+        if (this.bowCooldown > 0)
+            this.bowCooldown -= 16;
+
+    }
+
+    fireBow() {
+
+        if (!Save.inventory.bow)
+            return;
+
+        if (this.bowCooldown > 0)
+            return;
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        Game.projectiles.push(new Projectile(
+
+            cx + Math.cos(aimAngle) * 28,
+            cy + Math.sin(aimAngle) * 28,
+            aimAngle,
+
+            {
+                owner: "player",
+                speed: BOW.SPEED,
+                damage: BOW.DAMAGE,
+                size: BOW.SIZE,
+                color: BOW.COLOR,
+                life: 120
+            }
+
+        ));
+
+        this.bowCooldown = BOW.COOLDOWN;
 
     }
 
@@ -214,8 +311,9 @@ class Player {
             // Check if the sword arc overlaps our target angle
             if (angleDifference < 0.5) {
                 const critical = Math.random() < 0.05;
-                const damage = critical ? SWORD.DAMAGE * 2 : SWORD.DAMAGE;
-            
+                const base = this.getSwordDamage();
+                const damage = critical ? base * 2 : base;
+
                 enemy.takeDamage(damage, critical);
 
                 enemy.applyKnockback(
@@ -226,10 +324,8 @@ class Player {
 
                 enemy.hitThisSwing = true;
 
-                if (enemy.isDead()) {
-                    Game.enemiesRemaining--;
-                    Game.screenShake = EFFECTS.SHAKE_ON_KILL;
-                }
+                if (enemy.isDead())
+                    onEnemyKilled(enemy);
             }
         });
     }
@@ -239,6 +335,9 @@ class Player {
     // =====================================
 
     draw() {
+
+        if (this.invulnTimer > 0 && Math.floor(Date.now() / 80) % 2 === 0)
+            ctx.globalAlpha = 0.55;
 
         ctx.shadowBlur = EFFECTS.PLAYER_GLOW;
         ctx.shadowColor = PLAYER.COLOR;
@@ -254,9 +353,68 @@ class Player {
 
         ctx.shadowBlur = 0;
 
+        ctx.globalAlpha = 1;
+
+        if (this.shieldActive)
+            this.drawShieldOutline();
+
+        if (Save.inventory.bow)
+            this.drawBowOnBack();
+
         this.drawSword();
 
         this.drawAimIndicator();
+
+    }
+
+    drawShieldOutline() {
+
+        ctx.save();
+
+        ctx.strokeStyle = SHIELD.OUTLINE_COLOR;
+        ctx.lineWidth = SHIELD.OUTLINE_WIDTH;
+
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = SHIELD.OUTLINE_COLOR;
+
+        const pad = 6;
+
+        ctx.strokeRect(
+            this.x - pad,
+            this.y - pad,
+            this.size + pad * 2,
+            this.size + pad * 2
+        );
+
+        ctx.restore();
+
+    }
+
+    drawBowOnBack() {
+
+        ctx.save();
+
+        ctx.translate(
+            this.x + this.size / 2,
+            this.y + this.size / 2
+        );
+
+        ctx.rotate(aimAngle + Math.PI * 0.75);
+
+        ctx.strokeStyle = "#5c4033";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, 0, 14, -Math.PI * 0.55, Math.PI * 0.55);
+        ctx.stroke();
+
+        ctx.strokeStyle = "#8b6914";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(-14, 0);
+        ctx.lineTo(14, 0);
+        ctx.stroke();
+
+        ctx.restore();
 
     }
 
@@ -327,11 +485,13 @@ class Player {
         // 3. HIGH-QUALITY METAL BLADE (Tapered & Sharp)
         // =====================================
         // Metallic sleek gradient
+        const wet = Save.inventory.wetStone;
+
         let metalGrad = ctx.createLinearGradient(0, -6, 0, 6);
-        metalGrad.addColorStop(0, "#ffffff"); // Highlighted edge
-        metalGrad.addColorStop(0.3, "#bdc3c7"); // Mid-tone steel
-        metalGrad.addColorStop(0.5, "#95a5a6"); // Center ridge
-        metalGrad.addColorStop(1, "#7f8c8d"); // Shadow edge
+        metalGrad.addColorStop(0, wet ? "#d5e8f0" : "#ffffff");
+        metalGrad.addColorStop(0.3, wet ? "#7eb8c9" : "#bdc3c7");
+        metalGrad.addColorStop(0.5, wet ? "#4a90a4" : "#95a5a6");
+        metalGrad.addColorStop(1, wet ? "#2c5f6e" : "#7f8c8d");
     
         ctx.fillStyle = metalGrad;
         ctx.beginPath();
