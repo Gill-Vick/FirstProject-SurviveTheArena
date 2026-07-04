@@ -316,14 +316,24 @@ const KING = {
 
     SUMMON_THRESHOLD: 50,
 
+    // Laser - a continuous beam, not a bullet. It telegraphs
+    // (thin warning line) then fires as a full beam that
+    // spans clear across the map. Fires as a 3-round burst,
+    // re-aiming at the player between each pulse.
     LASER_COOLDOWN: 3000,
-    LASER_SPEED: 16,
+    LASER_TELEGRAPH: 350,
+    LASER_DURATION: 250,
+    LASER_BURST_COUNT: 3,
+    LASER_BURST_GAP: 200,
+    LASER_WIDTH: 55,
     LASER_COLOR: "#00bfff",
 
+    // Sword - a much longer, heavier greatsword swing than
+    // the old 120px reach.
     SLASH_COOLDOWN: 5000,
     SLASH_DURATION: 20,
     SLASH_ARC: Math.PI * 0.9,
-    SLASH_LENGTH: 120
+    SLASH_LENGTH: 320
 
 };
 
