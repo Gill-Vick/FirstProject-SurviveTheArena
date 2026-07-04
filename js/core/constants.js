@@ -65,7 +65,7 @@ const COINS = {
     fireMage: 3,
     necromancer: 4,
     skeleton: 1,
-    lancer: 3,
+    lancer: 5,
     king: 50
 };
 
@@ -183,14 +183,14 @@ const ENEMY_TYPES = {
         SIZE: 42,
         SPEED: 1.2,
         COLOR: "#4a235a",
-        SUMMON_COOLDOWN: 5000
+        SUMMON_COOLDOWN: 2000
 
     },
 
     skeleton: {
 
         SIZE: 32,
-        SPEED: 2.2,
+        SPEED: 3.2,
         COLOR: "#d5d8dc"
 
     },
@@ -286,7 +286,7 @@ const KING = {
 const HAZARD = {
 
     FIRE_RADIUS: 55,
-    FIRE_WARNING: 1000,
+    FIRE_WARNING: 600,
     BURN_RADIUS: 50,
     BURN_DURATION: 3000,
     BURN_TICK: 500
