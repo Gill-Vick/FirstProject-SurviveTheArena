@@ -16,7 +16,7 @@ class FireCast {
 
     update() {
 
-        this.timer -= 16;
+        this.timer -= Game.dt;
 
         if (this.timer <= 0 && !this.exploded) {
 
@@ -89,8 +89,8 @@ class BurningGround {
 
     update() {
 
-        this.life -= 16;
-        this.tickTimer -= 16;
+        this.life -= Game.dt;
+        this.tickTimer -= Game.dt;
 
         if (this.tickTimer <= 0) {
 

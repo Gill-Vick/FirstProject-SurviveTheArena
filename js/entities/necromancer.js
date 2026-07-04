@@ -30,7 +30,7 @@ class Necromancer extends Enemy {
 
         if (this.summonCooldown > 0) {
 
-            this.summonCooldown -= 16;
+            this.summonCooldown -= Game.dt;
 
             return;
 

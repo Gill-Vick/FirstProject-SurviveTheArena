@@ -39,13 +39,13 @@ class FireMage extends Enemy {
 
         if (distance < preferred - 30) {
 
-            this.x -= (dx / distance) * this.speed;
-            this.y -= (dy / distance) * this.speed;
+            this.x -= (dx / distance) * this.speed * Game.timeScale;
+            this.y -= (dy / distance) * this.speed * Game.timeScale;
 
         } else if (distance > preferred + 30) {
 
-            this.x += (dx / distance) * this.speed;
-            this.y += (dy / distance) * this.speed;
+            this.x += (dx / distance) * this.speed * Game.timeScale;
+            this.y += (dy / distance) * this.speed * Game.timeScale;
 
         }
 
@@ -55,7 +55,7 @@ class FireMage extends Enemy {
 
         if (this.castCooldown > 0) {
 
-            this.castCooldown -= 16;
+            this.castCooldown -= Game.dt;
 
             return;
 

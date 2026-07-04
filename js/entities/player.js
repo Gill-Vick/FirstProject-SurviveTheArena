@@ -57,7 +57,7 @@ class Player {
     updateInvuln() {
 
         if (this.invulnTimer > 0)
-            this.invulnTimer -= 16;
+            this.invulnTimer -= Game.dt;
 
     }
 
@@ -101,16 +101,16 @@ class Player {
     updateMovement() {
 
         if (keys["w"])
-            this.y -= this.speed;
+            this.y -= this.speed * Game.timeScale;
 
         if (keys["s"])
-            this.y += this.speed;
+            this.y += this.speed * Game.timeScale;
 
         if (keys["a"])
-            this.x -= this.speed;
+            this.x -= this.speed * Game.timeScale;
 
         if (keys["d"])
-            this.x += this.speed;
+            this.x += this.speed * Game.timeScale;
 
     }
 
@@ -145,7 +145,7 @@ class Player {
         for (let i = 0; i < slots; i++) {
 
             if (this.dashCooldowns[i] > 0)
-                this.dashCooldowns[i] -= 16;
+                this.dashCooldowns[i] -= Game.dt;
 
         }
 
@@ -194,7 +194,7 @@ class Player {
     updateBow() {
 
         if (this.bowCooldown > 0)
-            this.bowCooldown -= 16;
+            this.bowCooldown -= Game.dt;
 
     }
 
@@ -260,7 +260,7 @@ class Player {
         if (!this.swordSwing)
             return;
 
-        this.swordTimer--;
+        this.swordTimer -= Game.timeScale;
 
         this.swingProgress =
             1 - (this.swordTimer / SWORD.DURATION);

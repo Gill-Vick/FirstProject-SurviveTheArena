@@ -23,6 +23,12 @@ canvas.height = window.innerHeight;
 
 const Game = {
 
+    // Real elapsed ms since last frame, and that same
+    // duration expressed as "how many 60fps frames" -
+    // set once per loop in main.js. See main.js for why.
+    dt: 1000 / 60,
+    timeScale: 1,
+
     state: "menu",
 
     menuView: "main",
@@ -260,7 +266,9 @@ function draw() {
         const shakeX = (Math.random() - 0.5) * Game.screenShake;
         const shakeY = (Math.random() - 0.5) * Game.screenShake;
         ctx.translate(shakeX, shakeY);
-        Game.screenShake *= 0.9;
+        // Exponential decay via Math.pow so the shake dies
+        // out at the same real-world rate regardless of fps.
+        Game.screenShake *= Math.pow(0.9, Game.timeScale);
     }
 
     switch (Game.state) {

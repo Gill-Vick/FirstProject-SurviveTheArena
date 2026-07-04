@@ -201,12 +201,20 @@ const ENEMY_TYPES = {
         SPEED: 1.8,
         COLOR: "#566573",
         SHIELD_HITS: 2,
+
+        // Thrust attack (short poke)
         THRUST_COOLDOWN: 2000,
+        THRUST_WINDUP: 15,
         THRUST_DURATION: 18,
         THURST_RANGE: 160,
+        THRUST_WIDTH: 50,
         LANCE_LENGTH: 90,
+
+        // Dash attack (shield-broken lunge)
+        DASH_WINDUP: 20,
         DASH_SPEED: 9,
-        DASH_DURATION: 18
+        DASH_DURATION: 18,
+        DASH_WIDTH: 60
 
     }
 
@@ -348,6 +356,6 @@ const EFFECTS = {
 
     SHAKE_ON_DEATH: 20,
 
-    SHAKE_ON_KILL: 8
+    SHAKE_ON_KILL: 4
 
 };

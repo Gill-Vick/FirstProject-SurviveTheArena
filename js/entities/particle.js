@@ -27,10 +27,10 @@ class Particle {
 
     update() {
 
-        this.x += this.vx;
-        this.y += this.vy;
+        this.x += this.vx * Game.timeScale;
+        this.y += this.vy * Game.timeScale;
 
-        this.life--;
+        this.life -= Game.timeScale;
 
     }
 

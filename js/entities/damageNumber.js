@@ -37,9 +37,9 @@ class DamageNumber {
 
     update() {
 
-        this.y += this.vy;
+        this.y += this.vy * Game.timeScale;
 
-        this.life--;
+        this.life -= Game.timeScale;
 
     }
 

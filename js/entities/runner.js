@@ -56,7 +56,7 @@ class Runner extends Enemy {
 
     sprintTowardPlayer() {
 
-        this.chargeTimer--;
+        this.chargeTimer -= Game.timeScale;
 
         const dx = player.x - this.x;
         const dy = player.y - this.y;
@@ -68,12 +68,14 @@ class Runner extends Enemy {
             this.x +=
                 (dx / distance) *
                 this.speed *
-                ENEMY_TYPES.runner.CHARGE_MULTIPLIER;
+                ENEMY_TYPES.runner.CHARGE_MULTIPLIER *
+                Game.timeScale;
 
             this.y +=
                 (dy / distance) *
                 this.speed *
-                ENEMY_TYPES.runner.CHARGE_MULTIPLIER;
+                ENEMY_TYPES.runner.CHARGE_MULTIPLIER *
+                Game.timeScale;
 
         }
 
@@ -93,7 +95,7 @@ class Runner extends Enemy {
 
         if (this.chargeCooldown > 0) {
 
-            this.chargeCooldown--;
+            this.chargeCooldown -= Game.timeScale;
 
             return;
 

@@ -39,9 +39,9 @@ class Boss extends Enemy {
 
         // Dash movement
         if (this.dashing) {
-            this.x += this.dashDX;
-            this.y += this.dashDY;
-            this.dashTimer--;
+            this.x += this.dashDX * Game.timeScale;
+            this.y += this.dashDY * Game.timeScale;
+            this.dashTimer -= Game.timeScale;
     
             if (this.dashTimer <= 0)
                 this.dashing = false;
@@ -51,9 +51,9 @@ class Boss extends Enemy {
     
         // Charging dash
         if (this.dashCharge > 0) {
-            this.dashCharge--;
+            this.dashCharge -= Game.timeScale;
     
-            if (this.dashCharge === 0) {
+            if (this.dashCharge <= 0) {
                 const dx = player.x - this.x;
                 const dy = player.y - this.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
@@ -72,7 +72,7 @@ class Boss extends Enemy {
 
     attack() {
         if (this.attackCooldown > 0) {
-            this.attackCooldown--;
+            this.attackCooldown -= Game.timeScale;
             return;
         }
 

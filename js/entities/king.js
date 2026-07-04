@@ -85,14 +85,14 @@ class King extends Enemy {
     attack() {
 
         if (this.laserCooldown > 0)
-            this.laserCooldown -= 16;
+            this.laserCooldown -= Game.dt;
 
         if (this.slashCooldown > 0)
-            this.slashCooldown -= 16;
+            this.slashCooldown -= Game.dt;
 
         if (this.slashing) {
 
-            this.slashTimer--;
+            this.slashTimer -= Game.timeScale;
             this.slashProgress = 1 - (this.slashTimer / KING.SLASH_DURATION);
 
             if (player.swordSwing && this.checkParry())

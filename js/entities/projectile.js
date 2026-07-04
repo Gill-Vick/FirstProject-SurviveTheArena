@@ -25,10 +25,10 @@ class Projectile {
 
     update() {
 
-        this.x += Math.cos(this.angle) * this.speed;
-        this.y += Math.sin(this.angle) * this.speed;
+        this.x += Math.cos(this.angle) * this.speed * Game.timeScale;
+        this.y += Math.sin(this.angle) * this.speed * Game.timeScale;
 
-        this.life--;
+        this.life -= Game.timeScale;
 
         if (this.owner === "player")
             this.checkEnemyCollision();

@@ -57,13 +57,13 @@ class Spitter extends Enemy {
 
         if (distance < preferred - 20) {
 
-            this.x -= (dx / distance) * this.speed;
-            this.y -= (dy / distance) * this.speed;
+            this.x -= (dx / distance) * this.speed * Game.timeScale;
+            this.y -= (dy / distance) * this.speed * Game.timeScale;
 
         } else if (distance > preferred + 20) {
 
-            this.x += (dx / distance) * this.speed;
-            this.y += (dy / distance) * this.speed;
+            this.x += (dx / distance) * this.speed * Game.timeScale;
+            this.y += (dy / distance) * this.speed * Game.timeScale;
 
         }
 
@@ -77,7 +77,7 @@ class Spitter extends Enemy {
 
         if (this.shootCooldown > 0) {
 
-            this.shootCooldown--;
+            this.shootCooldown -= Game.timeScale;
 
             return;
 

@@ -28,11 +28,14 @@ class Enemy {
 
     update() {
 
-        this.x += this.knockbackX;
-        this.y += this.knockbackY;
+        this.x += this.knockbackX * Game.timeScale;
+        this.y += this.knockbackY * Game.timeScale;
 
-        this.knockbackX *= 0.82;
-        this.knockbackY *= 0.82;
+        // Exponential decay via Math.pow so knockback fades
+        // out at the same real-world rate at any frame rate.
+        const knockbackDecay = Math.pow(0.82, Game.timeScale);
+        this.knockbackX *= knockbackDecay;
+        this.knockbackY *= knockbackDecay;
 
         if (Math.abs(this.knockbackX) < 0.05)
             this.knockbackX = 0;
@@ -41,7 +44,7 @@ class Enemy {
             this.knockbackY = 0;
 
         if (this.flashTimer > 0)
-            this.flashTimer--;
+            this.flashTimer -= Game.timeScale;
 
         this.move();
 
@@ -64,8 +67,8 @@ class Enemy {
         if (distance === 0)
             return;
 
-        this.x += (dx / distance) * this.speed;
-        this.y += (dy / distance) * this.speed;
+        this.x += (dx / distance) * this.speed * Game.timeScale;
+        this.y += (dy / distance) * this.speed * Game.timeScale;
 
     }
 
