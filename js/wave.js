@@ -275,6 +275,12 @@ function updateWave() {
     if (Game.waveSpawning)
         return;
 
+    // A necromancer/king could still have summons queued up
+    // behind a red warning circle that haven't actually
+    // spawned into Game.enemies yet.
+    if (Game.spawnTelegraphs.length > 0)
+        return;
+
     if (Game.enemies.length > 0)
         return;
 

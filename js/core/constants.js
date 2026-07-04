@@ -310,7 +310,7 @@ const BOSS = {
 const KING = {
 
     SIZE: 130,
-    SPEED: 0.7,
+    SPEED: 1,
     COLOR: "#6a0dad",
     HP: 100,
 

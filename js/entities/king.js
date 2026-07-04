@@ -61,20 +61,38 @@ class King extends Enemy {
             { type: "lancer", x: cx - 120, y: cy - 80, elite: true },
             { type: "lancer", x: cx + 120, y: cy - 80, elite: true },
             { type: "fireMage", x: cx - 100, y: cy + 60, elite: true },
-            { type: "necromancer", x: cx + 100, y: cy + 60, elite: true }
+            { type: "fireMage", x: cx - 220, y: cy + 10, elite: true },
+            { type: "fireMage", x: cx + 220, y: cy + 10, elite: true },
+            { type: "necromancer", x: cx + 100, y: cy + 60, elite: true },
+            { type: "necromancer", x: cx, y: cy + 150, elite: true }
         ];
 
         spawns.forEach(s => {
 
-            const EnemyClass = ENEMY_CLASSES[s.type];
-            const enemy = new EnemyClass(s.x, s.y);
+            const size = getEnemySize(s.type);
 
-            if (s.elite)
-                makeElite(enemy);
+            Game.spawnTelegraphs.push(new SpawnWarning(
 
-            Game.enemies.push(enemy);
+                s.x + size / 2,
+                s.y + size / 2,
+                size / 2 + 14,
+                500,
 
-            Game.enemiesRemaining++;
+                () => {
+
+                    const EnemyClass = ENEMY_CLASSES[s.type];
+                    const enemy = new EnemyClass(s.x, s.y);
+
+                    if (s.elite)
+                        makeElite(enemy);
+
+                    Game.enemies.push(enemy);
+
+                    Game.enemiesRemaining++;
+
+                }
+
+            ));
 
         });
 

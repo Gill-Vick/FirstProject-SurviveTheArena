@@ -48,11 +48,28 @@ class Necromancer extends Enemy {
 
         offsets.forEach(offset => {
 
-            const sk = new Skeleton(this.x + offset, this.y);
+            const sx = this.x + offset;
+            const sy = this.y;
+            const size = ENEMY_TYPES.skeleton.SIZE;
 
-            Game.enemies.push(sk);
+            Game.spawnTelegraphs.push(new SpawnWarning(
 
-            Game.enemiesRemaining++;
+                sx + size / 2,
+                sy + size / 2,
+                size / 2 + 12,
+                500,
+
+                () => {
+
+                    const sk = new Skeleton(sx, sy);
+
+                    Game.enemies.push(sk);
+
+                    Game.enemiesRemaining++;
+
+                }
+
+            ));
 
         });
 

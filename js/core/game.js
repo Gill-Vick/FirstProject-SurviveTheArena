@@ -70,9 +70,80 @@ const Game = {
 
     hazards: [],
 
+    // Red warning circles shown 0.5s before a summoned enemy
+    // (necromancer skeletons, king reinforcements) actually
+    // appears - see SpawnWarning below.
+    spawnTelegraphs: [],
+
     screenShake: 0
 
 };
+
+// =====================================
+// Spawn Warning
+// =====================================
+//
+// A pulsing red circle that sits at a future spawn point for
+// `delay` ms, then calls onSpawn() once and removes itself.
+// Used so summoned enemies (necromancer skeletons, king
+// reinforcements) can't just appear directly on top of the
+// player with no way to react.
+
+class SpawnWarning {
+
+    constructor(x, y, radius, delay, onSpawn) {
+
+        this.x = x;
+        this.y = y;
+        this.radius = radius;
+        this.timer = delay;
+        this.onSpawn = onSpawn;
+        this.triggered = false;
+
+    }
+
+    update() {
+
+        if (this.triggered)
+            return;
+
+        this.timer -= Game.dt;
+
+        if (this.timer <= 0) {
+
+            this.triggered = true;
+            this.onSpawn();
+
+        }
+
+    }
+
+    isDead() {
+
+        return this.triggered;
+
+    }
+
+    draw() {
+
+        const pulse = 0.4 + Math.sin(Date.now() / 60) * 0.2;
+
+        ctx.save();
+
+        ctx.strokeStyle = `rgba(255, 30, 30, ${pulse + 0.25})`;
+        ctx.fillStyle = `rgba(255, 30, 30, ${pulse * 0.35})`;
+        ctx.lineWidth = 3;
+
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.restore();
+
+    }
+
+}
 
 // The player is created fresh each run inside
 // startGame(). It doesn't exist yet on page load.
@@ -110,6 +181,8 @@ function startGame() {
     Game.damageNumbers = [];
 
     Game.hazards = [];
+
+    Game.spawnTelegraphs = [];
 
     player = new Player();
 
@@ -158,6 +231,8 @@ function resetGame() {
 
     Game.hazards = [];
 
+    Game.spawnTelegraphs = [];
+
 }
 
 function getWaveSpeedMultiplier() {
@@ -190,6 +265,8 @@ function update() {
     Game.damageNumbers.forEach(number => number.update());
 
     Game.hazards.forEach(hazard => hazard.update());
+
+    Game.spawnTelegraphs.forEach(telegraph => telegraph.update());
 
     cleanupEntities();
 
@@ -227,6 +304,11 @@ function cleanupEntities() {
     Game.hazards =
         Game.hazards.filter(
             hazard => !hazard.isDead()
+        );
+
+    Game.spawnTelegraphs =
+        Game.spawnTelegraphs.filter(
+            telegraph => !telegraph.isDead()
         );
 
 }
@@ -289,6 +371,8 @@ function draw() {
             drawLightingSystem();
 
             Game.hazards.forEach(hazard => hazard.draw());
+
+            Game.spawnTelegraphs.forEach(telegraph => telegraph.draw());
 
             player.draw();
             Game.enemies.forEach(enemy => enemy.draw());
