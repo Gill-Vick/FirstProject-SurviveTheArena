@@ -61,7 +61,7 @@ class Player {
 
     }
 
-    takeHit() {
+    takeHit(source = "an unknown enemy") {
 
         if (this.invulnTimer > 0)
             return false;
@@ -81,6 +81,8 @@ class Player {
         Game.screenShake = EFFECTS.SHAKE_ON_DEATH;
 
         Game.state = "gameover";
+
+        Game.killedBy = source;
 
         return true;
 
@@ -333,7 +335,7 @@ class Player {
 
             // Check if the sword arc overlaps our target angle
             if (angleDifference < 0.5) {
-                const critical = Math.random() < 0.05;
+                const critical = Math.random() < Save.getCritChance();
                 const base = this.getSwordDamage();
                 const damage = critical ? base * 2 : base;
 

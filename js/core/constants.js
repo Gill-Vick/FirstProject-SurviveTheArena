@@ -98,7 +98,25 @@ const SHOP_ITEMS = {
         name: "Hermes Shoes",
         desc: "Second dash charge",
         requiresFirstBoss: true
+    },
+
+    critRate: {
+        price: 100,
+        name: "Critical Training",
+        desc: "Permanently +1% crit chance",
+        repeatable: true
     }
+
+};
+
+// =====================================
+// Critical Hits
+// =====================================
+
+const CRIT = {
+
+    BASE: 0.05,
+    PER_UPGRADE: 0.01
 
 };
 
@@ -217,6 +235,28 @@ const ENEMY_TYPES = {
         DASH_WIDTH: 60
 
     }
+
+};
+
+// =====================================
+// Enemy Display Labels
+// =====================================
+//
+// Used for the "You were slain by ___"
+// game over message.
+
+const ENEMY_LABELS = {
+
+    grunt: "a Grunt",
+    tank: "a Tank",
+    spitter: "a Spitter",
+    runner: "a Runner",
+    boss: "the Boss",
+    fireMage: "a Fire Mage",
+    necromancer: "a Necromancer",
+    skeleton: "a Skeleton",
+    lancer: "a Lancer",
+    king: "the King"
 
 };
 

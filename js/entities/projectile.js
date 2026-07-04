@@ -20,6 +20,7 @@ class Projectile {
 
         this.owner = options.owner ?? "enemy";
         this.isLaser = options.isLaser ?? false;
+        this.sourceType = options.sourceType ?? null;
 
     }
 
@@ -69,7 +70,10 @@ class Projectile {
 
         if (distance < this.size + player.size / 2) {
 
-            if (player.takeHit())
+            const label =
+                ENEMY_LABELS[this.sourceType] ?? "an enemy projectile";
+
+            if (player.takeHit(label))
                 this.life = 0;
             else
                 this.life = 0;

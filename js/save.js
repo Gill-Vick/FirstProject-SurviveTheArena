@@ -10,6 +10,8 @@ const Save = {
 
     firstBossKilled: false,
 
+    critRateLevel: 0,
+
     inventory: {
         shield: false,
         bow: false,
@@ -30,6 +32,7 @@ const Save = {
 
             this.coins = data.coins ?? 0;
             this.firstBossKilled = !!data.firstBossKilled;
+            this.critRateLevel = data.critRateLevel ?? 0;
 
             this.inventory.shield = !!data.inventory?.shield;
             this.inventory.bow = !!data.inventory?.bow;
@@ -46,6 +49,7 @@ const Save = {
 
             coins: this.coins,
             firstBossKilled: this.firstBossKilled,
+            critRateLevel: this.critRateLevel,
             inventory: { ...this.inventory }
 
         }));
@@ -78,6 +82,11 @@ const Save = {
         if (!item)
             return false;
 
+        // Repeatable items (currently just critRate) have no
+        // "owned" state to block against - only affordability.
+        if (item.repeatable)
+            return this.canAfford(item.price);
+
         if (this.owns(itemId))
             return false;
 
@@ -96,10 +105,21 @@ const Save = {
         const item = SHOP_ITEMS[itemId];
 
         this.coins -= item.price;
-        this.inventory[itemId] = true;
+
+        if (item.repeatable)
+            this.critRateLevel++;
+        else
+            this.inventory[itemId] = true;
+
         this.persist();
 
         return true;
+
+    },
+
+    getCritChance() {
+
+        return CRIT.BASE + this.critRateLevel * CRIT.PER_UPGRADE;
 
     },
 

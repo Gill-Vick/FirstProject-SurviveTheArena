@@ -36,7 +36,7 @@ class FireCast {
         const dy = py - this.y;
 
         if (Math.sqrt(dx * dx + dy * dy) < this.radius)
-            player.takeHit();
+            player.takeHit(ENEMY_LABELS.fireMage);
 
         Game.hazards.push(new BurningGround(this.x, this.y));
 
@@ -102,7 +102,7 @@ class BurningGround {
             const dy = py - this.y;
 
             if (Math.sqrt(dx * dx + dy * dy) < this.radius)
-                player.takeHit();
+                player.takeHit(ENEMY_LABELS.fireMage);
 
         }
 

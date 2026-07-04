@@ -33,9 +33,9 @@ const Game = {
 
     menuView: "main",
 
-    score: 0,
-
-    startTime: 0,
+    // Who/what killed the player, shown on the game over
+    // screen (e.g. "a Grunt", "the King").
+    killedBy: null,
 
     wave: 1,
 
@@ -78,9 +78,7 @@ function startGame() {
 
     Game.state = "playing";
 
-    Game.score = 0;
-
-    Game.startTime = Date.now();
+    Game.killedBy = null;
 
     Game.wave = 1;
 
@@ -131,8 +129,6 @@ function resetGame() {
 
     Game.menuView = "main";
 
-    Game.score = 0;
-
     Game.wave = 1;
 
     Game.waveActive = false;
@@ -165,10 +161,6 @@ function update() {
 
     if (Game.state !== "playing")
         return;
-
-    Game.score = (
-        (Date.now() - Game.startTime) / 1000
-    ).toFixed(1);
 
     Game.enemySpeedMultiplier = getWaveSpeedMultiplier();
 

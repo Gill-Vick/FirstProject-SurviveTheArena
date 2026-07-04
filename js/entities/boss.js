@@ -95,7 +95,8 @@ class Boss extends Enemy {
                     speed: BOSS.PROJECTILE_SPEED,
                     color: BOSS.PROJECTILE_COLOR,
                     size: 8,
-                    life: 120
+                    life: 120,
+                    sourceType: "boss"
                 }
             ));
         }

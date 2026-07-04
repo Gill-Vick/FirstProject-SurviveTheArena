@@ -86,7 +86,7 @@ class Enemy {
 
         ) {
 
-            player.takeHit();
+            player.takeHit(ENEMY_LABELS[this.type] ?? "an enemy");
 
         }
 

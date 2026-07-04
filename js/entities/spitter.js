@@ -115,7 +115,8 @@ class Spitter extends Enemy {
                 color: ENEMY_TYPES.spitter.PROJECTILE_COLOR,
 
                 size: 6,
-                life: 150
+                life: 150,
+                sourceType: "spitter"
 
             }
 

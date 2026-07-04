@@ -144,12 +144,7 @@ function startKingWave() {
         if (Game.state !== "playing")
             return;
 
-        const king = new King(
-            canvas.width / 2 - KING.SIZE / 2,
-            canvas.height / 2 - KING.SIZE / 2
-        );
-
-        Game.enemies.push(king);
+        spawnEnemy("king");
 
     }, 600);
 

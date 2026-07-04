@@ -128,7 +128,8 @@ class King extends Enemy {
                     size: 8,
                     color: KING.LASER_COLOR,
                     life: 90,
-                    isLaser: true
+                    isLaser: true,
+                    sourceType: "king"
                 }
 
             ));
@@ -240,7 +241,7 @@ class King extends Enemy {
             diff = Math.PI * 2 - diff;
 
         if (diff < 0.5)
-            player.takeHit();
+            player.takeHit(ENEMY_LABELS.king);
 
     }
 

@@ -299,7 +299,7 @@ class Lancer extends Enemy {
 
         ) {
 
-            player.takeHit();
+            player.takeHit(ENEMY_LABELS.lancer);
             this.hitThisAttack = true;
 
         }

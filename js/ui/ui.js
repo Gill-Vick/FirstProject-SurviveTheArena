@@ -125,14 +125,14 @@ function drawShop() {
 
     drawButton(shopBackButton, "BACK", "#555", "white");
 
-    const ids = ["shield", "bow", "wetStone", "hermesShoes"];
+    const ids = ["shield", "bow", "wetStone", "hermesShoes", "critRate"];
 
     ids.forEach((id, i) => {
 
         const item = SHOP_ITEMS[id];
         const rowY = SHOP_ROW_START + i * SHOP_ROW_HEIGHT;
         const buyBtn = getShopBuyButton(i);
-        const owned = Save.owns(id);
+        const owned = !item.repeatable && Save.owns(id);
         const locked = item.requiresFirstBoss && !Save.firstBossKilled;
         const canBuy = Save.canPurchase(id);
 
@@ -151,6 +151,16 @@ function drawShop() {
         ctx.fillStyle = "gold";
         ctx.font = "20px Arial";
         ctx.fillText(`${item.price} coins`, 70, rowY + 64);
+
+        if (item.repeatable) {
+
+            const currentRate = Math.round(Save.getCritChance() * 100);
+
+            ctx.fillStyle = "#4da6ff";
+            ctx.font = "16px Arial";
+            ctx.fillText(`Current Crit Rate: ${currentRate}%`, 70, rowY + 80);
+
+        }
 
         if (owned) {
 
@@ -186,7 +196,7 @@ function handleMenuClick(x, y) {
             return;
         }
 
-        const ids = ["shield", "bow", "wetStone", "hermesShoes"];
+        const ids = ["shield", "bow", "wetStone", "hermesShoes", "critRate"];
 
         ids.forEach((id, i) => {
 
@@ -217,9 +227,7 @@ function drawHUD() {
     ctx.font = "bold 30px Arial";
     ctx.textAlign = "left";
 
-    ctx.fillText(`Time: ${Game.score}`, 20, 40);
-    ctx.fillText(`Wave: ${Game.wave}`, 20, 80);
-    ctx.fillText(`Enemies: ${Game.enemiesRemaining}`, 20, 120);
+    ctx.fillText(`Wave: ${Game.wave}`, 20, 40);
 
     const dash1 = player.dashCooldowns[0] <= 0 ? "READY" : "CD";
     const dash2 = Save.inventory.hermesShoes
@@ -231,17 +239,17 @@ function drawHUD() {
             ? `Dash: ${dash1} | ${dash2}`
             : `Dash: ${dash1}`,
         20,
-        160
+        80
     );
 
-    drawCoinDisplay(20, 200, 26);
+    drawCoinDisplay(20, 120, 26);
 
     if (Save.inventory.bow) {
 
         ctx.fillText(
             `Bow: ${player.bowCooldown <= 0 ? "READY [E]" : "COOLDOWN"}`,
             20,
-            240
+            160
         );
 
     }
@@ -252,7 +260,7 @@ function drawHUD() {
         ctx.fillText(
             `Shield: ${player.shieldActive ? "ACTIVE" : "USED"}`,
             20,
-            Save.inventory.bow ? 280 : 240
+            Save.inventory.bow ? 200 : 160
         );
 
     }
@@ -300,7 +308,7 @@ function drawGameOver() {
 
     ctx.font = "40px Arial";
     ctx.fillText(
-        `Survived: ${Game.score} Seconds`,
+        `You were slain by ${Game.killedBy ?? "an unknown enemy"}`,
         canvas.width / 2,
         300
     );
