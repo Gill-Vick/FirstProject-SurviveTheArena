@@ -19,6 +19,7 @@ class Projectile {
         this.life = options.life ?? 90;
 
         this.owner = options.owner ?? "enemy";
+        this.isLaser = options.isLaser ?? false;
 
     }
 
@@ -144,6 +145,26 @@ class Projectile {
 
             ctx.restore();
 
+            return;
+
+        }
+
+        if (this.isLaser) {
+
+            ctx.save();
+            ctx.strokeStyle = this.color;
+            ctx.lineWidth = this.size;
+            ctx.shadowBlur = 18;
+            ctx.shadowColor = this.color;
+            ctx.globalAlpha = 0.85;
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y);
+            ctx.lineTo(
+                this.x + Math.cos(this.angle) * 40,
+                this.y + Math.sin(this.angle) * 40
+            );
+            ctx.stroke();
+            ctx.restore();
             return;
 
         }

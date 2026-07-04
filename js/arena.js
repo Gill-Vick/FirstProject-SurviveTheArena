@@ -4,12 +4,33 @@
 
 const Arena = {
 
+    theme: "coliseum",
+
     pillars: [],
-    torches: []
+    torches: [],
+    thorns: []
 
 };
 
+function updateArenaForWave() {
+
+    if (Game.wave >= WAVES.SET2_START && Arena.theme !== "thorn") {
+
+        Arena.theme = "thorn";
+        generateThornRoom();
+
+    }
+
+}
+
 function generateArena() {
+
+    Arena.theme = "coliseum";
+    generateColiseum();
+
+}
+
+function generateColiseum() {
     Arena.pillars = [];
     Arena.torches = [];
 
@@ -58,6 +79,93 @@ function generateArena() {
     });
 }
 
+function generateThornRoom() {
+
+    Arena.pillars = [];
+    Arena.torches = [];
+    Arena.thorns = [];
+
+    const margin = canvas.width * 0.04;
+
+    for (let i = 0; i < 14; i++) {
+
+        const side = i % 4;
+        let x, y;
+
+        if (side === 0) {
+            x = margin + Math.random() * (canvas.width - margin * 2);
+            y = margin;
+        } else if (side === 1) {
+            x = canvas.width - margin;
+            y = margin + Math.random() * (canvas.height - margin * 2);
+        } else if (side === 2) {
+            x = margin + Math.random() * (canvas.width - margin * 2);
+            y = canvas.height - margin;
+        } else {
+            x = margin;
+            y = margin + Math.random() * (canvas.height - margin * 2);
+        }
+
+        Arena.thorns.push({
+            x, y,
+            size: 20 + Math.random() * 30,
+            rot: Math.random() * Math.PI
+        });
+
+    }
+
+    const leftX = canvas.width * 0.08;
+    const rightX = canvas.width * 0.92;
+
+    [leftX, rightX].forEach(x => {
+
+        Arena.pillars.push({
+            x,
+            y: canvas.height * 0.55,
+            width: 80
+        });
+
+    });
+
+}
+
+function drawArenaFloor() {
+
+    if (Arena.theme === "thorn") {
+
+        ctx.fillStyle = "#1a1218";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        Arena.thorns.forEach(t => {
+
+            ctx.save();
+            ctx.translate(t.x, t.y);
+            ctx.rotate(t.rot);
+            ctx.strokeStyle = "#1a3015";
+            ctx.lineWidth = 2;
+
+            for (let i = -2; i <= 2; i++) {
+
+                ctx.beginPath();
+                ctx.moveTo(i * 6, 0);
+                ctx.lineTo(i * 3, -t.size);
+                ctx.stroke();
+
+            }
+
+            ctx.restore();
+
+        });
+
+        return;
+
+    }
+
+    ctx.fillStyle = "#2b2927";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+}
+
 // =====================================
 // Light Source
 // =====================================
@@ -93,7 +201,26 @@ function drawLightingSystem() {
 
     ctx.save();
 
-    // ---- 1. Directional shadow: only the LEFT side
+    if (Arena.theme === "thorn") {
+
+        let vignette = ctx.createRadialGradient(
+            canvas.width / 2, canvas.height / 2, canvas.width * 0.15,
+            canvas.width / 2, canvas.height / 2, canvas.width * 0.75
+        );
+        vignette.addColorStop(0, "rgba(60, 20, 40, 0.15)");
+        vignette.addColorStop(1, "rgba(10, 5, 15, 0.55)");
+        ctx.fillStyle = vignette;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = "rgba(120, 30, 60, 0.12)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.restore();
+        return;
+
+    }
+
+    // ---- coliseum lighting ----
     // dims, and only partially. Fully clear by ~55%
     // across so most of the arena stays bright. ----
 
@@ -167,6 +294,9 @@ function drawLightingSystem() {
 // actually being there.
 
 function drawPillarShadows() {
+
+    if (Arena.theme === "thorn")
+        return;
 
     const light = getLightSource();
 
@@ -254,6 +384,41 @@ function drawPillarShadows() {
 // =====================================
 
 function drawPillars() {
+
+    if (Arena.theme === "thorn") {
+
+        Arena.pillars.forEach(p => {
+
+            ctx.save();
+
+            let grad = ctx.createLinearGradient(p.x - p.width / 2, 0, p.x + p.width / 2, 0);
+            grad.addColorStop(0, "#3d2b35");
+            grad.addColorStop(0.5, "#5c3d4a");
+            grad.addColorStop(1, "#2a1a22");
+
+            ctx.fillStyle = grad;
+            ctx.fillRect(p.x - p.width / 2, 0, p.width, p.y + 40);
+
+            ctx.strokeStyle = "#4a6741";
+            ctx.lineWidth = 2;
+
+            for (let i = 0; i < 5; i++) {
+
+                ctx.beginPath();
+                ctx.moveTo(p.x - p.width / 2 + i * 16, 0);
+                ctx.lineTo(p.x - p.width / 2 + i * 16 + 8, p.y);
+                ctx.stroke();
+
+            }
+
+            ctx.restore();
+
+        });
+
+        return;
+
+    }
+
     Arena.pillars.forEach(p => {
         ctx.save();
 
@@ -287,6 +452,9 @@ function drawPillars() {
 // =====================================
 
 function drawTorches() {
+
+    if (Arena.theme === "thorn")
+        return;
 
     const flicker = Math.sin(Date.now() / 80) * 2;
 

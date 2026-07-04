@@ -22,9 +22,7 @@ class Player {
 
         // Dash
 
-        this.dashCooldown = 0;
-
-        // Shield (per run, refilled if owned)
+        this.dashCooldowns = [0, 0];
 
         this.shieldActive = Save.inventory.shield;
 
@@ -142,36 +140,50 @@ class Player {
 
     updateDash() {
 
-        if (this.dashCooldown > 0)
-            this.dashCooldown -= 16;
+        const slots = Save.inventory.hermesShoes ? 2 : 1;
+
+        for (let i = 0; i < slots; i++) {
+
+            if (this.dashCooldowns[i] > 0)
+                this.dashCooldowns[i] -= 16;
+
+        }
 
     }
 
     dash() {
 
-        if (this.dashCooldown > 0)
+        const slots = Save.inventory.hermesShoes ? 2 : 1;
+
+        for (let i = 0; i < slots; i++) {
+
+            if (this.dashCooldowns[i] > 0)
+                continue;
+
+            let dx = 0;
+            let dy = 0;
+
+            if (keys["w"]) dy = -1;
+            if (keys["s"]) dy = 1;
+            if (keys["a"]) dx = -1;
+            if (keys["d"]) dx = 1;
+
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance === 0)
+                return;
+
+            dx /= distance;
+            dy /= distance;
+
+            this.x += dx * DASH.DISTANCE;
+            this.y += dy * DASH.DISTANCE;
+
+            this.dashCooldowns[i] = DASH.COOLDOWN;
+
             return;
 
-        let dx = 0;
-        let dy = 0;
-
-        if (keys["w"]) dy = -1;
-        if (keys["s"]) dy = 1;
-        if (keys["a"]) dx = -1;
-        if (keys["d"]) dx = 1;
-
-        const distance = Math.sqrt(dx * dx + dy * dy);
-
-        if (distance === 0)
-            return;
-
-        dx /= distance;
-        dy /= distance;
-
-        this.x += dx * DASH.DISTANCE;
-        this.y += dy * DASH.DISTANCE;
-
-        this.dashCooldown = DASH.COOLDOWN;
+        }
 
     }
 
@@ -273,6 +285,17 @@ class Player {
         Game.enemies.forEach(enemy => {
             if (enemy.hitThisSwing)
                 return;
+
+            if (enemy.type === "king" && enemy.slashing && !enemy.slashParried) {
+
+                if (enemy.checkParry()) {
+
+                    enemy.triggerParry();
+                    return;
+
+                }
+
+            }
 
             // Player Center
             const playerCenterX = this.x + this.size / 2;

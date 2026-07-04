@@ -1,42 +1,57 @@
 // =====================================
-// Enemy Registry
+// Wave Manager
 // =====================================
-//
-// Adding a future enemy is:
-//
-//   1. Create entities/<name>.js
-//   2. Add <name>: <ClassName> below
-//   3. Add a <script> tag in index.html
-//
-// No other file needs to change.
 
 const ENEMY_CLASSES = {
 
     grunt: Grunt,
-
     tank: Tank,
-
     spitter: Spitter,
-
     runner: Runner,
-
-    boss: Boss
+    boss: Boss,
+    fireMage: FireMage,
+    necromancer: Necromancer,
+    skeleton: Skeleton,
+    lancer: Lancer,
+    king: King
 
 };
 
-// =====================================
-// Wave Manager
-// =====================================
+const SPAWN_GAP = {
+
+    grunt: 400,
+    tank: 700,
+    spitter: 600,
+    runner: 500,
+    boss: 500,
+    fireMage: 650,
+    necromancer: 800,
+    lancer: 550,
+    king: 500
+
+};
+
+const NO_ELITE = new Set([
+    "boss", "king", "skeleton"
+]);
 
 function startWave() {
 
     Game.waveActive = true;
-
     Game.waveTransition = false;
-
     Game.waveMessageTimer = 120;
 
-    if (Game.wave % WAVES.BOSS_EVERY === 0) {
+    updateArenaForWave();
+
+    if (Game.wave === WAVES.KING_WAVE) {
+
+        startKingWave();
+
+        return;
+
+    }
+
+    if (Game.wave === WAVES.BOSS_WAVE) {
 
         startBossWave();
 
@@ -48,82 +63,97 @@ function startWave() {
 
 }
 
-// =====================================
-// Normal Wave
-// =====================================
+function getSet1Counts() {
+
+    const w = Game.wave;
+    const scale =
+        w > WAVES.SET1_END ? WAVES.SET1_SCALE_AFTER : 1;
+
+    const gruntCount = Math.max(
+        1,
+        Math.floor(
+            (WAVES.START_GRUNTS + w * WAVES.GRUNTS_PER_WAVE) * scale
+        )
+    );
+
+    const tankCount = Math.floor(
+        (Math.floor(w / WAVES.TANK_EVERY)) * scale
+    );
+
+    const spitterCount = Math.floor(
+        (w >= WAVES.SPITTER_UNLOCK_WAVE
+            ? Math.floor(w / WAVES.SPITTER_EVERY)
+            : 0) * scale
+    );
+
+    const runnerCount =
+        w >= WAVES.RUNNER_UNLOCK_WAVE
+            ? Math.floor(w / WAVES.RUNNER_EVERY)
+            : 0;
+
+    return { grunt: gruntCount, tank: tankCount, spitter: spitterCount, runner: runnerCount };
+
+}
+
+function getSet2Counts() {
+
+    if (Game.wave < WAVES.SET2_START)
+        return { fireMage: 0, necromancer: 0, lancer: 0 };
+
+    const tier = Game.wave - WAVES.SET2_START + 1;
+
+    return {
+        fireMage: 1 + tier,
+        necromancer: Math.max(1, Math.floor(tier / 2)),
+        lancer: 1 + Math.floor(tier * 0.8)
+    };
+
+}
 
 function startNormalWave() {
 
-    const gruntCount =
-        WAVES.START_GRUNTS +
-        Game.wave * WAVES.GRUNTS_PER_WAVE;
+    const set1 = getSet1Counts();
+    const set2 = getSet2Counts();
 
-    const tankCount =
-        Math.floor(Game.wave / WAVES.TANK_EVERY);
+    const counts = { ...set1, ...set2 };
 
-    const spitterCount =
-        Game.wave >= WAVES.SPITTER_UNLOCK_WAVE
-            ? Math.floor(Game.wave / WAVES.SPITTER_EVERY)
-            : 0;
+    Game.enemiesRemaining = Object.values(counts)
+        .reduce((a, b) => a + b, 0);
 
-    const runnerCount =
-        Game.wave >= WAVES.RUNNER_UNLOCK_WAVE
-            ? Math.floor(Game.wave / WAVES.RUNNER_EVERY)
-            : 0;
-
-    Game.enemiesRemaining =
-        gruntCount +
-        tankCount +
-        spitterCount +
-        runnerCount;
-
-    spawnWaveEnemies({
-
-        grunt: gruntCount,
-        tank: tankCount,
-        spitter: spitterCount,
-        runner: runnerCount
-
-    });
+    spawnWaveEnemies(counts);
 
 }
-
-// =====================================
-// Boss Wave
-// =====================================
 
 function startBossWave() {
 
-    Game.enemiesRemaining =
-        1 + WAVES.BOSS_ESCORT_GRUNTS;
+    Game.enemiesRemaining = 1 + WAVES.BOSS_ESCORT_GRUNTS;
 
     spawnWaveEnemies({
-
         boss: 1,
         grunt: WAVES.BOSS_ESCORT_GRUNTS
-
     });
 
 }
 
-// =====================================
-// Spawn Wave
-// =====================================
-//
-// Takes a { type: count } map and staggers
-// spawns so the arena doesn't fill instantly.
-// Each type gets its own gap between spawns,
-// and groups are queued one after another.
+function startKingWave() {
 
-const SPAWN_GAP = {
+    Game.enemiesRemaining = 1;
 
-    grunt: 400,
-    tank: 700,
-    spitter: 600,
-    runner: 500,
-    boss: 500
+    setTimeout(() => {
 
-};
+        if (Game.state !== "playing")
+            return;
+
+        const king = new King(
+            canvas.width / 2 - KING.SIZE / 2,
+            canvas.height / 2 - KING.SIZE / 2
+        );
+
+        Game.enemies.push(king);
+
+    }, 600);
+
+}
 
 function spawnWaveEnemies(counts) {
 
@@ -133,6 +163,9 @@ function spawnWaveEnemies(counts) {
 
         const count = counts[type];
 
+        if (!count)
+            return;
+
         const gap = SPAWN_GAP[type] || 400;
 
         for (let i = 0; i < count; i++) {
@@ -141,11 +174,8 @@ function spawnWaveEnemies(counts) {
 
             setTimeout(() => {
 
-                if (Game.state === "playing") {
-
+                if (Game.state === "playing")
                     spawnEnemy(type);
-
-                }
 
             }, spawnTime);
 
@@ -157,64 +187,56 @@ function spawnWaveEnemies(counts) {
 
 }
 
-// =====================================
-// Spawn Enemy
-// =====================================
+function getEnemySize(type) {
+
+    if (type === "boss")
+        return BOSS.SIZE;
+
+    if (type === "king")
+        return KING.SIZE;
+
+    return ENEMY_TYPES[type]?.SIZE ?? 40;
+
+}
 
 function spawnEnemy(type = "grunt") {
 
-    const size =
-        type === "boss"
-            ? BOSS.SIZE
-            : ENEMY_TYPES[type].SIZE;
+    const size = getEnemySize(type);
 
     let x;
     let y;
 
-    const side =
-        Math.floor(Math.random() * 4);
+    const side = Math.floor(Math.random() * 4);
 
     switch (side) {
 
         case 0:
-
             x = Math.random() * canvas.width;
             y = -size;
-
             break;
 
         case 1:
-
             x = Math.random() * canvas.width;
             y = canvas.height + size;
-
             break;
 
         case 2:
-
             x = -size;
             y = Math.random() * canvas.height;
-
             break;
 
         default:
-
             x = canvas.width + size;
             y = Math.random() * canvas.height;
 
     }
 
-    const EnemyClass =
-        ENEMY_CLASSES[type] || Grunt;
-
+    const EnemyClass = ENEMY_CLASSES[type] || Grunt;
     const enemy = new EnemyClass(x, y);
-
-    // Bosses are already special - only regular
-    // enemies can roll as elite.
 
     if (
 
-        type !== "boss" &&
+        !NO_ELITE.has(type) &&
         Game.wave >= ELITE.UNLOCK_WAVE &&
         Math.random() < ELITE.CHANCE
 
@@ -228,10 +250,6 @@ function spawnEnemy(type = "grunt") {
 
 }
 
-// =====================================
-// Update Wave
-// =====================================
-
 function updateWave() {
 
     if (!Game.waveActive)
@@ -244,7 +262,6 @@ function updateWave() {
         return;
 
     Game.waveTransition = true;
-
     Game.waveActive = false;
 
     setTimeout(() => {

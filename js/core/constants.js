@@ -61,7 +61,12 @@ const COINS = {
     tank: 2,
     spitter: 2,
     runner: 3,
-    boss: 20
+    boss: 20,
+    fireMage: 3,
+    necromancer: 4,
+    skeleton: 1,
+    lancer: 3,
+    king: 50
 };
 
 // =====================================
@@ -86,6 +91,13 @@ const SHOP_ITEMS = {
         price: 200,
         name: "Wet Stone",
         desc: "Sword deals 2 damage"
+    },
+
+    hermesShoes: {
+        price: 500,
+        name: "Hermes Shoes",
+        desc: "Second dash charge",
+        requiresFirstBoss: true
     }
 
 };
@@ -154,6 +166,48 @@ const ENEMY_TYPES = {
         CHARGE_DURATION: 40,
         CHARGE_MULTIPLIER: 3
 
+    },
+
+    fireMage: {
+
+        SIZE: 38,
+        SPEED: 1.4,
+        COLOR: "#c0392b",
+        PREFERRED_RANGE: 280,
+        CAST_COOLDOWN: 2200
+
+    },
+
+    necromancer: {
+
+        SIZE: 42,
+        SPEED: 1.2,
+        COLOR: "#4a235a",
+        SUMMON_COOLDOWN: 5000
+
+    },
+
+    skeleton: {
+
+        SIZE: 32,
+        SPEED: 2.2,
+        COLOR: "#d5d8dc"
+
+    },
+
+    lancer: {
+
+        SIZE: 44,
+        SPEED: 1.8,
+        COLOR: "#566573",
+        SHIELD_HITS: 2,
+        THRUST_COOLDOWN: 2000,
+        THRUST_DURATION: 18,
+        THURST_RANGE: 160,
+        LANCE_LENGTH: 90,
+        DASH_SPEED: 9,
+        DASH_DURATION: 18
+
     }
 
 };
@@ -202,13 +256,56 @@ const BOSS = {
 };
 
 // =====================================
+// King (Wave 10 Boss)
+// =====================================
+
+const KING = {
+
+    SIZE: 130,
+    SPEED: 0.7,
+    COLOR: "#6a0dad",
+    HP: 100,
+
+    SUMMON_THRESHOLD: 50,
+
+    LASER_COOLDOWN: 3000,
+    LASER_SPEED: 16,
+    LASER_COLOR: "#00bfff",
+
+    SLASH_COOLDOWN: 5000,
+    SLASH_DURATION: 20,
+    SLASH_ARC: Math.PI * 0.9,
+    SLASH_LENGTH: 120
+
+};
+
+// =====================================
+// Hazards
+// =====================================
+
+const HAZARD = {
+
+    FIRE_RADIUS: 55,
+    FIRE_WARNING: 1000,
+    BURN_RADIUS: 50,
+    BURN_DURATION: 3000,
+    BURN_TICK: 500
+
+};
+
+// =====================================
 // Waves
 // =====================================
 
 const WAVES = {
 
-    START_GRUNTS: 5,
+    SET1_END: 5,
+    SET2_START: 6,
+    SET2_END: 10,
 
+    SET1_SCALE_AFTER: 0.35,
+
+    START_GRUNTS: 5,
     GRUNTS_PER_WAVE: 2,
 
     TANK_EVERY: 3,
@@ -219,7 +316,8 @@ const WAVES = {
     RUNNER_UNLOCK_WAVE: 3,
     RUNNER_EVERY: 4,
 
-    BOSS_EVERY: 5,
+    BOSS_WAVE: 5,
+    KING_WAVE: 10,
     BOSS_ESCORT_GRUNTS: 3,
 
     TRANSITION_TIME: 3000

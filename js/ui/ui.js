@@ -30,8 +30,8 @@ const homeButton = {
     height: 70
 };
 
-const SHOP_ROW_HEIGHT = 100;
-const SHOP_ROW_START = 200;
+const SHOP_ROW_HEIGHT = 88;
+const SHOP_ROW_START = 160;
 const SHOP_BUY_WIDTH = 120;
 const SHOP_BUY_HEIGHT = 44;
 
@@ -125,7 +125,7 @@ function drawShop() {
 
     drawButton(shopBackButton, "BACK", "#555", "white");
 
-    const ids = ["shield", "bow", "wetStone"];
+    const ids = ["shield", "bow", "wetStone", "hermesShoes"];
 
     ids.forEach((id, i) => {
 
@@ -133,27 +133,35 @@ function drawShop() {
         const rowY = SHOP_ROW_START + i * SHOP_ROW_HEIGHT;
         const buyBtn = getShopBuyButton(i);
         const owned = Save.owns(id);
-        const canBuy = !owned && Save.canAfford(item.price);
+        const locked = item.requiresFirstBoss && !Save.firstBossKilled;
+        const canBuy = Save.canPurchase(id);
 
         ctx.fillStyle = "rgba(0,0,0,0.45)";
-        ctx.fillRect(50, rowY - 10, canvas.width - 100, SHOP_ROW_HEIGHT - 16);
+        ctx.fillRect(50, rowY - 8, canvas.width - 100, SHOP_ROW_HEIGHT - 12);
 
         ctx.fillStyle = "white";
-        ctx.font = "bold 30px Arial";
+        ctx.font = "bold 26px Arial";
         ctx.textAlign = "left";
-        ctx.fillText(item.name, 70, rowY + 22);
+        ctx.fillText(item.name, 70, rowY + 18);
 
-        ctx.font = "22px Arial";
+        ctx.font = "18px Arial";
         ctx.fillStyle = "#ccc";
-        ctx.fillText(item.desc, 70, rowY + 52);
+        ctx.fillText(item.desc, 70, rowY + 42);
 
         ctx.fillStyle = "gold";
-        ctx.font = "24px Arial";
-        ctx.fillText(`${item.price} coins`, 70, rowY + 78);
+        ctx.font = "20px Arial";
+        ctx.fillText(`${item.price} coins`, 70, rowY + 64);
 
         if (owned) {
 
             drawButton(buyBtn, "OWNED", "#444", "#aaa");
+
+        } else if (locked) {
+
+            drawButton(buyBtn, "LOCKED", "#333", "#666");
+            ctx.fillStyle = "#888";
+            ctx.font = "16px Arial";
+            ctx.fillText("Defeat Wave 5 Boss", 70, rowY + 78);
 
         } else if (canBuy) {
 
@@ -178,7 +186,7 @@ function handleMenuClick(x, y) {
             return;
         }
 
-        const ids = ["shield", "bow", "wetStone"];
+        const ids = ["shield", "bow", "wetStone", "hermesShoes"];
 
         ids.forEach((id, i) => {
 
@@ -212,8 +220,16 @@ function drawHUD() {
     ctx.fillText(`Time: ${Game.score}`, 20, 40);
     ctx.fillText(`Wave: ${Game.wave}`, 20, 80);
     ctx.fillText(`Enemies: ${Game.enemiesRemaining}`, 20, 120);
+
+    const dash1 = player.dashCooldowns[0] <= 0 ? "READY" : "CD";
+    const dash2 = Save.inventory.hermesShoes
+        ? (player.dashCooldowns[1] <= 0 ? "READY" : "CD")
+        : null;
+
     ctx.fillText(
-        `Dash: ${player.dashCooldown <= 0 ? "READY" : "COOLDOWN"}`,
+        dash2
+            ? `Dash: ${dash1} | ${dash2}`
+            : `Dash: ${dash1}`,
         20,
         160
     );

@@ -53,6 +53,8 @@ const Game = {
 
     damageNumbers: [],
 
+    hazards: [],
+
     screenShake: 0
 
 };
@@ -92,6 +94,8 @@ function startGame() {
 
     Game.damageNumbers = [];
 
+    Game.hazards = [];
+
     player = new Player();
 
     generateArena();
@@ -107,6 +111,9 @@ function onEnemyKilled(enemy) {
     const reward = COINS[enemy.type] ?? COINS.grunt;
 
     Save.addCoins(reward);
+
+    if (enemy.type === "boss")
+        Save.markFirstBossKilled();
 
     Game.screenShake = EFFECTS.SHAKE_ON_KILL;
 
@@ -133,6 +140,8 @@ function resetGame() {
     Game.particles = [];
 
     Game.damageNumbers = [];
+
+    Game.hazards = [];
 
 }
 
@@ -169,6 +178,8 @@ function update() {
 
     Game.damageNumbers.forEach(number => number.update());
 
+    Game.hazards.forEach(hazard => hazard.update());
+
     cleanupEntities();
 
     updateWave();
@@ -202,6 +213,11 @@ function cleanupEntities() {
             number => !number.isDead()
         );
 
+    Game.hazards =
+        Game.hazards.filter(
+            hazard => !hazard.isDead()
+        );
+
 }
 
 // =====================================
@@ -224,16 +240,15 @@ function cleanupEntities() {
 
 function draw() {
 
-    // 1. FLOOR LEVEL: Flat stone floor base
+    // 1. FLOOR
 
-    ctx.fillStyle = "#2b2927"; 
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    drawArenaFloor();
 
-    // 2. DECORATION LEVEL: Floor grid lines
+    // 2. DECORATION
 
     drawGrid();
 
-    // 3. GROUND SHADOW LEVEL: Pillar shadows on the floor
+    // 3. GROUND SHADOWS
 
     drawPillarShadows();
 
@@ -260,7 +275,7 @@ function draw() {
 
             drawLightingSystem();
 
-            // 5. ENTITIES PASS: always fully visible
+            Game.hazards.forEach(hazard => hazard.draw());
 
             player.draw();
             Game.enemies.forEach(enemy => enemy.draw());

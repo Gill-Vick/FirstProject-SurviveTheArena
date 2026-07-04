@@ -1,0 +1,88 @@
+// =====================================
+// Fire Mage
+// =====================================
+
+class FireMage extends Enemy {
+
+    constructor(x, y) {
+
+        super(x, y, {
+
+            size: ENEMY_TYPES.fireMage.SIZE,
+
+            speed:
+                ENEMY_TYPES.fireMage.SPEED *
+                Game.enemySpeedMultiplier,
+
+            hp: 1 + Math.floor((Game.wave - 1) / 5),
+
+            color: ENEMY_TYPES.fireMage.COLOR
+
+        });
+
+        this.type = "fireMage";
+        this.knockbackImmune = true;
+        this.castCooldown = ENEMY_TYPES.fireMage.CAST_COOLDOWN;
+
+    }
+
+    move() {
+
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance === 0)
+            return;
+
+        const preferred = ENEMY_TYPES.fireMage.PREFERRED_RANGE;
+
+        if (distance < preferred - 30) {
+
+            this.x -= (dx / distance) * this.speed;
+            this.y -= (dy / distance) * this.speed;
+
+        } else if (distance > preferred + 30) {
+
+            this.x += (dx / distance) * this.speed;
+            this.y += (dy / distance) * this.speed;
+
+        }
+
+    }
+
+    attack() {
+
+        if (this.castCooldown > 0) {
+
+            this.castCooldown -= 16;
+
+            return;
+
+        }
+
+        const tx = player.x + player.size / 2;
+        const ty = player.y + player.size / 2;
+
+        Game.hazards.push(new FireCast(tx, ty));
+
+        this.castCooldown = ENEMY_TYPES.fireMage.CAST_COOLDOWN;
+
+    }
+
+    draw() {
+
+        super.draw();
+
+        ctx.fillStyle = "#ff4500";
+        ctx.font = "bold 22px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(
+            "🔥",
+            this.x + this.size / 2,
+            this.y - 8
+        );
+
+    }
+
+}

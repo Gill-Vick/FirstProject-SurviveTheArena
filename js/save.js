@@ -8,10 +8,13 @@ const Save = {
 
     coins: 0,
 
+    firstBossKilled: false,
+
     inventory: {
         shield: false,
         bow: false,
-        wetStone: false
+        wetStone: false,
+        hermesShoes: false
     },
 
     load() {
@@ -26,10 +29,12 @@ const Save = {
             const data = JSON.parse(raw);
 
             this.coins = data.coins ?? 0;
+            this.firstBossKilled = !!data.firstBossKilled;
 
             this.inventory.shield = !!data.inventory?.shield;
             this.inventory.bow = !!data.inventory?.bow;
             this.inventory.wetStone = !!data.inventory?.wetStone;
+            this.inventory.hermesShoes = !!data.inventory?.hermesShoes;
 
         } catch (e) {}
 
@@ -40,7 +45,7 @@ const Save = {
         localStorage.setItem(SAVE_KEY, JSON.stringify({
 
             coins: this.coins,
-
+            firstBossKilled: this.firstBossKilled,
             inventory: { ...this.inventory }
 
         }));
@@ -50,7 +55,6 @@ const Save = {
     addCoins(amount) {
 
         this.coins += amount;
-
         this.persist();
 
     },
@@ -67,7 +71,7 @@ const Save = {
 
     },
 
-    purchase(itemId) {
+    canPurchase(itemId) {
 
         const item = SHOP_ITEMS[itemId];
 
@@ -77,16 +81,35 @@ const Save = {
         if (this.owns(itemId))
             return false;
 
-        if (!this.canAfford(item.price))
+        if (item.requiresFirstBoss && !this.firstBossKilled)
             return false;
 
+        return this.canAfford(item.price);
+
+    },
+
+    purchase(itemId) {
+
+        if (!this.canPurchase(itemId))
+            return false;
+
+        const item = SHOP_ITEMS[itemId];
+
         this.coins -= item.price;
-
         this.inventory[itemId] = true;
-
         this.persist();
 
         return true;
+
+    },
+
+    markFirstBossKilled() {
+
+        if (this.firstBossKilled)
+            return;
+
+        this.firstBossKilled = true;
+        this.persist();
 
     }
 
