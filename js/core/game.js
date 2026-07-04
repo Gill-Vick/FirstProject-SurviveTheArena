@@ -41,6 +41,15 @@ const Game = {
 
     waveActive: false,
 
+    // True from the moment a wave starts until every one
+    // of its enemies has actually been pushed into
+    // Game.enemies. Spawns are scheduled with setTimeout
+    // (even a "0ms" one is asynchronous), so there's a
+    // window right after starting a wave where enemies
+    // list is still empty. updateWave() must not treat
+    // that as "wave complete" - see wave.js.
+    waveSpawning: false,
+
     waveTransition: false,
 
     waveMessageTimer: 0,
@@ -83,6 +92,8 @@ function startGame() {
     Game.wave = 1;
 
     Game.waveActive = false;
+
+    Game.waveSpawning = false;
 
     Game.waveTransition = false;
 
@@ -132,6 +143,8 @@ function resetGame() {
     Game.wave = 1;
 
     Game.waveActive = false;
+
+    Game.waveSpawning = false;
 
     Game.waveTransition = false;
 

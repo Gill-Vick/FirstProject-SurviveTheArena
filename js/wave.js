@@ -38,6 +38,7 @@ const NO_ELITE = new Set([
 function startWave() {
 
     Game.waveActive = true;
+    Game.waveSpawning = true;
     Game.waveTransition = false;
     Game.waveMessageTimer = 120;
 
@@ -146,6 +147,8 @@ function startKingWave() {
 
         spawnEnemy("king");
 
+        Game.waveSpawning = false;
+
     }, 600);
 
 }
@@ -153,6 +156,17 @@ function startKingWave() {
 function spawnWaveEnemies(counts) {
 
     let delay = 0;
+
+    let pending = Object.values(counts)
+        .reduce((a, b) => a + b, 0);
+
+    if (pending === 0) {
+
+        Game.waveSpawning = false;
+
+        return;
+
+    }
 
     Object.keys(counts).forEach(type => {
 
@@ -171,6 +185,11 @@ function spawnWaveEnemies(counts) {
 
                 if (Game.state === "playing")
                     spawnEnemy(type);
+
+                pending--;
+
+                if (pending <= 0)
+                    Game.waveSpawning = false;
 
             }, spawnTime);
 
@@ -248,6 +267,12 @@ function spawnEnemy(type = "grunt") {
 function updateWave() {
 
     if (!Game.waveActive)
+        return;
+
+    // Enemies for this wave may still be scheduled via
+    // setTimeout and not pushed into Game.enemies yet -
+    // don't mistake that gap for "all dead already".
+    if (Game.waveSpawning)
         return;
 
     if (Game.enemies.length > 0)
