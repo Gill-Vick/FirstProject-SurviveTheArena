@@ -94,32 +94,32 @@ const COINS = {
 const SHOP_ITEMS = {
 
     shield: {
-        price: 75,
+        price: 1,
         name: "Wooden Shield",
         desc: "Blocks 1 hit + 1s invuln"
     },
 
     bow: {
-        price: 100,
+        price: 1,
         name: "Shortbow",
         desc: "Press E — 2 dmg arrow (2s cd)"
     },
 
     wetStone: {
-        price: 200,
+        price: 1,
         name: "Wet Stone",
         desc: "Sword deals 2 damage"
     },
 
     hermesShoes: {
-        price: 500,
+        price: 1,
         name: "Hermes Shoes",
         desc: "Second dash charge",
         requiresFirstBoss: true
     },
 
     critRate: {
-        price: 100,
+        price: 1,
         name: "Critical Training",
         desc: "Permanently +1% crit chance",
         repeatable: true
