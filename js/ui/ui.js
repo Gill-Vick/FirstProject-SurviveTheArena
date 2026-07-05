@@ -125,7 +125,7 @@ function drawShop() {
 
     drawButton(shopBackButton, "BACK", "#555", "white");
 
-    const ids = ["shield", "bow", "wetStone", "circleStrike", "hermesShoes", "critRate"];
+    const ids = ["shield", "bow", "wetStone", "circleStrike", "hermesShoes", "kingsBlade", "critRate"];
 
     ids.forEach((id, i) => {
 
@@ -133,7 +133,15 @@ function drawShop() {
         const rowY = SHOP_ROW_START + i * SHOP_ROW_HEIGHT;
         const buyBtn = getShopBuyButton(i);
         const owned = !item.repeatable && Save.owns(id);
-        const locked = item.requiresFirstBoss && !Save.firstBossKilled;
+
+        const locked =
+            (item.requiresFirstBoss && !Save.firstBossKilled) ||
+            (item.requiresKingKilled && !Save.kingKilled);
+
+        const lockedMessage = item.requiresKingKilled
+            ? "Defeat the King"
+            : "Defeat Wave 5 Boss";
+
         const canBuy = Save.canPurchase(id);
 
         ctx.fillStyle = "rgba(0,0,0,0.45)";
@@ -180,7 +188,7 @@ function drawShop() {
             drawButton(buyBtn, "LOCKED", "#333", "#666");
             ctx.fillStyle = "#888";
             ctx.font = "16px Arial";
-            ctx.fillText("Defeat Wave 5 Boss", 70, rowY + 78);
+            ctx.fillText(lockedMessage, 70, rowY + 78);
 
         } else if (canBuy) {
 
@@ -205,7 +213,7 @@ function handleMenuClick(x, y) {
             return;
         }
 
-        const ids = ["shield", "bow", "wetStone", "circleStrike", "hermesShoes", "critRate"];
+        const ids = ["shield", "bow", "wetStone", "circleStrike", "hermesShoes", "kingsBlade", "critRate"];
 
         ids.forEach((id, i) => {
 
@@ -253,13 +261,37 @@ function drawHUD() {
 
     drawCoinDisplay(20, 120, 26);
 
+    let nextLineY = 160;
+
     if (Save.inventory.bow) {
 
-        ctx.fillText(
-            `Bow: ${player.bowCooldown <= 0 ? "READY [E]" : "COOLDOWN"}`,
-            20,
-            160
-        );
+        ctx.fillStyle = "white";
+        
+        let bowText = "READY [E]";
+        if (player.bowCooldown > 0) {
+            // Adjust cooldown timeline by dividing by GAME_SPEED to reveal physical human time left
+            const realBowSecs = (player.bowCooldown / (1000 * GAME_SPEED)).toFixed(1);
+            bowText = `${realBowSecs}s`;
+        }
+
+        ctx.fillText(`Bow: ${bowText}`, 20, nextLineY);
+        nextLineY += 40;
+
+    }
+
+    if (Save.inventory.kingsBlade) {
+
+        ctx.fillStyle = "white";
+
+        let kbText = "READY [RMB]";
+        if (player.kingsBladeCooldown > 0) {
+            // Adjust cooldown timeline by dividing by GAME_SPEED to reveal physical human time left
+            const realKbSecs = (player.kingsBladeCooldown / (1000 * GAME_SPEED)).toFixed(1);
+            kbText = `${realKbSecs}s`;
+        }
+
+        ctx.fillText(`King's Blade: ${kbText}`, 20, nextLineY);
+        nextLineY += 40;
 
     }
 
@@ -269,7 +301,7 @@ function drawHUD() {
         ctx.fillText(
             `Shield: ${player.shieldActive ? "ACTIVE" : "USED"}`,
             20,
-            Save.inventory.bow ? 200 : 160
+            nextLineY
         );
 
     }

@@ -10,6 +10,8 @@ const Save = {
 
     firstBossKilled: false,
 
+    kingKilled: false,
+
     critRateLevel: 0,
 
     inventory: {
@@ -17,7 +19,8 @@ const Save = {
         bow: false,
         wetStone: false,
         hermesShoes: false,
-        circleStrike: false
+        circleStrike: false,
+        kingsBlade: false
     },
 
     load() {
@@ -33,6 +36,7 @@ const Save = {
 
             this.coins = data.coins ?? 0;
             this.firstBossKilled = !!data.firstBossKilled;
+            this.kingKilled = !!data.kingKilled;
             this.critRateLevel = data.critRateLevel ?? 0;
 
             this.inventory.shield = !!data.inventory?.shield;
@@ -40,6 +44,7 @@ const Save = {
             this.inventory.wetStone = !!data.inventory?.wetStone;
             this.inventory.hermesShoes = !!data.inventory?.hermesShoes;
             this.inventory.circleStrike = !!data.inventory?.circleStrike;
+            this.inventory.kingsBlade = !!data.inventory?.kingsBlade;
 
         } catch (e) {}
 
@@ -51,6 +56,7 @@ const Save = {
 
             coins: this.coins,
             firstBossKilled: this.firstBossKilled,
+            kingKilled: this.kingKilled,
             critRateLevel: this.critRateLevel,
             inventory: { ...this.inventory }
 
@@ -102,6 +108,9 @@ const Save = {
         if (item.requiresFirstBoss && !this.firstBossKilled)
             return false;
 
+        if (item.requiresKingKilled && !this.kingKilled)
+            return false;
+
         return this.canAfford(item.price);
 
     },
@@ -141,6 +150,16 @@ const Save = {
             return;
 
         this.firstBossKilled = true;
+        this.persist();
+
+    },
+
+    markKingKilled() {
+
+        if (this.kingKilled)
+            return;
+
+        this.kingKilled = true;
         this.persist();
 
     }

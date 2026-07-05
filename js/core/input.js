@@ -12,6 +12,7 @@ let mouseX = 0;
 let mouseY = 0;
 
 let aimAngle = 0;
+let isMouseDown = false;
 
 // =====================================
 // Mouse Input
@@ -40,46 +41,74 @@ canvas.addEventListener("mousemove", (e) => {
 
 });
 
-canvas.addEventListener("click", (e) => {
+canvas.addEventListener("mousedown", (e) => {
 
     const rect = canvas.getBoundingClientRect();
-
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    switch (Game.state) {
+    // Left Click
+    if (e.button === 0) {
+        
+        isMouseDown = true;
 
-        case "menu":
+        switch (Game.state) {
 
-            handleMenuClick(x, y);
+            case "menu":
+                handleMenuClick(x, y);
+                break;
 
-            break;
+            case "gameover":
+                if (
+                    x > homeButton.x &&
+                    x < homeButton.x + homeButton.width &&
+                    y > homeButton.y &&
+                    y < homeButton.y + homeButton.height
+                ) {
+                    resetGame();
+                }
+                break;
 
-        case "playing":
-
-            player.swingSword();
-
-            break;
-
-        case "gameover":
-
-            if (
-
-                x > homeButton.x &&
-                x < homeButton.x + homeButton.width &&
-
-                y > homeButton.y &&
-                y < homeButton.y + homeButton.height
-
-            ) {
-
-                resetGame();
-
-            }
-
-            break;
-
+        }
     }
+
+    // Right Click (fires the King's Blade laser ability)
+    if (e.button === 2) {
+
+        if (Game.state !== "playing")
+            return;
+
+        player.fireKingsBladeLaser();
+    }
+
+});
+
+window.addEventListener("mouseup", (e) => {
+
+    if (e.button === 0) {
+        isMouseDown = false;
+    }
+
+});
+
+// If the player tabs out or minimizes the window while holding click, 
+// release the hold state to prevent infinite auto-attacking.
+window.addEventListener("blur", () => {
+
+    isMouseDown = false;
+    
+    // Clear keyboard keys too just in case
+    Object.keys(keys).forEach(key => keys[key] = false);
+
+});
+
+// Right-click fires the King's Blade laser ability. Prevent
+// the browser's context menu from popping up over the canvas
+// so right-click is free to use as a game input.
+
+canvas.addEventListener("contextmenu", (e) => {
+
+    e.preventDefault();
 
 });
 
@@ -113,6 +142,14 @@ window.addEventListener("keydown", (e) => {
 
         player.fireBow();
 
+    }
+
+});
+
+window.addEventListener("mouseup", (e) => {
+
+    if (e.button === 0) {
+        isMouseDown = false;
     }
 
 });

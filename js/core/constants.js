@@ -45,7 +45,35 @@ const SWORD = {
     DURATION: 15,
     ARC: Math.PI * 1.2,
     DAMAGE: 1,
-    DAMAGE_UPGRADED: 2
+    WETSTONE_BONUS: 1
+};
+
+// =====================================
+// King's Blade (shop item)
+// =====================================
+//
+// A stronger sword unlocked by defeating the King. Same
+// swing mechanic as the base sword (still affected by Circle
+// Strike, wet stone, crit rate) but hits harder and reaches
+// a bit further, plus a right-click laser ability - a scaled
+// down, single-shot version of the King's own beam attack.
+
+const KINGS_BLADE = {
+
+    BASE_DAMAGE: 2,
+    WETSTONE_BONUS: 1,
+
+    // A bit longer than the base sword's 110px, nowhere near
+    // the King's own 320px greatsword.
+    LENGTH: 140,
+
+    // Right-click laser ability
+    LASER_COOLDOWN: 4000,
+    LASER_DAMAGE: 5,
+    LASER_DURATION: 200, // ms the beam is visible/active for
+    LASER_WIDTH: 30,
+    LASER_COLOR: "#00bfff"
+
 };
 
 // =====================================
@@ -94,39 +122,46 @@ const COINS = {
 const SHOP_ITEMS = {
 
     shield: {
-        price: 10,
+        price: 50,
         name: "Wooden Shield",
         desc: "Blocks 1 hit + 1s invuln"
     },
 
     bow: {
-        price: 10,
+        price: 50,
         name: "Shortbow",
         desc: "Press E — 2 dmg arrow (2s cd)"
     },
 
     wetStone: {
-        price: 10,
+        price: 100,
         name: "Wet Stone",
         desc: "Sword deals 2 damage"
     },
 
     circleStrike: {
-        price: 10,
+        price: 200,
         name: "Circle Strike",
         desc: "Sword goes around you",
         requiresFirstBoss: true
     },
 
     hermesShoes: {
-        price: 10,
+        price: 300,
         name: "Hermes Shoes",
         desc: "Second dash charge",
         requiresFirstBoss: true
     },
 
+    kingsBlade: {
+        price: 1000,
+        name: "King's Blade",
+        desc: "2 dmg sword + right-click laser (5 dmg, 4s cd)",
+        requiresKingKilled: true
+    },
+
     critRate: {
-        price: 10,
+        price: 100,
         name: "Critical Training",
         desc: "Permanently +1% crit chance",
         repeatable: true

@@ -36,6 +36,12 @@ class Player {
 
         this.bowCooldown = 0;
 
+        // King's Blade laser (right-click ability)
+
+        this.kingsBladeCooldown = 0;
+        this.kingsBladeLaserTimer = 0;
+        this.kingsBladeLaserAngle = 0;
+
     }
 
     // =====================================
@@ -51,6 +57,13 @@ class Player {
         this.updateDash();
 
         this.updateBow();
+
+        this.updateKingsBlade();
+
+        // Hold-to-swing checking system triggers auto attacks safely
+        if (isMouseDown && Game.state === "playing") {
+            this.swingSword();
+        }
 
         this.updateSword();
 
@@ -96,9 +109,23 @@ class Player {
 
     getSwordDamage() {
 
-        return Save.inventory.wetStone
-            ? SWORD.DAMAGE_UPGRADED
+        const base = Save.inventory.kingsBlade
+            ? KINGS_BLADE.BASE_DAMAGE
             : SWORD.DAMAGE;
+
+        const wetstoneBonus = Save.inventory.wetStone
+            ? (Save.inventory.kingsBlade ? KINGS_BLADE.WETSTONE_BONUS : SWORD.WETSTONE_BONUS)
+            : 0;
+
+        return base + wetstoneBonus;
+
+    }
+
+    getSwordLength() {
+
+        return Save.inventory.kingsBlade
+            ? KINGS_BLADE.LENGTH
+            : SWORD.LENGTH;
 
     }
 
@@ -283,6 +310,82 @@ class Player {
     }
 
     // =====================================
+    // King's Blade Laser (right-click ability)
+    // =====================================
+
+    updateKingsBlade() {
+
+        if (this.kingsBladeCooldown > 0)
+            this.kingsBladeCooldown -= Game.dt;
+
+        if (this.kingsBladeLaserTimer > 0)
+            this.kingsBladeLaserTimer -= Game.dt;
+
+    }
+
+    fireKingsBladeLaser() {
+
+        if (!Save.inventory.kingsBlade)
+            return;
+
+        if (this.kingsBladeCooldown > 0)
+            return;
+
+        this.kingsBladeCooldown = KINGS_BLADE.LASER_COOLDOWN;
+        this.kingsBladeLaserAngle = aimAngle;
+        this.kingsBladeLaserTimer = KINGS_BLADE.LASER_DURATION;
+
+        const critical = Math.random() < Save.getCritChance();
+        const damage = critical
+            ? KINGS_BLADE.LASER_DAMAGE * 2
+            : KINGS_BLADE.LASER_DAMAGE;
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        // Long enough to clear the map in any direction from
+        // any position - same trick used by the King's beam.
+        const length = Math.hypot(canvas.width, canvas.height) * 1.2;
+        const halfWidth = KINGS_BLADE.LASER_WIDTH / 2;
+
+        const cos = Math.cos(-this.kingsBladeLaserAngle);
+        const sin = Math.sin(-this.kingsBladeLaserAngle);
+
+        Game.enemies.forEach(enemy => {
+
+            const ex = enemy.x + enemy.size / 2;
+            const ey = enemy.y + enemy.size / 2;
+
+            const dx = ex - cx;
+            const dy = ey - cy;
+
+            const localX = dx * cos - dy * sin;
+            const localY = dx * sin + dy * cos;
+
+            const pad = enemy.size / 2;
+
+            if (
+
+                localX >= -pad &&
+                localX <= length + pad &&
+                Math.abs(localY) <= halfWidth + pad
+
+            ) {
+
+                enemy.takeDamage(damage, critical);
+
+                enemy.applyKnockback(cx, cy, critical ? 16 : 12);
+
+                if (enemy.isDead())
+                    onEnemyKilled(enemy);
+
+            }
+
+        });
+
+    }
+
+    // =====================================
     // Sword
     // =====================================
 
@@ -356,7 +459,7 @@ class Player {
             const distance = Math.sqrt(dx * dx + dy * dy);
 
             // If the sword tip doesn't reach the closest edge/corner, it's a miss
-            if (distance > SWORD.LENGTH)
+            if (distance > this.getSwordLength())
                 return;
 
             // Use the angle to this closest intersection point for the arc calculation
@@ -401,6 +504,9 @@ class Player {
     // =====================================
 
     draw() {
+
+        if (this.kingsBladeLaserTimer > 0)
+            this.drawKingsBladeLaser();
 
         if (this.invulnTimer > 0 && Math.floor(Date.now() / 80) % 2 === 0)
             ctx.globalAlpha = 0.55;
@@ -480,7 +586,8 @@ class Player {
         const previousAngle = this.swordAngle - arc / 2 + arc * prevProgress;
         const angleDiff = currentAngle - previousAngle;
     
-        const bladeLength = SWORD.LENGTH;
+        const bladeLength = this.getSwordLength();
+        const kingsBlade = Save.inventory.kingsBlade;
     
         // =====================================
         // 1. THE SHARP TRAIL
@@ -491,9 +598,20 @@ class Player {
     
             // Gradient for the trail so it fades out smoothly into the past
             let trailGrad = ctx.createRadialGradient(0, 0, bladeLength * 0.4, 0, 0, bladeLength);
-            trailGrad.addColorStop(0, "rgba(0, 255, 255, 0)");
-            trailGrad.addColorStop(0.85, "rgba(0, 255, 255, 0.15)");
-            trailGrad.addColorStop(1, "rgba(255, 255, 255, 0.4)");
+
+            if (kingsBlade) {
+
+                trailGrad.addColorStop(0, "rgba(255, 204, 0, 0)");
+                trailGrad.addColorStop(0.85, "rgba(255, 204, 0, 0.18)");
+                trailGrad.addColorStop(1, "rgba(255, 240, 200, 0.4)");
+
+            } else {
+
+                trailGrad.addColorStop(0, "rgba(0, 255, 255, 0)");
+                trailGrad.addColorStop(0.85, "rgba(0, 255, 255, 0.15)");
+                trailGrad.addColorStop(1, "rgba(255, 255, 255, 0.4)");
+
+            }
     
             ctx.fillStyle = trailGrad;
             ctx.beginPath();
@@ -507,7 +625,18 @@ class Player {
     
         // Rotate to current angle for the physical sword
         ctx.rotate(currentAngle);
+
+        if (kingsBlade)
+            this.drawKingsBladeBlade(bladeLength);
+        else
+            this.drawBaseSwordBlade(bladeLength);
     
+        ctx.restore();
+    }
+
+    // The original sword: cyan energy-core shortsword.
+    drawBaseSwordBlade(bladeLength) {
+
         // =====================================
         // 2. THE ENERGY GLOW (Rendered underneath)
         // =====================================
@@ -570,8 +699,94 @@ class Player {
         ctx.beginPath();
         ctx.arc(0, 0, 4, 0, Math.PI * 2);
         ctx.fill();
-    
+
+    }
+
+    // King's Blade: same gold-and-crimson greatsword look as
+    // the King's own weapon, just scaled down to human size.
+    drawKingsBladeBlade(bladeLength) {
+
+        ctx.save();
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = "#ffcc00";
+
+        let grad = ctx.createLinearGradient(0, -6, 0, 6);
+        grad.addColorStop(0, "#f7f2e0");
+        grad.addColorStop(0.25, "#e0d29a");
+        grad.addColorStop(0.5, "#8b0000");
+        grad.addColorStop(0.75, "#e0d29a");
+        grad.addColorStop(1, "#2c2416");
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(16, -6);
+        ctx.lineTo(bladeLength - 18, -3);
+        ctx.lineTo(bladeLength, 0);
+        ctx.lineTo(bladeLength - 18, 3);
+        ctx.lineTo(16, 6);
+        ctx.closePath();
+        ctx.fill();
+
+        // Center ridge for depth
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(16, 0);
+        ctx.lineTo(bladeLength - 10, 0);
+        ctx.stroke();
+
+        // Gold crossguard
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "#ffd700";
+        ctx.fillRect(11, -11, 5, 22);
+
+        // Wrapped hilt
+        ctx.fillStyle = "#3a1a1a";
+        ctx.fillRect(0, -3, 11, 6);
+
+        // Pommel jewel
+        ctx.fillStyle = "#8b0000";
+        ctx.beginPath();
+        ctx.arc(0, 0, 3, 0, Math.PI * 2);
+        ctx.fill();
+
         ctx.restore();
+
+    }
+
+    drawKingsBladeLaser() {
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        const length = Math.hypot(canvas.width, canvas.height) * 1.2;
+        const width = KINGS_BLADE.LASER_WIDTH;
+
+        const fade = Math.max(
+            0,
+            this.kingsBladeLaserTimer / KINGS_BLADE.LASER_DURATION
+        );
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(this.kingsBladeLaserAngle);
+
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = KINGS_BLADE.LASER_COLOR;
+
+        const grad = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
+        grad.addColorStop(0, "rgba(0, 191, 255, 0)");
+        grad.addColorStop(0.5, `rgba(200, 245, 255, ${0.95 * fade})`);
+        grad.addColorStop(1, "rgba(0, 191, 255, 0)");
+
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, -width / 2, length, width);
+
+        ctx.fillStyle = `rgba(255, 255, 255, ${0.85 * fade})`;
+        ctx.fillRect(0, -width * 0.12, length, width * 0.24);
+
+        ctx.restore();
+
     }
 
 }

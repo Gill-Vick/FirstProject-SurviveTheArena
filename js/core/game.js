@@ -206,6 +206,9 @@ function onEnemyKilled(enemy) {
     if (enemy.type === "boss")
         Save.markFirstBossKilled();
 
+    if (enemy.type === "king")
+        Save.markKingKilled();
+
     Game.screenShake = EFFECTS.SHAKE_ON_KILL;
 
 }
