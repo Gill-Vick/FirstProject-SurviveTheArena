@@ -94,7 +94,7 @@ const COINS = {
 const SHOP_ITEMS = {
 
     shield: {
-        price: 1,
+        price: 10,
         name: "Wooden Shield",
         desc: "Blocks 1 hit + 1s invuln"
     },
