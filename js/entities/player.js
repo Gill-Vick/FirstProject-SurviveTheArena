@@ -13,6 +13,10 @@ class Player {
         this.speed = PLAYER.SPEED;
         this.color = PLAYER.COLOR;
 
+        // Sprite animation
+        this.frameIndex = PLAYER.SPRITE_IDLE_FRAME;
+        this.frameTimer = 0;
+
         // Sword
 
         this.swordSwing = false;
@@ -41,6 +45,8 @@ class Player {
     update() {
 
         this.updateMovement();
+
+        this.updateAnimation();
 
         this.updateDash();
 
@@ -133,6 +139,38 @@ class Player {
                 this.y
             )
         );
+
+    }
+
+    // =====================================
+    // Sprite Animation
+    // =====================================
+
+    updateAnimation() {
+
+        const moving =
+            keys["w"] || keys["s"] ||
+            keys["a"] || keys["d"];
+
+        if (!moving) {
+
+            this.frameIndex = PLAYER.SPRITE_IDLE_FRAME;
+            this.frameTimer = 0;
+
+            return;
+
+        }
+
+        this.frameTimer += Game.dt;
+
+        if (this.frameTimer >= PLAYER.SPRITE_FRAME_DURATION) {
+
+            this.frameTimer -= PLAYER.SPRITE_FRAME_DURATION;
+
+            this.frameIndex =
+                (this.frameIndex + 1) % PLAYER.SPRITE_FRAME_COUNT;
+
+        }
 
     }
 
@@ -364,82 +402,58 @@ class Player {
         if (this.invulnTimer > 0 && Math.floor(Date.now() / 80) % 2 === 0)
             ctx.globalAlpha = 0.55;
 
-        ctx.shadowBlur = EFFECTS.PLAYER_GLOW;
-        ctx.shadowColor = PLAYER.COLOR;
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+        const drawSize = this.size * PLAYER.VISUAL_SCALE;
 
-        ctx.fillStyle = this.color;
+        ctx.save();
 
-        ctx.fillRect(
-            this.x,
-            this.y,
-            this.size,
-            this.size
-        );
+        if (this.shieldActive) {
 
-        ctx.shadowBlur = 0;
+            ctx.shadowBlur = EFFECTS.PLAYER_GLOW;
+            ctx.shadowColor = SHIELD.OUTLINE_COLOR;
+
+        }
+
+        ctx.translate(cx, cy);
+        ctx.rotate(aimAngle + PLAYER.SPRITE_ROTATION_OFFSET);
+
+        if (playerSprite.complete && playerSprite.naturalWidth > 0) {
+
+            ctx.drawImage(
+
+                playerSprite,
+
+                this.frameIndex * PLAYER.SPRITE_FRAME_SIZE,
+                0,
+                PLAYER.SPRITE_FRAME_SIZE,
+                PLAYER.SPRITE_FRAME_SIZE,
+
+                -drawSize / 2,
+                -drawSize / 2,
+                drawSize,
+                drawSize
+
+            );
+
+        } else {
+
+            // Fallback while the sprite sheet is still loading
+            ctx.fillStyle = this.color;
+            ctx.fillRect(
+                -this.size / 2,
+                -this.size / 2,
+                this.size,
+                this.size
+            );
+
+        }
+
+        ctx.restore();
 
         ctx.globalAlpha = 1;
 
-        if (this.shieldActive)
-            this.drawShieldOutline();
-
-        if (Save.inventory.bow)
-            this.drawBowOnBack();
-
         this.drawSword();
-
-        this.drawAimIndicator();
-
-    }
-
-    drawShieldOutline() {
-
-        ctx.save();
-
-        ctx.strokeStyle = SHIELD.OUTLINE_COLOR;
-        ctx.lineWidth = SHIELD.OUTLINE_WIDTH;
-
-        ctx.shadowBlur = 12;
-        ctx.shadowColor = SHIELD.OUTLINE_COLOR;
-
-        const pad = 6;
-
-        ctx.strokeRect(
-            this.x - pad,
-            this.y - pad,
-            this.size + pad * 2,
-            this.size + pad * 2
-        );
-
-        ctx.restore();
-
-    }
-
-    drawBowOnBack() {
-
-        ctx.save();
-
-        ctx.translate(
-            this.x + this.size / 2,
-            this.y + this.size / 2
-        );
-
-        ctx.rotate(aimAngle + Math.PI * 0.75);
-
-        ctx.strokeStyle = "#5c4033";
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(0, 0, 14, -Math.PI * 0.55, Math.PI * 0.55);
-        ctx.stroke();
-
-        ctx.strokeStyle = "#8b6914";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(-14, 0);
-        ctx.lineTo(14, 0);
-        ctx.stroke();
-
-        ctx.restore();
 
     }
 
@@ -554,37 +568,6 @@ class Player {
         ctx.fill();
     
         ctx.restore();
-    }
-
-    drawAimIndicator() {
-
-        ctx.save();
-
-        ctx.translate(
-            this.x + this.size / 2,
-            this.y + this.size / 2
-        );
-
-        ctx.rotate(aimAngle);
-
-        ctx.globalAlpha = 0.4;
-
-        ctx.strokeStyle = "cyan";
-
-        ctx.lineWidth = 3;
-
-        ctx.beginPath();
-
-        ctx.moveTo(0, 0);
-
-        ctx.lineTo(50, 0);
-
-        ctx.stroke();
-
-        ctx.restore();
-
-        ctx.globalAlpha = 1;
-
     }
 
 }

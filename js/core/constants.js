@@ -15,7 +15,25 @@ const CANVAS = {
 const PLAYER = {
     SIZE: 40,
     SPEED: 5,
-    COLOR: "lime"
+    COLOR: "lime",
+
+    // Sprite sheet: 6 frames of a walk cycle, 256x256 each.
+    // Frame index 2 (the 3rd frame) is the standing-still pose.
+    SPRITE_FRAME_SIZE: 256,
+    SPRITE_FRAME_COUNT: 6,
+    SPRITE_IDLE_FRAME: 2,
+    SPRITE_FRAME_DURATION: 90, // ms per frame while walking
+
+    // The artwork's "forward" direction points toward the top
+    // of the sheet. aimAngle=0 means "facing right", so we
+    // need to rotate the drawn sprite by +90 degrees to line
+    // its forward direction up with the aim direction. Nudge
+    // this in 90-degree steps (Math.PI/2) if it looks off.
+    SPRITE_ROTATION_OFFSET: Math.PI / 2,
+
+    // The sprite is drawn bigger than the actual hitbox so it
+    // reads clearly, without changing collision/combat feel.
+    VISUAL_SCALE: 1.8
 };
 
 // =====================================
@@ -310,7 +328,7 @@ const BOSS = {
 const KING = {
 
     SIZE: 130,
-    SPEED: 1,
+    SPEED: 0.7,
     COLOR: "#6a0dad",
     HP: 100,
 

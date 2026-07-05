@@ -8,6 +8,9 @@ const ctx = canvas.getContext("2d");
 const menuBackground = new Image();
 menuBackground.src = "MainMenu.png";
 
+const playerSprite = new Image();
+playerSprite.src = "Player_Knight.png";
+
 ctx.imageSmoothingEnabled = false;
 
 canvas.width = window.innerWidth;
