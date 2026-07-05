@@ -308,7 +308,6 @@ class Lancer extends Enemy {
 
     // Body contact never damages the player by itself - only
     // the lance does, and only mid-thrust or mid-dash.
-    checkPlayerCollision() {}
 
     // =====================================
     // Drawing
