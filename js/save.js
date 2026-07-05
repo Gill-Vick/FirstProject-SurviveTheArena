@@ -16,7 +16,8 @@ const Save = {
         shield: false,
         bow: false,
         wetStone: false,
-        hermesShoes: false
+        hermesShoes: false,
+        circleStrike: false
     },
 
     load() {
@@ -38,6 +39,7 @@ const Save = {
             this.inventory.bow = !!data.inventory?.bow;
             this.inventory.wetStone = !!data.inventory?.wetStone;
             this.inventory.hermesShoes = !!data.inventory?.hermesShoes;
+            this.inventory.circleStrike = !!data.inventory?.circleStrike;
 
         } catch (e) {}
 
@@ -83,9 +85,16 @@ const Save = {
             return false;
 
         // Repeatable items (currently just critRate) have no
-        // "owned" state to block against - only affordability.
-        if (item.repeatable)
+        // "owned" state to block against - only affordability,
+        // and (for crit rate specifically) a hard cap at 100%.
+        if (item.repeatable) {
+
+            if (itemId === "critRate" && this.getCritChance() >= CRIT.MAX)
+                return false;
+
             return this.canAfford(item.price);
+
+        }
 
         if (this.owns(itemId))
             return false;
@@ -119,7 +128,10 @@ const Save = {
 
     getCritChance() {
 
-        return CRIT.BASE + this.critRateLevel * CRIT.PER_UPGRADE;
+        return Math.min(
+            CRIT.MAX,
+            CRIT.BASE + this.critRateLevel * CRIT.PER_UPGRADE
+        );
 
     },
 

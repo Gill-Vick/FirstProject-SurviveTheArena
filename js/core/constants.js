@@ -100,26 +100,33 @@ const SHOP_ITEMS = {
     },
 
     bow: {
-        price: 1,
+        price: 10,
         name: "Shortbow",
         desc: "Press E — 2 dmg arrow (2s cd)"
     },
 
     wetStone: {
-        price: 1,
+        price: 10,
         name: "Wet Stone",
         desc: "Sword deals 2 damage"
     },
 
+    circleStrike: {
+        price: 10,
+        name: "Circle Strike",
+        desc: "Sword goes around you",
+        requiresFirstBoss: true
+    },
+
     hermesShoes: {
-        price: 1,
+        price: 10,
         name: "Hermes Shoes",
         desc: "Second dash charge",
         requiresFirstBoss: true
     },
 
     critRate: {
-        price: 1,
+        price: 10,
         name: "Critical Training",
         desc: "Permanently +1% crit chance",
         repeatable: true
@@ -134,7 +141,8 @@ const SHOP_ITEMS = {
 const CRIT = {
 
     BASE: 0.05,
-    PER_UPGRADE: 0.01
+    PER_UPGRADE: 0.01,
+    MAX: 1.0
 
 };
 
@@ -338,7 +346,7 @@ const KING = {
     // (thin warning line) then fires as a full beam that
     // spans clear across the map. Fires as a 3-round burst,
     // re-aiming at the player between each pulse.
-    LASER_COOLDOWN: 3000,
+    LASER_COOLDOWN: 2400,
     LASER_TELEGRAPH: 350,
     LASER_DURATION: 250,
     LASER_BURST_COUNT: 3,
@@ -347,9 +355,10 @@ const KING = {
     LASER_COLOR: "#00bfff",
 
     // Sword - a much longer, heavier greatsword swing than
-    // the old 120px reach.
-    SLASH_COOLDOWN: 5000,
-    SLASH_DURATION: 20,
+    // the old 120px reach. No longer parriable, and swings a
+    // bit faster/more often than before.
+    SLASH_COOLDOWN: 4000,
+    SLASH_DURATION: 16,
     SLASH_ARC: Math.PI * 0.9,
     SLASH_LENGTH: 320
 

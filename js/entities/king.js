@@ -24,7 +24,6 @@ class King extends Enemy {
         this.slashTimer = 0;
         this.slashAngle = 0;
         this.slashProgress = 0;
-        this.slashParried = false;
 
         // Laser - "idle" | "telegraph" | "firing" | "gap"
         this.laserCooldown = 0;
@@ -129,10 +128,7 @@ class King extends Enemy {
             this.slashTimer -= Game.timeScale;
             this.slashProgress = 1 - (this.slashTimer / KING.SLASH_DURATION);
 
-            if (player.swordSwing && this.checkParry())
-                this.triggerParry();
-            else
-                this.checkSlashHit();
+            this.checkSlashHit();
 
             if (this.slashTimer <= 0)
                 this.slashing = false;
@@ -165,7 +161,6 @@ class King extends Enemy {
             this.slashing = true;
             this.slashTimer = KING.SLASH_DURATION;
             this.slashProgress = 0;
-            this.slashParried = false;
             this.slashCooldown = KING.SLASH_COOLDOWN;
 
         }
@@ -297,68 +292,6 @@ class King extends Enemy {
     // =====================================
     // Sword (Parry)
     // =====================================
-
-    checkParry() {
-
-        if (this.slashParried)
-            return false;
-
-        const px = player.x + player.size / 2;
-        const py = player.y + player.size / 2;
-        const kx = this.x + this.size / 2;
-        const ky = this.y + this.size / 2;
-        const dx = px - kx;
-        const dy = py - ky;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist > KING.SLASH_LENGTH + 40)
-            return false;
-
-        const angleToPlayer = Math.atan2(dy, dx);
-        const currentSlash =
-            this.slashAngle -
-            KING.SLASH_ARC / 2 +
-            KING.SLASH_ARC * this.slashProgress;
-
-        let diff = Math.abs(angleToPlayer - currentSlash);
-
-        if (diff > Math.PI)
-            diff = Math.PI * 2 - diff;
-
-        if (diff > 0.55)
-            return false;
-
-        const playerSlash =
-            player.swordAngle -
-            SWORD.ARC / 2 +
-            SWORD.ARC * player.swingProgress;
-
-        let clash = Math.abs(playerSlash - currentSlash);
-
-        if (clash > Math.PI)
-            clash = Math.PI * 2 - clash;
-
-        return clash < 0.7;
-
-    }
-
-    triggerParry() {
-
-        this.slashParried = true;
-        this.slashing = false;
-        this.slashTimer = 0;
-        this.slashCooldown = 2500;
-
-        player.swordTimer = Math.floor(player.swordTimer / 2);
-
-        Game.screenShake = EFFECTS.SHAKE_ON_KILL;
-
-        const cx = this.x + this.size / 2;
-        const cy = this.y + this.size / 2;
-
-        Particle.createHitBurst(cx, cy);
-
-    }
 
     checkSlashHit() {
 

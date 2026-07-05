@@ -21,6 +21,7 @@ class Projectile {
         this.owner = options.owner ?? "enemy";
         this.isLaser = options.isLaser ?? false;
         this.sourceType = options.sourceType ?? null;
+        this.crit = options.crit ?? false;
 
     }
 
@@ -98,7 +99,7 @@ class Projectile {
 
             ) {
 
-                enemy.takeDamage(this.damage);
+                enemy.takeDamage(this.damage, this.crit);
 
                 enemy.applyKnockback(px, py, 10);
 

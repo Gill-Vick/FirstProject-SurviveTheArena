@@ -125,7 +125,7 @@ function drawShop() {
 
     drawButton(shopBackButton, "BACK", "#555", "white");
 
-    const ids = ["shield", "bow", "wetStone", "hermesShoes", "critRate"];
+    const ids = ["shield", "bow", "wetStone", "circleStrike", "hermesShoes", "critRate"];
 
     ids.forEach((id, i) => {
 
@@ -162,9 +162,18 @@ function drawShop() {
 
         }
 
+        const maxed =
+            item.repeatable &&
+            id === "critRate" &&
+            Save.getCritChance() >= CRIT.MAX;
+
         if (owned) {
 
             drawButton(buyBtn, "OWNED", "#444", "#aaa");
+
+        } else if (maxed) {
+
+            drawButton(buyBtn, "MAXED", "#444", "#aaa");
 
         } else if (locked) {
 
@@ -196,7 +205,7 @@ function handleMenuClick(x, y) {
             return;
         }
 
-        const ids = ["shield", "bow", "wetStone", "hermesShoes", "critRate"];
+        const ids = ["shield", "bow", "wetStone", "circleStrike", "hermesShoes", "critRate"];
 
         ids.forEach((id, i) => {
 

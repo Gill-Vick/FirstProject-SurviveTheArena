@@ -102,6 +102,14 @@ class Player {
 
     }
 
+    getSwordArc() {
+
+        return Save.inventory.circleStrike
+            ? Math.PI * 2
+            : SWORD.ARC;
+
+    }
+
     // =====================================
     // Movement
     // =====================================
@@ -249,6 +257,9 @@ class Player {
         const cx = this.x + this.size / 2;
         const cy = this.y + this.size / 2;
 
+        const critical = Math.random() < Save.getCritChance();
+        const damage = critical ? BOW.DAMAGE * 2 : BOW.DAMAGE;
+
         Game.projectiles.push(new Projectile(
 
             cx + Math.cos(aimAngle) * 28,
@@ -258,10 +269,11 @@ class Player {
             {
                 owner: "player",
                 speed: BOW.SPEED,
-                damage: BOW.DAMAGE,
+                damage: damage,
                 size: BOW.SIZE,
                 color: BOW.COLOR,
-                life: 120
+                life: 120,
+                crit: critical
             }
 
         ));
@@ -326,17 +338,6 @@ class Player {
             if (enemy.hitThisSwing)
                 return;
 
-            if (enemy.type === "king" && enemy.slashing && !enemy.slashParried) {
-
-                if (enemy.checkParry()) {
-
-                    enemy.triggerParry();
-                    return;
-
-                }
-
-            }
-
             // Player Center
             const playerCenterX = this.x + this.size / 2;
             const playerCenterY = this.y + this.size / 2;
@@ -361,10 +362,12 @@ class Player {
             // Use the angle to this closest intersection point for the arc calculation
             const angleToEnemy = Math.atan2(dy, dx);
 
+            const arc = this.getSwordArc();
+
             const currentAngle =
                 this.swordAngle -
-                SWORD.ARC / 2 +
-                SWORD.ARC * this.swingProgress;
+                arc / 2 +
+                arc * this.swingProgress;
 
             let angleDifference = Math.abs(angleToEnemy - currentAngle);
 
@@ -471,9 +474,10 @@ class Player {
     
         const trailLag = 0.15;
         const prevProgress = Math.max(0, this.swingProgress - trailLag);
-        
-        const currentAngle = this.swordAngle - SWORD.ARC / 2 + SWORD.ARC * this.swingProgress;
-        const previousAngle = this.swordAngle - SWORD.ARC / 2 + SWORD.ARC * prevProgress;
+
+        const arc = this.getSwordArc();
+        const currentAngle = this.swordAngle - arc / 2 + arc * this.swingProgress;
+        const previousAngle = this.swordAngle - arc / 2 + arc * prevProgress;
         const angleDiff = currentAngle - previousAngle;
     
         const bladeLength = SWORD.LENGTH;
