@@ -169,6 +169,18 @@ class Player {
         if (keys["d"])
             this.x += this.speed * Game.timeScale;
 
+        // Mobile joystick input - purely additive on top of
+        // the WASD checks above. MobileInput.active is only
+        // ever true on a touch device, and moveX/moveY sit at
+        // 0 whenever the stick isn't being held, so this is a
+        // no-op on desktop and doesn't change PC movement feel.
+        if (typeof MobileInput !== "undefined" && MobileInput.active) {
+
+            this.x += MobileInput.moveX * this.speed * Game.timeScale;
+            this.y += MobileInput.moveY * this.speed * Game.timeScale;
+
+        }
+
     }
 
     keepOnScreen() {
@@ -199,7 +211,14 @@ class Player {
 
         const moving =
             keys["w"] || keys["s"] ||
-            keys["a"] || keys["d"];
+            keys["a"] || keys["d"] ||
+            (
+
+                typeof MobileInput !== "undefined" &&
+                MobileInput.active &&
+                (MobileInput.moveX !== 0 || MobileInput.moveY !== 0)
+
+            );
 
         if (!moving) {
 
@@ -256,6 +275,24 @@ class Player {
             if (keys["s"]) dy = 1;
             if (keys["a"]) dx = -1;
             if (keys["d"]) dx = 1;
+
+            // Touch users don't have a keyboard - if no WASD
+            // is held, fall back to whatever direction the
+            // mobile movement joystick is currently pointing.
+            // Desktop is untouched since MobileInput.active is
+            // only true on a touch device.
+            if (
+
+                dx === 0 && dy === 0 &&
+                typeof MobileInput !== "undefined" &&
+                MobileInput.active
+
+            ) {
+
+                dx = MobileInput.moveX;
+                dy = MobileInput.moveY;
+
+            }
 
             const distance = Math.sqrt(dx * dx + dy * dy);
 
