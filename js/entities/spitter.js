@@ -116,7 +116,8 @@ class Spitter extends Enemy {
 
                 size: 6,
                 life: 150,
-                sourceType: "spitter"
+                sourceType: "spitter",
+                isArrow: true
 
             }
 

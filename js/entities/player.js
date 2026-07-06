@@ -28,7 +28,7 @@ class Player {
 
         this.dashCooldowns = [0, 0];
 
-        this.shieldActive = Save.inventory.shield;
+        this.shieldActive = Save.isEquipped("shield");
 
         this.invulnTimer = 0;
 
@@ -109,12 +109,12 @@ class Player {
 
     getSwordDamage() {
 
-        const base = Save.inventory.kingsBlade
+        const base = Save.isEquipped("kingsBlade")
             ? KINGS_BLADE.BASE_DAMAGE
             : SWORD.DAMAGE;
 
-        const wetstoneBonus = Save.inventory.wetStone
-            ? (Save.inventory.kingsBlade ? KINGS_BLADE.WETSTONE_BONUS : SWORD.WETSTONE_BONUS)
+        const wetstoneBonus = Save.isEquipped("wetStone")
+            ? (Save.isEquipped("kingsBlade") ? KINGS_BLADE.WETSTONE_BONUS : SWORD.WETSTONE_BONUS)
             : 0;
 
         return base + wetstoneBonus;
@@ -123,7 +123,7 @@ class Player {
 
     getSwordLength() {
 
-        return Save.inventory.kingsBlade
+        return Save.isEquipped("kingsBlade")
             ? KINGS_BLADE.LENGTH
             : SWORD.LENGTH;
 
@@ -131,7 +131,7 @@ class Player {
 
     getSwordArc() {
 
-        return Save.inventory.circleStrike
+        return Save.isEquipped("circleStrike")
             ? Math.PI * 2
             : SWORD.ARC;
 
@@ -215,7 +215,7 @@ class Player {
 
     updateDash() {
 
-        const slots = Save.inventory.hermesShoes ? 2 : 1;
+        const slots = Save.isEquipped("hermesShoes") ? 2 : 1;
 
         for (let i = 0; i < slots; i++) {
 
@@ -228,7 +228,7 @@ class Player {
 
     dash() {
 
-        const slots = Save.inventory.hermesShoes ? 2 : 1;
+        const slots = Save.isEquipped("hermesShoes") ? 2 : 1;
 
         for (let i = 0; i < slots; i++) {
 
@@ -275,7 +275,7 @@ class Player {
 
     fireBow() {
 
-        if (!Save.inventory.bow)
+        if (!Save.isEquipped("bow"))
             return;
 
         if (this.bowCooldown > 0)
@@ -284,26 +284,37 @@ class Player {
         const cx = this.x + this.size / 2;
         const cy = this.y + this.size / 2;
 
-        const critical = Math.random() < Save.getCritChance();
-        const damage = critical ? BOW.DAMAGE * 2 : BOW.DAMAGE;
+        const arrowCount = Save.getBowArrowCount();
+        const spread = BOW.FAN_SPREAD;
+        const startAngle = aimAngle - (arrowCount - 1) * spread / 2;
 
-        Game.projectiles.push(new Projectile(
+        for (let i = 0; i < arrowCount; i++) {
 
-            cx + Math.cos(aimAngle) * 28,
-            cy + Math.sin(aimAngle) * 28,
-            aimAngle,
+            const angle = startAngle + i * spread;
 
-            {
-                owner: "player",
-                speed: BOW.SPEED,
-                damage: damage,
-                size: BOW.SIZE,
-                color: BOW.COLOR,
-                life: 120,
-                crit: critical
-            }
+            const critical = Math.random() < Save.getEquippedCritChance();
+            const damage = critical ? BOW.DAMAGE * 2 : BOW.DAMAGE;
 
-        ));
+            Game.projectiles.push(new Projectile(
+
+                cx + Math.cos(angle) * 28,
+                cy + Math.sin(angle) * 28,
+                angle,
+
+                {
+                    owner: "player",
+                    speed: BOW.SPEED,
+                    damage: damage,
+                    size: BOW.SIZE,
+                    color: BOW.COLOR,
+                    life: 120,
+                    crit: critical,
+                    isArrow: true
+                }
+
+            ));
+
+        }
 
         this.bowCooldown = BOW.COOLDOWN;
 
@@ -325,7 +336,7 @@ class Player {
 
     fireKingsBladeLaser() {
 
-        if (!Save.inventory.kingsBlade)
+        if (!Save.isEquipped("kingsBlade"))
             return;
 
         if (this.kingsBladeCooldown > 0)
@@ -335,7 +346,7 @@ class Player {
         this.kingsBladeLaserAngle = aimAngle;
         this.kingsBladeLaserTimer = KINGS_BLADE.LASER_DURATION;
 
-        const critical = Math.random() < Save.getCritChance();
+        const critical = Math.random() < Save.getEquippedCritChance();
         const damage = critical
             ? KINGS_BLADE.LASER_DAMAGE * 2
             : KINGS_BLADE.LASER_DAMAGE;
@@ -479,7 +490,7 @@ class Player {
 
             // Check if the sword arc overlaps our target angle
             if (angleDifference < 0.5) {
-                const critical = Math.random() < Save.getCritChance();
+                const critical = Math.random() < Save.getEquippedCritChance();
                 const base = this.getSwordDamage();
                 const damage = critical ? base * 2 : base;
 
@@ -587,7 +598,7 @@ class Player {
         const angleDiff = currentAngle - previousAngle;
     
         const bladeLength = this.getSwordLength();
-        const kingsBlade = Save.inventory.kingsBlade;
+        const kingsBlade = Save.isEquipped("kingsBlade");
     
         // =====================================
         // 1. THE SHARP TRAIL
@@ -657,7 +668,7 @@ class Player {
         // 3. HIGH-QUALITY METAL BLADE (Tapered & Sharp)
         // =====================================
         // Metallic sleek gradient
-        const wet = Save.inventory.wetStone;
+        const wet = Save.isEquipped("wetStone");
 
         let metalGrad = ctx.createLinearGradient(0, -6, 0, 6);
         metalGrad.addColorStop(0, wet ? "#d5e8f0" : "#ffffff");

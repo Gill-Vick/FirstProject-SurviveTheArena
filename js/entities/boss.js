@@ -118,7 +118,7 @@ class Boss extends Enemy {
         ctx.font = "bold 20px Arial";
         ctx.textAlign = "center";
         ctx.fillText(
-            "BOSS",
+            BOSS.DISPLAY_NAME,
             this.x + this.size / 2,
             this.y - 20
         );

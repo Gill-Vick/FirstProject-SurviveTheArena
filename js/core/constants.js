@@ -85,7 +85,8 @@ const BOW = {
     DAMAGE: 2,
     SPEED: 14,
     SIZE: 6,
-    COLOR: "#8b6914"
+    COLOR: "#8b6914",
+    FAN_SPREAD: 0.18
 };
 
 // =====================================
@@ -107,12 +108,12 @@ const COINS = {
     tank: 2,
     spitter: 2,
     runner: 3,
-    boss: 20,
+    boss: 50,
     fireMage: 3,
     necromancer: 4,
     skeleton: 1,
     lancer: 5,
-    king: 50
+    king: 150
 };
 
 // =====================================
@@ -122,42 +123,60 @@ const COINS = {
 const SHOP_ITEMS = {
 
     shield: {
-        price: 50,
+        price: 100,
         name: "Wooden Shield",
-        desc: "Blocks 1 hit + 1s invuln"
+        desc: "Blocks 1 hit + 1s invuln",
+        equippable: true
     },
 
     bow: {
-        price: 50,
-        name: "Shortbow",
-        desc: "Press E — 2 dmg arrow (2s cd)"
+        equippable: true,
+        get price() {
+            if (Save.bowStage === 1) return 200;
+            if (Save.bowStage === 2) return 400;
+            return 100;
+        },
+        get name() {
+            if (Save.bowStage === 1) return "Multishot I";
+            if (Save.bowStage === 2) return "Multishot II";
+            return "Shortbow";
+        },
+        get desc() {
+            if (Save.bowStage === 1) return "Bow fires 2 arrows in a fan";
+            if (Save.bowStage === 2) return "Bow fires 3 arrows in a fan";
+            return "Press E — 2 dmg arrow (2s cd)";
+        }
     },
 
     wetStone: {
-        price: 100,
+        price: 250,
         name: "Wet Stone",
-        desc: "Sword deals 2 damage"
+        desc: "Sword deals 2 damage",
+        equippable: true
     },
 
     circleStrike: {
-        price: 200,
+        price: 350,
         name: "Circle Strike",
         desc: "Sword goes around you",
-        requiresFirstBoss: true
+        requiresFirstBoss: true,
+        equippable: true
     },
 
     hermesShoes: {
-        price: 300,
+        price: 600,
         name: "Hermes Shoes",
         desc: "Second dash charge",
-        requiresFirstBoss: true
+        requiresFirstBoss: true,
+        equippable: true
     },
 
     kingsBlade: {
-        price: 1000,
+        price: 2500,
         name: "King's Blade",
         desc: "2 dmg sword + right-click laser (5 dmg, 4s cd)",
-        requiresKingKilled: true
+        requiresKingKilled: true,
+        equippable: true
     },
 
     critRate: {
@@ -187,7 +206,7 @@ const CRIT = {
 
 const DASH = {
     DISTANCE: 120,
-    COOLDOWN: 1000
+    COOLDOWN: 2500
 };
 
 // =====================================
@@ -213,14 +232,14 @@ const ENEMY_TYPES = {
         SIZE: 70,
         SPEED: 1,
         COLOR: "darkred",
-        HP_MULTIPLIER: 1
+        HP_MULTIPLIER: 1.5
     },
 
     spitter: {
 
         SIZE: 36,
         SPEED: 1.6,
-        COLOR: "purple",
+        COLOR: "#8B4513",
         HP_MULTIPLIER: 0.5,
 
         // Distance (px) it tries to hold from the player
@@ -230,7 +249,7 @@ const ENEMY_TYPES = {
         SHOOT_COOLDOWN: 90,
 
         PROJECTILE_SPEED: 7,
-        PROJECTILE_COLOR: "violet"
+        PROJECTILE_COLOR: "#5c4033"
 
     },
 
@@ -253,14 +272,14 @@ const ENEMY_TYPES = {
         SPEED: 1.4,
         COLOR: "#c0392b",
         PREFERRED_RANGE: 280,
-        CAST_COOLDOWN: 2200
+        CAST_COOLDOWN: 1900
 
     },
 
     necromancer: {
 
         SIZE: 42,
-        SPEED: 1.2,
+        SPEED: 0.9,
         COLOR: "#4a235a",
         SUMMON_COOLDOWN: 2000
 
@@ -277,22 +296,22 @@ const ENEMY_TYPES = {
     lancer: {
 
         SIZE: 44,
-        SPEED: 1.8,
+        SPEED: 2,
         COLOR: "#566573",
         SHIELD_HITS: 2,
 
         // Thrust attack (short poke)
-        THRUST_COOLDOWN: 2000,
-        THRUST_WINDUP: 15,
-        THRUST_DURATION: 18,
+        THRUST_COOLDOWN: 1200,
+        THRUST_WINDUP: 10,
+        THRUST_DURATION: 15,
         THURST_RANGE: 160,
         THRUST_WIDTH: 50,
         LANCE_LENGTH: 90,
 
         // Dash attack (shield-broken lunge)
-        DASH_WINDUP: 20,
-        DASH_SPEED: 9,
-        DASH_DURATION: 18,
+        DASH_WINDUP: 10,
+        DASH_SPEED: 20,
+        DASH_DURATION: 9,
         DASH_WIDTH: 60
 
     }
@@ -310,9 +329,9 @@ const ENEMY_LABELS = {
 
     grunt: "a Grunt",
     tank: "a Tank",
-    spitter: "a Spitter",
+    spitter: "an Archer",
     runner: "a Runner",
-    boss: "the Boss",
+    boss: "the Castle Guard",
     fireMage: "a Fire Mage",
     necromancer: "a Necromancer",
     skeleton: "a Skeleton",
@@ -339,7 +358,7 @@ const ELITE = {
     GLOW_COLOR: "gold",
 
     UNLOCK_WAVE: 3,
-    CHANCE: 0.10
+    CHANCE: 0.15
 
 };
 
@@ -350,16 +369,17 @@ const ELITE = {
 const BOSS = {
 
     SIZE: 120,
-    SPEED: 0.8,
+    SPEED: 1.2,
     COLOR: "#8b0000",
+    DISPLAY_NAME: "Castle Guard",
 
-    BASE_HP: 20,
+    BASE_HP: 30,
     HP_PER_WAVE: 5,
 
-    ATTACK_COOLDOWN: 120,
+    ATTACK_COOLDOWN: 100,
 
-    PROJECTILE_COUNT: 10,
-    PROJECTILE_SPEED: 7,
+    PROJECTILE_COUNT: 12,
+    PROJECTILE_SPEED: 8,
     PROJECTILE_COLOR: "#ff4500"
 
 };
@@ -371,11 +391,11 @@ const BOSS = {
 const KING = {
 
     SIZE: 130,
-    SPEED: 0.7,
+    SPEED: 0.8,
     COLOR: "#6a0dad",
-    HP: 100,
+    HP: 130,
 
-    SUMMON_THRESHOLD: 50,
+    SUMMON_THRESHOLD: 65,
 
     // Laser - a continuous beam, not a bullet. It telegraphs
     // (thin warning line) then fires as a full beam that
@@ -438,9 +458,10 @@ const WAVES = {
 
     BOSS_WAVE: 5,
     KING_WAVE: 10,
-    BOSS_ESCORT_GRUNTS: 3,
+    BOSS_ESCORT_GRUNTS: 20,
+    BOSS_ESCORT_TANKS: 5,
 
-    TRANSITION_TIME: 3000
+    TRANSITION_TIME: 1500
 
 };
 
@@ -469,5 +490,141 @@ const EFFECTS = {
     SHAKE_ON_DEATH: 20,
 
     SHAKE_ON_KILL: 4
+
+};
+
+// =====================================
+// Bestiary
+// =====================================
+
+const BESTIARY_ORDER = [
+    "grunt", "tank", "spitter", "runner", "boss",
+    "fireMage", "necromancer", "skeleton", "lancer", "king"
+];
+
+const BESTIARY = {
+
+    grunt: {
+        name: "Grunt",
+        color: "red",
+        size: 40,
+        isBoss: false,
+        desc: "The arena's cannon fodder. Slow-witted but relentless.",
+        behavior: "Walks straight toward you for a melee hit.",
+        hpAtWave(w) { return 1 + Math.floor((w - 1) / 3); },
+        hpScale: "1 + floor((wave - 1) / 3)",
+        baseSpeed: 2
+    },
+
+    tank: {
+        name: "Tank",
+        color: "darkred",
+        size: 70,
+        isBoss: false,
+        desc: "A hulking bruiser that soaks up punishment.",
+        behavior: "Slow chase. Immune to knockback.",
+        hpAtWave(w) { return 3 + Math.floor((w - 1) / 3) * 2; },
+        hpScale: "3 + floor((wave - 1) / 3) × 2",
+        baseSpeed: 1
+    },
+
+    spitter: {
+        name: "Archer",
+        color: "#8B4513",
+        size: 36,
+        isBoss: false,
+        desc: "Keeps its distance and peppers you with arrows.",
+        behavior: "Kites at range, firing arrows on cooldown.",
+        hpAtWave(w) { return 1 + Math.floor((w - 1) / 5); },
+        hpScale: "1 + floor((wave - 1) / 5)",
+        baseSpeed: 1.6
+    },
+
+    runner: {
+        name: "Runner",
+        color: "orange",
+        size: 30,
+        isBoss: false,
+        desc: "Fast and fragile — closes gaps in a blink.",
+        behavior: "Chases you, then periodically triples speed in a charge.",
+        hpAtWave(w) { return 1 + Math.floor((w - 1) / 5); },
+        hpScale: "1 + floor((wave - 1) / 5)",
+        baseSpeed: 3
+    },
+
+    boss: {
+        name: "Castle Guard",
+        color: "#8b0000",
+        size: 120,
+        isBoss: true,
+        desc: "The wave 5 gatekeeper. Fights up close and at range.",
+        behavior: "Fires a radial burst, then dashes at the player.",
+        hpAtWave(w) { return BOSS.BASE_HP + w * BOSS.HP_PER_WAVE; },
+        hpScale: `${BOSS.BASE_HP} + wave × ${BOSS.HP_PER_WAVE}`,
+        baseSpeed: 1.2
+    },
+
+    fireMage: {
+        name: "Fire Mage",
+        color: "#c0392b",
+        size: 38,
+        isBoss: false,
+        emoji: "🔥",
+        desc: "A pyromancer who turns the floor into lava.",
+        behavior: "Holds range and casts burning ground hazards at you.",
+        hpAtWave(w) { return 1 + Math.floor((w - 1) / 5); },
+        hpScale: "1 + floor((wave - 1) / 5)",
+        baseSpeed: 1.4
+    },
+
+    necromancer: {
+        name: "Necromancer",
+        color: "#4a235a",
+        size: 42,
+        isBoss: false,
+        emoji: "☠",
+        desc: "Raises the dead to overwhelm you.",
+        behavior: "Summons skeleton minions on cooldown.",
+        hpAtWave(w) { return 2 + Math.floor((w - 1) / 5); },
+        hpScale: "2 + floor((wave - 1) / 5)",
+        baseSpeed: 0.9
+    },
+
+    skeleton: {
+        name: "Skeleton",
+        color: "#d5d8dc",
+        size: 32,
+        isBoss: false,
+        emoji: "💀",
+        desc: "Undead fodder summoned by necromancers.",
+        behavior: "Rushes the player quickly but dies easily.",
+        hpAtWave(w) { return Math.max(1, Math.floor((1 + Math.floor((w - 1) / 3)) / 2)); },
+        hpScale: "max(1, floor(grunt HP / 2))",
+        baseSpeed: 3.2
+    },
+
+    lancer: {
+        name: "Lancer",
+        color: "#566573",
+        size: 44,
+        isBoss: false,
+        desc: "A disciplined knight with shield and lance.",
+        behavior: "Blocks hits with a shield, then thrusts or lunges.",
+        hpAtWave(w) { return 1 + Math.floor((w - 1) / 3); },
+        hpScale: "1 + floor((wave - 1) / 3)",
+        baseSpeed: 2
+    },
+
+    king: {
+        name: "King",
+        color: "#6a0dad",
+        size: 130,
+        isBoss: true,
+        desc: "The arena's ruler. A multi-phase nightmare.",
+        behavior: "Laser bursts, greatsword slashes, and elite summons at half HP.",
+        hpAtWave(w) { return KING.HP; },
+        hpScale: `${KING.HP} (fixed)`,
+        baseSpeed: 0.8
+    }
 
 };

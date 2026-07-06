@@ -22,6 +22,7 @@ class Projectile {
         this.isLaser = options.isLaser ?? false;
         this.sourceType = options.sourceType ?? null;
         this.crit = options.crit ?? false;
+        this.isArrow = options.isArrow ?? false;
 
     }
 
@@ -118,7 +119,7 @@ class Projectile {
 
     draw() {
 
-        if (this.owner === "player") {
+        if (this.owner === "player" || this.isArrow) {
 
             ctx.save();
 
@@ -127,7 +128,7 @@ class Projectile {
             ctx.rotate(this.angle);
 
             // Shaft
-            ctx.fillStyle = "#5c4033";
+            ctx.fillStyle = this.color || "#5c4033";
             ctx.fillRect(-14, -1.5, 22, 3);
 
             // Arrowhead

@@ -18,29 +18,6 @@ let isMouseDown = false;
 // Mouse Input
 // =====================================
 
-canvas.addEventListener("mousemove", (e) => {
-
-    const rect = canvas.getBoundingClientRect();
-
-    mouseX = e.clientX - rect.left;
-    mouseY = e.clientY - rect.top;
-
-    // player doesn't exist until startGame() runs,
-    // so skip aiming while on the menu screen.
-
-    if (!player)
-        return;
-
-    const dx =
-        mouseX - (player.x + player.size / 2);
-
-    const dy =
-        mouseY - (player.y + player.size / 2);
-
-    aimAngle = Math.atan2(dy, dx);
-
-});
-
 canvas.addEventListener("mousedown", (e) => {
 
     const rect = canvas.getBoundingClientRect();
@@ -55,6 +32,7 @@ canvas.addEventListener("mousedown", (e) => {
         switch (Game.state) {
 
             case "menu":
+                handleMenuMouseDown(x, y);
                 handleMenuClick(x, y);
                 break;
 
@@ -83,10 +61,37 @@ canvas.addEventListener("mousedown", (e) => {
 
 });
 
+canvas.addEventListener("mousemove", (e) => {
+
+    const rect = canvas.getBoundingClientRect();
+
+    mouseX = e.clientX - rect.left;
+    mouseY = e.clientY - rect.top;
+
+    if (Game.state === "menu")
+        handleMenuMouseMove(mouseX, mouseY);
+
+    // player doesn't exist until startGame() runs,
+    // so skip aiming while on the menu screen.
+
+    if (!player)
+        return;
+
+    const dx =
+        mouseX - (player.x + player.size / 2);
+
+    const dy =
+        mouseY - (player.y + player.size / 2);
+
+    aimAngle = Math.atan2(dy, dx);
+
+});
+
 window.addEventListener("mouseup", (e) => {
 
     if (e.button === 0) {
         isMouseDown = false;
+        handleMenuMouseUp();
     }
 
 });
@@ -96,6 +101,7 @@ window.addEventListener("mouseup", (e) => {
 window.addEventListener("blur", () => {
 
     isMouseDown = false;
+    handleMenuMouseUp();
     
     // Clear keyboard keys too just in case
     Object.keys(keys).forEach(key => keys[key] = false);
@@ -142,14 +148,6 @@ window.addEventListener("keydown", (e) => {
 
         player.fireBow();
 
-    }
-
-});
-
-window.addEventListener("mouseup", (e) => {
-
-    if (e.button === 0) {
-        isMouseDown = false;
     }
 
 });

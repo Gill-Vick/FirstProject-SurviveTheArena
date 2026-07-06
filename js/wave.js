@@ -32,7 +32,7 @@ const SPAWN_GAP = {
 };
 
 const NO_ELITE = new Set([
-    "boss", "king", "skeleton"
+    "boss", "king"
 ]);
 
 function startWave() {
@@ -131,6 +131,7 @@ function startBossWave() {
 
     spawnWaveEnemies({
         boss: 1,
+        tank: WAVES.BOSS_ESCORT_TANKS,
         grunt: WAVES.BOSS_ESCORT_GRUNTS
     });
 

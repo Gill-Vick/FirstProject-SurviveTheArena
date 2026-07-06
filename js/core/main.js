@@ -57,7 +57,7 @@ const MAX_FRAME_TIME = 1000 / 15;
 // Game.timeScale, changing this one number slows or speeds
 // up literally everything at once - player, enemies,
 // projectiles, particles, cooldowns, all of it.
-const GAME_SPEED = 0.6;
+const GAME_SPEED = 0.7;
 
 function gameLoop(currentTime) {
 

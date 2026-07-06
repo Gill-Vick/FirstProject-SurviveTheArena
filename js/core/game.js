@@ -29,12 +29,16 @@ const Game = {
     // Real elapsed ms since last frame, and that same
     // duration expressed as "how many 60fps frames" -
     // set once per loop in main.js. See main.js for why.
-    dt: 1000 / 60,
+    dt: 1000 / 70,
     timeScale: 1,
 
     state: "menu",
 
     menuView: "main",
+
+    bestiarySelected: null,
+
+    shopCritDragging: false,
 
     // Who/what killed the player, shown on the game over
     // screen (e.g. "a Grunt", "the King").
@@ -209,6 +213,8 @@ function onEnemyKilled(enemy) {
     if (enemy.type === "king")
         Save.markKingKilled();
 
+    Save.markBestiaryKill(enemy.type);
+
     Game.screenShake = EFFECTS.SHAKE_ON_KILL;
 
 }
@@ -218,6 +224,10 @@ function resetGame() {
     Game.state = "menu";
 
     Game.menuView = "main";
+
+    Game.bestiarySelected = null;
+
+    Game.shopCritDragging = false;
 
     Game.wave = 1;
 

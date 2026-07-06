@@ -14,6 +14,12 @@ const Save = {
 
     critRateLevel: 0,
 
+    equippedCritLevel: 0,
+
+    bowStage: 0,
+
+    equippedBowStage: 0,
+
     inventory: {
         shield: false,
         bow: false,
@@ -22,6 +28,17 @@ const Save = {
         circleStrike: false,
         kingsBlade: false
     },
+
+    equipped: {
+        shield: false,
+        bow: false,
+        wetStone: false,
+        hermesShoes: false,
+        circleStrike: false,
+        kingsBlade: false
+    },
+
+    bestiaryUnlocked: {},
 
     load() {
 
@@ -38,6 +55,9 @@ const Save = {
             this.firstBossKilled = !!data.firstBossKilled;
             this.kingKilled = !!data.kingKilled;
             this.critRateLevel = data.critRateLevel ?? 0;
+            this.equippedCritLevel = data.equippedCritLevel ?? this.critRateLevel;
+            this.bowStage = data.bowStage ?? 0;
+            this.equippedBowStage = data.equippedBowStage ?? this.bowStage;
 
             this.inventory.shield = !!data.inventory?.shield;
             this.inventory.bow = !!data.inventory?.bow;
@@ -45,6 +65,15 @@ const Save = {
             this.inventory.hermesShoes = !!data.inventory?.hermesShoes;
             this.inventory.circleStrike = !!data.inventory?.circleStrike;
             this.inventory.kingsBlade = !!data.inventory?.kingsBlade;
+
+            this.equipped.shield = !!data.equipped?.shield;
+            this.equipped.bow = !!data.equipped?.bow;
+            this.equipped.wetStone = !!data.equipped?.wetStone;
+            this.equipped.hermesShoes = !!data.equipped?.hermesShoes;
+            this.equipped.circleStrike = !!data.equipped?.circleStrike;
+            this.equipped.kingsBlade = !!data.equipped?.kingsBlade;
+
+            this.bestiaryUnlocked = { ...(data.bestiaryUnlocked ?? {}) };
 
         } catch (e) {}
 
@@ -58,7 +87,12 @@ const Save = {
             firstBossKilled: this.firstBossKilled,
             kingKilled: this.kingKilled,
             critRateLevel: this.critRateLevel,
-            inventory: { ...this.inventory }
+            equippedCritLevel: this.equippedCritLevel,
+            bowStage: this.bowStage,
+            equippedBowStage: this.equippedBowStage,
+            inventory: { ...this.inventory },
+            equipped: { ...this.equipped },
+            bestiaryUnlocked: { ...this.bestiaryUnlocked }
 
         }));
 
@@ -79,7 +113,69 @@ const Save = {
 
     owns(itemId) {
 
+        if (itemId === "bow")
+            return this.bowStage >= 1;
+
         return !!this.inventory[itemId];
+
+    },
+
+    isEquipped(itemId) {
+
+        if (itemId === "bow")
+            return this.bowStage >= 1 && this.equipped.bow;
+
+        return !!this.inventory[itemId] && !!this.equipped[itemId];
+
+    },
+
+    toggleEquip(itemId) {
+
+        const item = SHOP_ITEMS[itemId];
+
+        if (!item?.equippable || !this.owns(itemId))
+            return;
+
+        this.equipped[itemId] = !this.equipped[itemId];
+        this.persist();
+
+    },
+
+    getBowArrowCount() {
+
+        if (!this.isEquipped("bow"))
+            return 0;
+
+        return Math.max(1, this.equippedBowStage);
+
+    },
+
+    getPurchaseBlockReason(itemId) {
+
+        const item = SHOP_ITEMS[itemId];
+
+        if (!item)
+            return null;
+
+        if (item.requiresFirstBoss && !this.firstBossKilled)
+            return "Defeat Castle Guard";
+
+        if (item.requiresKingKilled && !this.kingKilled)
+            return "Defeat the King";
+
+        if (itemId === "bow" && this.bowStage >= 3)
+            return "Maxed out";
+
+        if (!item.repeatable && itemId !== "bow" && this.owns(itemId))
+            return null;
+
+        if (item.repeatable && itemId === "critRate" && this.getCritChance() >= CRIT.MAX)
+            return "Maxed out";
+
+        if (!this.canAfford(item.price))
+            return "Not enough coins";
+
+        return null;
 
     },
 
@@ -90,28 +186,16 @@ const Save = {
         if (!item)
             return false;
 
-        // Repeatable items (currently just critRate) have no
-        // "owned" state to block against - only affordability,
-        // and (for crit rate specifically) a hard cap at 100%.
-        if (item.repeatable) {
+        if (this.getPurchaseBlockReason(itemId))
+            return false;
 
-            if (itemId === "critRate" && this.getCritChance() >= CRIT.MAX)
-                return false;
-
-            return this.canAfford(item.price);
-
-        }
+        if (item.repeatable || itemId === "bow")
+            return true;
 
         if (this.owns(itemId))
             return false;
 
-        if (item.requiresFirstBoss && !this.firstBossKilled)
-            return false;
-
-        if (item.requiresKingKilled && !this.kingKilled)
-            return false;
-
-        return this.canAfford(item.price);
+        return true;
 
     },
 
@@ -124,14 +208,52 @@ const Save = {
 
         this.coins -= item.price;
 
-        if (item.repeatable)
+        if (item.repeatable) {
+
             this.critRateLevel++;
-        else
+
+            if (this.equippedCritLevel < this.critRateLevel)
+                this.equippedCritLevel = this.critRateLevel;
+
+        } else if (itemId === "bow") {
+
+            this.bowStage++;
+            this.equippedBowStage = this.bowStage;
+            this.inventory.bow = true;
+            this.equipped.bow = true;
+
+        } else {
+
             this.inventory[itemId] = true;
+            this.equipped[itemId] = true;
+
+        }
 
         this.persist();
 
         return true;
+
+    },
+
+    setEquippedBowStage(stage) {
+
+        this.equippedBowStage = Math.max(
+            1,
+            Math.min(this.bowStage, Math.floor(stage))
+        );
+
+        this.persist();
+
+    },
+
+    setEquippedCritLevel(level) {
+
+        this.equippedCritLevel = Math.max(
+            0,
+            Math.min(this.critRateLevel, Math.floor(level))
+        );
+
+        this.persist();
 
     },
 
@@ -140,6 +262,15 @@ const Save = {
         return Math.min(
             CRIT.MAX,
             CRIT.BASE + this.critRateLevel * CRIT.PER_UPGRADE
+        );
+
+    },
+
+    getEquippedCritChance() {
+
+        return Math.min(
+            CRIT.MAX,
+            CRIT.BASE + this.equippedCritLevel * CRIT.PER_UPGRADE
         );
 
     },
@@ -160,6 +291,22 @@ const Save = {
             return;
 
         this.kingKilled = true;
+        this.persist();
+
+    },
+
+    isBestiaryUnlocked(type) {
+
+        return !!this.bestiaryUnlocked[type];
+
+    },
+
+    markBestiaryKill(type) {
+
+        if (this.bestiaryUnlocked[type])
+            return;
+
+        this.bestiaryUnlocked[type] = true;
         this.persist();
 
     }
