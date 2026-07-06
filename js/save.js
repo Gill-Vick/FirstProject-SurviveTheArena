@@ -10,6 +10,8 @@ const Save = {
 
     firstBossKilled: false,
 
+    knightKilled: false,
+
     kingKilled: false,
 
     critRateLevel: 0,
@@ -57,6 +59,7 @@ const Save = {
 
             this.coins = data.coins ?? 0;
             this.firstBossKilled = !!data.firstBossKilled;
+            this.knightKilled = !!data.knightKilled;
             this.kingKilled = !!data.kingKilled;
             this.critRateLevel = data.critRateLevel ?? 0;
             this.equippedCritLevel = data.equippedCritLevel ?? this.critRateLevel;
@@ -95,6 +98,7 @@ const Save = {
 
             coins: this.coins,
             firstBossKilled: this.firstBossKilled,
+            knightKilled: this.knightKilled,
             kingKilled: this.kingKilled,
             critRateLevel: this.critRateLevel,
             equippedCritLevel: this.equippedCritLevel,
@@ -320,6 +324,16 @@ const Save = {
             return;
 
         this.firstBossKilled = true;
+        this.persist();
+
+    },
+
+    markKnightKilled() {
+
+        if (this.knightKilled)
+            return;
+
+        this.knightKilled = true;
         this.persist();
 
     },

@@ -13,6 +13,7 @@ const ENEMY_CLASSES = {
     necromancer: Necromancer,
     skeleton: Skeleton,
     lancer: Lancer,
+    knight: Knight,
     king: King
 
 };
@@ -27,12 +28,13 @@ const SPAWN_GAP = {
     fireMage: 650,
     necromancer: 800,
     lancer: 550,
+    knight: 500,
     king: 500
 
 };
 
 const NO_ELITE = new Set([
-    "boss", "king"
+    "boss", "knight", "king"
 ]);
 
 // =====================================
@@ -68,17 +70,25 @@ function startWave() {
 
     updateArenaForWave();
 
-    if (Game.wave === WAVES.KING_WAVE) {
+    if (Game.wave === WAVES.BOSS_WAVE) {
 
-        startKingWave();
+        startBossWave();
 
         return;
 
     }
 
-    if (Game.wave === WAVES.BOSS_WAVE) {
+    if (Game.wave === WAVES.KNIGHT_WAVE) {
 
-        startBossWave();
+        startKnightWave();
+
+        return;
+
+    }
+
+    if (Game.wave === WAVES.KING_WAVE) {
+
+        startKingWave();
 
         return;
 
@@ -160,6 +170,23 @@ function startBossWave() {
         tank: WAVES.BOSS_ESCORT_TANKS,
         grunt: WAVES.BOSS_ESCORT_GRUNTS
     });
+
+}
+
+function startKnightWave() {
+
+    Game.enemiesRemaining = 1;
+
+    setTimeout(() => {
+
+        if (Game.state !== "playing")
+            return;
+
+        spawnEnemy("knight");
+
+        Game.waveSpawning = false;
+
+    }, 600);
 
 }
 
@@ -292,6 +319,9 @@ function getEnemySize(type) {
 
     if (type === "boss")
         return BOSS.SIZE;
+
+    if (type === "knight")
+        return KNIGHT.SIZE;
 
     if (type === "king")
         return KING.SIZE;

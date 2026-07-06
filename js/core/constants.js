@@ -114,6 +114,7 @@ const COINS = {
     necromancer: 4,
     skeleton: 1,
     lancer: 5,
+    knight: 75,
     king: 150
 };
 
@@ -354,6 +355,7 @@ const ENEMY_LABELS = {
     necromancer: "a Necromancer",
     skeleton: "a Skeleton",
     lancer: "a Lancer",
+    knight: "the Knight",
     king: "the King"
 
 };
@@ -403,7 +405,43 @@ const BOSS = {
 };
 
 // =====================================
-// King (Wave 10 Boss)
+// Knight (Wave 10 Boss)
+// =====================================
+//
+// A mirror match - a boss-tier version of the player
+// himself. Same core kit as the player (sword swing, a
+// gap-closing dash) but built to be relentless rather than
+// fair: hits harder, and doesn't wait around for an opening
+// once it's in range.
+
+const KNIGHT = {
+
+    SIZE: 50,
+    SPEED: 3,
+    COLOR: "#34495e",
+
+    BASE_HP: 50,
+    HP_PER_WAVE: 6,
+
+    // Sword - same swing shape as the player's (angle, arc,
+    // progress-driven hitbox), just longer and slower to
+    // wind down so it reads as a heavier weapon.
+    SWORD_LENGTH: 130,
+    SWORD_ARC: Math.PI * 1.2,
+    SWING_DURATION: 16,
+    SWING_COOLDOWN: 900,
+
+    // Dashes in from range like the player's own dash, then
+    // strings a sword swing right after closing the gap.
+    DASH_TRIGGER_RANGE: 260,
+    DASH_SPEED: 14,
+    DASH_DURATION: 14,
+    DASH_COOLDOWN: 2200
+
+};
+
+// =====================================
+// King (Wave 20 Boss)
 // =====================================
 
 const KING = {
@@ -459,7 +497,7 @@ const WAVES = {
 
     SET1_END: 5,
     SET2_START: 6,
-    SET2_END: 10,
+    SET2_END: 19,
 
     // Previously dampened tank/archer/runner counts back down
     // after wave 5 (0.35x). Difficulty pass: no more dampening -
@@ -480,7 +518,8 @@ const WAVES = {
     RUNNER_EVERY: 2,
 
     BOSS_WAVE: 5,
-    KING_WAVE: 10,
+    KNIGHT_WAVE: 10,
+    KING_WAVE: 20,
     BOSS_ESCORT_GRUNTS: 20,
     BOSS_ESCORT_TANKS: 10,
 
@@ -527,7 +566,7 @@ const EFFECTS = {
 // =====================================
 
 const BESTIARY_ORDER = [
-    "grunt", "tank", "archer", "runner", "boss",
+    "grunt", "tank", "archer", "runner", "boss", "knight",
     "fireMage", "necromancer", "skeleton", "lancer", "king"
 ];
 
@@ -591,6 +630,18 @@ const BESTIARY = {
         hpAtWave(w) { return BOSS.BASE_HP + w * BOSS.HP_PER_WAVE; },
         hpScale: `${BOSS.BASE_HP} + wave × ${BOSS.HP_PER_WAVE}`,
         baseSpeed: 1.2
+    },
+
+    knight: {
+        name: "Knight",
+        color: "#34495e",
+        size: 50,
+        isBoss: true,
+        desc: "The wave 10 gatekeeper - a boss-tier mirror of yourself.",
+        behavior: "Dashes to close distance, then swings a heavy sword.",
+        hpAtWave(w) { return KNIGHT.BASE_HP + w * KNIGHT.HP_PER_WAVE; },
+        hpScale: `${KNIGHT.BASE_HP} + wave × ${KNIGHT.HP_PER_WAVE}`,
+        baseSpeed: 3
     },
 
     fireMage: {

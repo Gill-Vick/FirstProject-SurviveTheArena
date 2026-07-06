@@ -217,6 +217,9 @@ function onEnemyKilled(enemy) {
     if (enemy.type === "boss")
         Save.markFirstBossKilled();
 
+    if (enemy.type === "knight")
+        Save.markKnightKilled();
+
     if (enemy.type === "king")
         Save.markKingKilled();
 
