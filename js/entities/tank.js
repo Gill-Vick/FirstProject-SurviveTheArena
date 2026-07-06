@@ -29,6 +29,32 @@ class Tank extends Enemy {
         this.type = "tank";
         this.knockbackImmune = true;
 
+        // Entry Speed Boost
+        //
+        // Tanks are slow by design, but that means they often
+        // arrive to the fight too late to actually "tank" hits
+        // for the player. On spawn, give them a temporary speed
+        // multiplier that decays back to normal after a couple
+        // seconds, so they close the gap and get in position.
+        this.baseSpeed = this.speed;
+        this.speed = this.baseSpeed * ENEMY_TYPES.tank.ENTRY_BOOST_MULTIPLIER;
+        this.entryBoostTimer = ENEMY_TYPES.tank.ENTRY_BOOST_DURATION;
+
+    }
+
+    move() {
+
+        if (this.entryBoostTimer > 0) {
+
+            this.entryBoostTimer -= Game.dt;
+
+            if (this.entryBoostTimer <= 0)
+                this.speed = this.baseSpeed;
+
+        }
+
+        super.move();
+
     }
 
 }

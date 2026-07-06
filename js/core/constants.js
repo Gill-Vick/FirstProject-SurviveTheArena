@@ -106,7 +106,7 @@ const SHIELD = {
 const COINS = {
     grunt: 1,
     tank: 2,
-    spitter: 2,
+    archer: 2,
     runner: 3,
     boss: 50,
     fireMage: 3,
@@ -232,10 +232,18 @@ const ENEMY_TYPES = {
         SIZE: 70,
         SPEED: 1,
         COLOR: "darkred",
-        HP_MULTIPLIER: 1.5
+        HP_MULTIPLIER: 1.5,
+
+        // How much faster (and for how long, in ms) a tank
+        // moves right after spawning in, so it can actually
+        // reach the player and start tanking hits instead of
+        // lagging behind the rest of the wave.
+        ENTRY_BOOST_MULTIPLIER: 2.75,
+        ENTRY_BOOST_DURATION: 2000
+
     },
 
-    spitter: {
+    archer: {
 
         SIZE: 36,
         SPEED: 1.6,
@@ -329,7 +337,7 @@ const ENEMY_LABELS = {
 
     grunt: "a Grunt",
     tank: "a Tank",
-    spitter: "an Archer",
+    archer: "an Archer",
     runner: "a Runner",
     boss: "the Castle Guard",
     fireMage: "a Fire Mage",
@@ -347,7 +355,7 @@ const ENEMY_LABELS = {
 // Elites aren't a new class - makeElite()
 // in entities/elite.js buffs an existing
 // enemy instance and flags it. Applies to
-// grunt/tank/spitter/runner, not the boss.
+// grunt/tank/archer/runner, not the boss.
 
 const ELITE = {
 
@@ -443,25 +451,36 @@ const WAVES = {
     SET2_START: 6,
     SET2_END: 10,
 
-    SET1_SCALE_AFTER: 0.35,
+    // Previously dampened tank/archer/runner counts back down
+    // after wave 5 (0.35x). Difficulty pass: no more dampening -
+    // every non-grunt type keeps scaling up past wave 5.
+    SET1_SCALE_AFTER: 1,
 
     START_GRUNTS: 5,
     GRUNTS_PER_WAVE: 2,
 
-    TANK_EVERY: 3,
+    // Lower "every N waves" divisors = more of that unit per
+    // wave. Tightened across the board for a much harder ramp.
+    TANK_EVERY: 1.5,
 
-    SPITTER_UNLOCK_WAVE: 2,
-    SPITTER_EVERY: 2,
+    ARCHER_UNLOCK_WAVE: 2,
+    ARCHER_EVERY: 1,
 
     RUNNER_UNLOCK_WAVE: 3,
-    RUNNER_EVERY: 4,
+    RUNNER_EVERY: 2,
 
     BOSS_WAVE: 5,
     KING_WAVE: 10,
     BOSS_ESCORT_GRUNTS: 20,
-    BOSS_ESCORT_TANKS: 5,
+    BOSS_ESCORT_TANKS: 10,
 
-    TRANSITION_TIME: 1500
+    TRANSITION_TIME: 1500,
+
+    // Small pause after one enemy type finishes its spawn
+    // sequence and before the next type starts, so waves read
+    // as distinct "tanks, then archers, then runners" beats
+    // instead of one continuous blur.
+    TYPE_TRANSITION_GAP: 700
 
 };
 
@@ -498,7 +517,7 @@ const EFFECTS = {
 // =====================================
 
 const BESTIARY_ORDER = [
-    "grunt", "tank", "spitter", "runner", "boss",
+    "grunt", "tank", "archer", "runner", "boss",
     "fireMage", "necromancer", "skeleton", "lancer", "king"
 ];
 
@@ -528,7 +547,7 @@ const BESTIARY = {
         baseSpeed: 1
     },
 
-    spitter: {
+    archer: {
         name: "Archer",
         color: "#8B4513",
         size: 36,

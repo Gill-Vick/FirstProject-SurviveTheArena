@@ -1,5 +1,5 @@
 // =====================================
-// Spitter Enemy
+// Archer Enemy
 // =====================================
 //
 // Overrides move() to hold a preferred
@@ -7,30 +7,30 @@
 // overrides attack() to fire at the player
 // on a cooldown.
 
-class Spitter extends Enemy {
+class Archer extends Enemy {
 
     constructor(x, y) {
 
         super(x, y, {
 
-            size: ENEMY_TYPES.spitter.SIZE,
+            size: ENEMY_TYPES.archer.SIZE,
 
             speed:
-                ENEMY_TYPES.spitter.SPEED *
+                ENEMY_TYPES.archer.SPEED *
                 Game.enemySpeedMultiplier,
 
             hp: 1 + Math.floor((Game.wave - 1) / 5),
 
-            color: ENEMY_TYPES.spitter.COLOR
+            color: ENEMY_TYPES.archer.COLOR
 
         });
 
-        this.type = "spitter";
+        this.type = "archer";
 
         this.knockbackImmune = true;
 
         this.shootCooldown =
-            ENEMY_TYPES.spitter.SHOOT_COOLDOWN;
+            ENEMY_TYPES.archer.SHOOT_COOLDOWN;
 
     }
 
@@ -53,7 +53,7 @@ class Spitter extends Enemy {
             return;
 
         const preferred =
-            ENEMY_TYPES.spitter.PREFERRED_RANGE;
+            ENEMY_TYPES.archer.PREFERRED_RANGE;
 
         if (distance < preferred - 20) {
 
@@ -86,7 +86,7 @@ class Spitter extends Enemy {
         this.shootAtPlayer();
 
         this.shootCooldown =
-            ENEMY_TYPES.spitter.SHOOT_COOLDOWN;
+            ENEMY_TYPES.archer.SHOOT_COOLDOWN;
 
     }
 
@@ -111,12 +111,12 @@ class Spitter extends Enemy {
 
             {
 
-                speed: ENEMY_TYPES.spitter.PROJECTILE_SPEED,
-                color: ENEMY_TYPES.spitter.PROJECTILE_COLOR,
+                speed: ENEMY_TYPES.archer.PROJECTILE_SPEED,
+                color: ENEMY_TYPES.archer.PROJECTILE_COLOR,
 
                 size: 6,
                 life: 150,
-                sourceType: "spitter",
+                sourceType: "archer",
                 isArrow: true
 
             }

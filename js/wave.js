@@ -6,7 +6,7 @@ const ENEMY_CLASSES = {
 
     grunt: Grunt,
     tank: Tank,
-    spitter: Spitter,
+    archer: Archer,
     runner: Runner,
     boss: Boss,
     fireMage: FireMage,
@@ -21,7 +21,7 @@ const SPAWN_GAP = {
 
     grunt: 400,
     tank: 700,
-    spitter: 600,
+    archer: 600,
     runner: 500,
     boss: 500,
     fireMage: 650,
@@ -34,6 +34,30 @@ const SPAWN_GAP = {
 const NO_ELITE = new Set([
     "boss", "king"
 ]);
+
+// =====================================
+// Spawn Order
+// =====================================
+//
+// Grunts are excluded from these lists on purpose - they
+// spawn on their own continuous drip (see spawnWaveEnemies)
+// rather than taking a slot in the sequence below. Everything
+// else spawns strictly in this order, one type finishing
+// completely before the next type begins.
+
+const WAVE_ORDER_SET1 = ["tank", "archer", "runner"];
+
+const WAVE_ORDER_SET2 = [
+    "tank", "necromancer", "fireMage", "lancer", "runner", "archer"
+];
+
+function getSpawnOrder() {
+
+    return Game.wave >= WAVES.SET2_START
+        ? WAVE_ORDER_SET2
+        : WAVE_ORDER_SET1;
+
+}
 
 function startWave() {
 
@@ -81,9 +105,9 @@ function getSet1Counts() {
         (Math.floor(w / WAVES.TANK_EVERY)) * scale
     );
 
-    const spitterCount = Math.floor(
-        (w >= WAVES.SPITTER_UNLOCK_WAVE
-            ? Math.floor(w / WAVES.SPITTER_EVERY)
+    const archerCount = Math.floor(
+        (w >= WAVES.ARCHER_UNLOCK_WAVE
+            ? Math.floor(w / WAVES.ARCHER_EVERY)
             : 0) * scale
     );
 
@@ -92,7 +116,7 @@ function getSet1Counts() {
             ? Math.floor(w / WAVES.RUNNER_EVERY)
             : 0;
 
-    return { grunt: gruntCount, tank: tankCount, spitter: spitterCount, runner: runnerCount };
+    return { grunt: gruntCount, tank: tankCount, archer: archerCount, runner: runnerCount };
 
 }
 
@@ -103,10 +127,12 @@ function getSet2Counts() {
 
     const tier = Game.wave - WAVES.SET2_START + 1;
 
+    // Difficulty pass: bumped every set-2 unit up significantly -
+    // more fire mages, necromancers, and lancers per tier.
     return {
-        fireMage: 1 + tier,
-        necromancer: Math.max(1, Math.floor(tier / 2)),
-        lancer: 1 + Math.floor(tier * 0.8)
+        fireMage: 2 + Math.floor(tier * 1.5),
+        necromancer: Math.max(2, tier),
+        lancer: 2 + Math.floor(tier * 1.5)
     };
 
 }
@@ -156,12 +182,10 @@ function startKingWave() {
 
 function spawnWaveEnemies(counts) {
 
-    let delay = 0;
-
-    let pending = Object.values(counts)
+    const totalCount = Object.values(counts)
         .reduce((a, b) => a + b, 0);
 
-    if (pending === 0) {
+    if (totalCount === 0) {
 
         Game.waveSpawning = false;
 
@@ -169,12 +193,46 @@ function spawnWaveEnemies(counts) {
 
     }
 
-    Object.keys(counts).forEach(type => {
+    let pending = totalCount;
+
+    function finishOne() {
+
+        pending--;
+
+        if (pending <= 0)
+            Game.waveSpawning = false;
+
+    }
+
+    // Grunts don't take a slot in the ordered sequence below -
+    // they trickle in continuously on their own, alongside
+    // whatever else is spawning in order.
+    const gruntCount = counts.grunt || 0;
+
+    const orderedTypes = getSpawnOrder()
+        .filter(type => counts[type] > 0);
+
+    // Anything not covered by the explicit order (e.g. a boss
+    // wave's "boss" type) still gets spawned, just tacked on
+    // after the explicitly ordered types.
+    const explicit = new Set([...orderedTypes, "grunt"]);
+
+    const remainderTypes = Object.keys(counts)
+        .filter(type => !explicit.has(type) && counts[type] > 0);
+
+    const finalOrder = [...orderedTypes, ...remainderTypes];
+
+    // Ordered types: strictly sequential, one type finishing
+    // completely before the next one starts. A small extra
+    // pause (TYPE_TRANSITION_GAP) is inserted between types so
+    // each one reads as its own distinct beat - e.g. tanks
+    // charge in and get their entry speed boost, THEN a beat
+    // later archers start taking their turn, etc.
+    let delay = 0;
+
+    finalOrder.forEach((type, index) => {
 
         const count = counts[type];
-
-        if (!count)
-            return;
 
         const gap = SPAWN_GAP[type] || 400;
 
@@ -187,10 +245,7 @@ function spawnWaveEnemies(counts) {
                 if (Game.state === "playing")
                     spawnEnemy(type);
 
-                pending--;
-
-                if (pending <= 0)
-                    Game.waveSpawning = false;
+                finishOne();
 
             }, spawnTime);
 
@@ -198,7 +253,38 @@ function spawnWaveEnemies(counts) {
 
         delay += count * gap;
 
+        if (index < finalOrder.length - 1)
+            delay += WAVES.TYPE_TRANSITION_GAP;
+
     });
+
+    // Grunts: spread evenly across the full span of the
+    // ordered sequence above, so they keep trickling in the
+    // whole time tanks/archers/runners/etc are taking their
+    // turn. If nothing else is spawning this wave, fall back
+    // to their own normal cadence.
+    if (gruntCount > 0) {
+
+        const gruntGap = delay > 0
+            ? delay / gruntCount
+            : (SPAWN_GAP.grunt || 400);
+
+        for (let i = 0; i < gruntCount; i++) {
+
+            const spawnTime = i * gruntGap;
+
+            setTimeout(() => {
+
+                if (Game.state === "playing")
+                    spawnEnemy("grunt");
+
+                finishOne();
+
+            }, spawnTime);
+
+        }
+
+    }
 
 }
 
