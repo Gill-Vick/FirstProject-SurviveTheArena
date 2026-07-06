@@ -668,9 +668,23 @@ function drawHUD() {
 
     ctx.fillText(`Wave: ${Game.wave}`, 20, 40);
 
-    const dash1 = player.dashCooldowns[0] <= 0 ? "READY" : "CD";
+    const realElapsedSecs = Game.elapsedTime / (1000 * GAME_SPEED);
+    const minutes = Math.floor(realElapsedSecs / 60);
+    const seconds = Math.floor(realElapsedSecs % 60);
+    const timeText = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+
+    ctx.fillText(timeText, 20, 80);
+
+    const getDashText = (cd) => {
+        if (cd <= 0)
+            return "READY";
+        const realDashSecs = (cd / (1000 * GAME_SPEED)).toFixed(1);
+        return `${realDashSecs}s`;
+    };
+
+    const dash1 = getDashText(player.dashCooldowns[0]);
     const dash2 = Save.isEquipped("hermesShoes")
-        ? (player.dashCooldowns[1] <= 0 ? "READY" : "CD")
+        ? getDashText(player.dashCooldowns[1])
         : null;
 
     ctx.fillText(
@@ -678,12 +692,12 @@ function drawHUD() {
             ? `Dash: ${dash1} | ${dash2}`
             : `Dash: ${dash1}`,
         20,
-        80
+        120
     );
 
-    drawCoinDisplay(20, 120, 26);
+    drawCoinDisplay(20, 160, 26);
 
-    let nextLineY = 160;
+    let nextLineY = 200;
 
     if (Save.isEquipped("bow")) {
 

@@ -251,8 +251,15 @@ class Player {
             dx /= distance;
             dy /= distance;
 
-            this.x += dx * DASH.DISTANCE;
-            this.y += dy * DASH.DISTANCE;
+            // The Hermes Shoes' second charge (index 1) covers
+            // only 60% of a normal dash's distance.
+            const dashDistance =
+                i === 1
+                    ? DASH.DISTANCE * 0.6
+                    : DASH.DISTANCE;
+
+            this.x += dx * dashDistance;
+            this.y += dy * dashDistance;
 
             this.dashCooldowns[i] = DASH.COOLDOWN;
 

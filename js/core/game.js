@@ -46,6 +46,11 @@ const Game = {
 
     wave: 1,
 
+    // Real elapsed ms since the current run started (startGame()),
+    // ticked up in update() using Game.dt so it respects
+    // GAME_SPEED/timeScale like everything else.
+    elapsedTime: 0,
+
     waveActive: false,
 
     // True from the moment a wave starts until every one
@@ -169,6 +174,8 @@ function startGame() {
 
     Game.wave = 1;
 
+    Game.elapsedTime = 0;
+
     Game.waveActive = false;
 
     Game.waveSpawning = false;
@@ -265,6 +272,8 @@ function update() {
 
     if (Game.state !== "playing")
         return;
+
+    Game.elapsedTime += Game.dt;
 
     Game.enemySpeedMultiplier = getWaveSpeedMultiplier();
 
