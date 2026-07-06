@@ -16,6 +16,10 @@ const Save = {
 
     equippedCritLevel: 0,
 
+    shieldStage: 0,
+    
+    equippedShieldStage: 0,
+
     bowStage: 0,
 
     equippedBowStage: 0,
@@ -56,6 +60,8 @@ const Save = {
             this.kingKilled = !!data.kingKilled;
             this.critRateLevel = data.critRateLevel ?? 0;
             this.equippedCritLevel = data.equippedCritLevel ?? this.critRateLevel;
+            this.shieldStage = data.shieldStage ?? 0;
+            this.equippedShieldStage = data.equippedShieldStage ?? this.shieldStage;
             this.bowStage = data.bowStage ?? 0;
             this.equippedBowStage = data.equippedBowStage ?? this.bowStage;
 
@@ -79,6 +85,10 @@ const Save = {
 
     },
 
+    getOnyxShieldActive() {
+        return this.equippedShieldStage >= 2;
+    },
+
     persist() {
 
         localStorage.setItem(SAVE_KEY, JSON.stringify({
@@ -88,6 +98,8 @@ const Save = {
             kingKilled: this.kingKilled,
             critRateLevel: this.critRateLevel,
             equippedCritLevel: this.equippedCritLevel,
+            shieldStage: this.shieldStage,
+            equippedShieldStage: this.equippedShieldStage,
             bowStage: this.bowStage,
             equippedBowStage: this.equippedBowStage,
             inventory: { ...this.inventory },
@@ -116,6 +128,9 @@ const Save = {
         if (itemId === "bow")
             return this.bowStage >= 1;
 
+        if (itemId === "shield")
+            return this.shieldStage >= 1;
+
         return !!this.inventory[itemId];
 
     },
@@ -124,6 +139,9 @@ const Save = {
 
         if (itemId === "bow")
             return this.bowStage >= 1 && this.equipped.bow;
+
+        if (itemId === "shield")
+            return this.shieldStage >= 1 && this.equipped.shield;
 
         return !!this.inventory[itemId] && !!this.equipped[itemId];
 
@@ -166,7 +184,10 @@ const Save = {
         if (itemId === "bow" && this.bowStage >= 3)
             return "Maxed out";
 
-        if (!item.repeatable && itemId !== "bow" && this.owns(itemId))
+        if (itemId === "shield" && this.shieldStage >= 2)
+            return "Maxed out";
+
+        if (!item.repeatable && itemId !== "bow" && itemId !== "shield" && this.owns(itemId))
             return null;
 
         if (item.repeatable && itemId === "critRate" && this.getCritChance() >= CRIT.MAX)
@@ -189,7 +210,7 @@ const Save = {
         if (this.getPurchaseBlockReason(itemId))
             return false;
 
-        if (item.repeatable || itemId === "bow")
+        if (item.repeatable || itemId === "bow" || itemId === "shield")
             return true;
 
         if (this.owns(itemId))
@@ -222,6 +243,13 @@ const Save = {
             this.inventory.bow = true;
             this.equipped.bow = true;
 
+        } else if (itemId === "shield") {
+
+            this.shieldStage++;
+            this.equippedShieldStage = this.shieldStage;
+            this.inventory.shield = true;
+            this.equipped.shield = true;
+
         } else {
 
             this.inventory[itemId] = true;
@@ -240,6 +268,17 @@ const Save = {
         this.equippedBowStage = Math.max(
             1,
             Math.min(this.bowStage, Math.floor(stage))
+        );
+
+        this.persist();
+
+    },
+
+    setEquippedShieldStage(stage) {
+
+        this.equippedShieldStage = Math.max(
+            1,
+            Math.min(this.shieldStage, Math.floor(stage))
         );
 
         this.persist();
@@ -313,4 +352,5 @@ const Save = {
 
 };
 
+//localStorage.removeItem("surviveTheArenaSave");
 Save.load();

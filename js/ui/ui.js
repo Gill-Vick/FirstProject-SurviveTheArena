@@ -103,6 +103,16 @@ function getShopBowSlider(index) {
 
 }
 
+// New: Multi-stage UI selector coordinates for the Shield upgrade tiers
+function getShopShieldSlider(index) {
+    return {
+        x: 280,
+        y: SHOP_ROW_START + index * SHOP_ROW_HEIGHT + 38,
+        width: 68,
+        height: 22
+    };
+}
+
 function getBestiaryCell(index) {
 
     const col = index % BESTIARY_COLS;
@@ -191,6 +201,37 @@ function bowStageFromSliderX(slider, x) {
     if (relativeX < 68) return 2;
     return 3;
 
+}
+
+// New: Visual stage indicator for shifting between Wooden (W) and Onyx (O) shields
+function drawShieldStageIndicator(slider) {
+    const currentStage = Save.equippedShieldStage ?? 1;
+    const labels = ["", "W", "O"];
+
+    ctx.font = "14px Arial";
+    ctx.textAlign = "center";
+
+    for (let s = 1; s <= 2; s++) {
+        const cx = slider.x + (s - 1) * 36;
+
+        ctx.fillStyle = s === currentStage ? "#4da6ff" : "#444";
+        ctx.fillRect(cx, slider.y, 28, 22);
+
+        ctx.fillStyle = s === currentStage ? "black" : "#aaa";
+        ctx.fillText(labels[s], cx + 14, slider.y + 16);
+
+        if (s < 2) {
+            ctx.fillStyle = "#888";
+            ctx.fillText("→", cx + 32, slider.y + 16);
+        }
+    }
+}
+
+// New: Processes user X coordinate input on the shield slider segment
+function shieldStageFromSliderX(slider, x) {
+    const relativeX = x - slider.x;
+    if (relativeX < 34) return 1;
+    return 2;
 }
 
 function drawCritSlider(slider, value, maxLevel) {
@@ -297,7 +338,9 @@ function drawShop() {
         const rowY = SHOP_ROW_START + i * SHOP_ROW_HEIGHT;
         const buyBtn = getShopBuyButton(i);
         const equipBtn = getShopEquipButton(i);
-        const owned = id === "bow" ? Save.bowStage >= 3 : (!item.repeatable && Save.owns(id));
+        
+        // Updated: Ownership evaluation includes tracking up to Shield Stage 2 (Onyx)
+        const owned = id === "bow" ? Save.bowStage >= 3 : (id === "shield" ? Save.shieldStage >= 2 : (!item.repeatable && Save.owns(id)));
         const blockReason = Save.getPurchaseBlockReason(id);
         const canBuy = Save.canPurchase(id);
 
@@ -317,6 +360,8 @@ function drawShop() {
         ctx.font = "16px Arial";
         if (id === "bow" && Save.bowStage >= 3) {
             ctx.fillText("Max level reached", 70, rowY + 54);
+        } else if (id === "shield" && Save.shieldStage >= 2) {
+            ctx.fillText("Max level reached", 70, rowY + 54);
         } else {
             ctx.fillText(`${item.price} coins`, 70, rowY + 54);
         }
@@ -324,6 +369,12 @@ function drawShop() {
         if (id === "bow") {
             const slider = getShopBowSlider(i);
             drawBowStageIndicator(slider);
+        }
+
+        // New: Draw the level selection panel for your shield if you own at least the basic version
+        if (id === "shield" && Save.shieldStage >= 1) {
+            const slider = getShopShieldSlider(i);
+            drawShieldStageIndicator(slider);
         }
 
         if (item.repeatable) {
@@ -349,7 +400,8 @@ function drawShop() {
 
         const maxed =
             (item.repeatable && id === "critRate" && Save.getCritChance() >= CRIT.MAX) ||
-            (id === "bow" && Save.bowStage >= 3);
+            (id === "bow" && Save.bowStage >= 3) ||
+            (id === "shield" && Save.shieldStage >= 2);
 
         if (owned) {
 
@@ -555,6 +607,12 @@ function handleMenuClick(x, y) {
                 Save.setEquippedBowStage(bowStageFromSliderX(getShopBowSlider(i), x));
             }
 
+            // New: Intercept shield level panel clicks to dynamically scale the equipment profile back and forth
+            if (id === "shield" && Save.shieldStage >= 1 && hitRect(getShopShieldSlider(i), x, y)) {
+                const targetStage = shieldStageFromSliderX(getShopShieldSlider(i), x);
+                Save.setEquippedShieldStage(targetStage);
+            }
+
             if (item.repeatable && hitRect(getShopCritSlider(i), x, y))
                 Save.setEquippedCritLevel(critLevelFromSliderX(getShopCritSlider(i), x));
 
@@ -630,6 +688,15 @@ function handleMenuMouseMove(x, y) {
         }
     }
 
+    // New: Handle slider adjustments across tiers for the shield during mouse drag events
+    if (Game.shopShieldDragging) {
+        const shieldIndex = SHOP_ITEM_IDS.indexOf("shield");
+        if (shieldIndex >= 0) {
+            const targetStage = shieldStageFromSliderX(getShopShieldSlider(shieldIndex), x);
+            Save.setEquippedShieldStage(targetStage);
+        }
+    }
+
 }
 
 function handleMenuMouseDown(x, y) {
@@ -647,12 +714,19 @@ function handleMenuMouseDown(x, y) {
         Game.shopBowDragging = true;
     }
 
+    // New: Engages active tracking lock for dragging shield tiers
+    const shieldIndex = SHOP_ITEM_IDS.indexOf("shield");
+    if (shieldIndex >= 0 && Save.shieldStage >= 1 && hitRect(getShopShieldSlider(shieldIndex), x, y)) {
+        Game.shopShieldDragging = true;
+    }
+
 }
 
 function handleMenuMouseUp() {
 
     Game.shopCritDragging = false;
     Game.shopBowDragging = false;
+    Game.shopShieldDragging = false; // New: Clears drag flag
 
 }
 
@@ -732,9 +806,11 @@ function drawHUD() {
 
     if (Save.isEquipped("shield")) {
 
-        ctx.fillStyle = player.shieldActive ? "#4da6ff" : "#666";
+        // Updated: Dynamically shifts label text and highlights the status in unique purple hue if Onyx Tier is down/up-selected
+        const displayLabel = (Save.equippedShieldStage === 2) ? "Onyx Shield" : "Shield";
+        ctx.fillStyle = player.shieldActive ? ((Save.equippedShieldStage === 2) ? "#b533ff" : "#44ffda") : "#666";
         ctx.fillText(
-            `Shield: ${player.shieldActive ? "ACTIVE" : "USED"}`,
+            `${displayLabel}: ${player.shieldActive ? "ACTIVE" : "USED"}`,
             20,
             nextLineY
         );

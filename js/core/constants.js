@@ -96,7 +96,8 @@ const BOW = {
 const SHIELD = {
     INVULN_MS: 1000,
     OUTLINE_COLOR: "#4da6ff",
-    OUTLINE_WIDTH: 4
+    OUTLINE_WIDTH: 4,
+    ONYX_DAMAGE: 5
 };
 
 // =====================================
@@ -123,18 +124,27 @@ const COINS = {
 const SHOP_ITEMS = {
 
     shield: {
-        price: 100,
-        name: "Wooden Shield",
-        desc: "Blocks 1 hit + 1s invuln",
+        get price() {
+            if (Save.shieldStage === 1) return 0; // Keeping 0 as template baseline
+            return 0;
+        },
+        get name() {
+            if (Save.shieldStage >= 1) return "Onyx Shield";
+            return "Wooden Shield";
+        },
+        get desc() {
+            if (Save.shieldStage >= 1) return "Blocks 1 hit, 1s invuln + AOE Nuke (5 dmg)";
+            return "Blocks 1 hit + 1s invuln";
+        },
         equippable: true
     },
 
     bow: {
         equippable: true,
         get price() {
-            if (Save.bowStage === 1) return 200;
-            if (Save.bowStage === 2) return 400;
-            return 100;
+            if (Save.bowStage === 1) return 0;
+            if (Save.bowStage === 2) return 0;
+            return 0;
         },
         get name() {
             if (Save.bowStage === 1) return "Multishot I";
@@ -149,38 +159,38 @@ const SHOP_ITEMS = {
     },
 
     wetStone: {
-        price: 250,
+        price: 0,
         name: "Wet Stone",
         desc: "Sword deals 2 damage",
         equippable: true
     },
 
     circleStrike: {
-        price: 350,
+        price: 0,
         name: "Circle Strike",
         desc: "Sword goes around you",
-        requiresFirstBoss: true,
+        requiresFirstBoss: false,
         equippable: true
     },
 
     hermesShoes: {
-        price: 600,
+        price: 0,
         name: "Hermes Shoes",
         desc: "Second dash charge",
-        requiresFirstBoss: true,
+        requiresFirstBoss: false,
         equippable: true
     },
 
     kingsBlade: {
-        price: 2500,
+        price: 0,
         name: "King's Blade",
         desc: "2 dmg sword + right-click laser (5 dmg, 4s cd)",
-        requiresKingKilled: true,
+        requiresKingKilled: false,
         equippable: true
     },
 
     critRate: {
-        price: 100,
+        price: 0,
         name: "Critical Training",
         desc: "Permanently +1% crit chance",
         repeatable: true

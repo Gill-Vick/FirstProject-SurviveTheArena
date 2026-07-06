@@ -87,6 +87,10 @@ class Player {
 
         if (this.shieldActive) {
 
+            if (Save.getOnyxShieldActive()) {
+                this.triggerNuke();
+            }
+
             this.shieldActive = false;
 
             this.invulnTimer = SHIELD.INVULN_MS;
@@ -105,6 +109,16 @@ class Player {
 
         return true;
 
+    }
+
+    triggerNuke() {
+        // Damage all enemies currently on screen and clear kill state correctly
+        Game.enemies.forEach(enemy => {
+            enemy.takeDamage(SHIELD.ONYX_DAMAGE); 
+            if (enemy.isDead()) {
+                onEnemyKilled(enemy);
+            }
+        });
     }
 
     getSwordDamage() {
@@ -463,11 +477,7 @@ class Player {
             const playerCenterX = this.x + this.size / 2;
             const playerCenterY = this.y + this.size / 2;
 
-            // =========================================================
-            // NEW: Find the closest point on the enemy box to the player
-            // =========================================================
-            // This clamps the player's center coordinates inside the enemy's 
-            // structural rectangle footprint to find the exact closest point of impact.
+            // Find the closest point on the enemy box to the player
             const closestX = Math.max(enemy.x, Math.min(playerCenterX, enemy.x + enemy.size));
             const closestY = Math.max(enemy.y, Math.min(playerCenterY, enemy.y + enemy.size));
 
