@@ -6,7 +6,7 @@ class Skeleton extends Enemy {
 
     constructor(x, y) {
 
-        const gruntHp = 1 + Math.floor((Game.wave - 1) / 3);
+        const gruntHp = 1 + Math.floor((Game.wave - 1) / 6);
 
         super(x, y, {
 

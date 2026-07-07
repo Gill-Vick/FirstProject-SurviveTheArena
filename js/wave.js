@@ -102,7 +102,8 @@ function getSet1Counts() {
 
     const w = Game.wave;
     const scale =
-        w > WAVES.SET1_END ? WAVES.SET1_SCALE_AFTER : 1;
+        (w > WAVES.SET1_END ? WAVES.SET1_SCALE_AFTER : 1) *
+        WAVES.SPAWN_SCALE;
 
     const gruntCount = Math.max(
         1,
@@ -121,10 +122,11 @@ function getSet1Counts() {
             : 0) * scale
     );
 
-    const runnerCount =
-        w >= WAVES.RUNNER_UNLOCK_WAVE
+    const runnerCount = Math.floor(
+        (w >= WAVES.RUNNER_UNLOCK_WAVE
             ? Math.floor(w / WAVES.RUNNER_EVERY)
-            : 0;
+            : 0) * WAVES.SPAWN_SCALE
+    );
 
     return { grunt: gruntCount, tank: tankCount, archer: archerCount, runner: runnerCount };
 
@@ -138,11 +140,14 @@ function getSet2Counts() {
     const tier = Game.wave - WAVES.SET2_START + 1;
 
     // Difficulty pass: bumped every set-2 unit up significantly -
-    // more fire mages, necromancers, and lancers per tier.
+    // more fire mages, necromancers, and lancers per tier. Then
+    // scaled back down by SPAWN_SCALE for the overall "easier
+    // game" pass - floored at 1 so a unit that's unlocked doesn't
+    // get scaled away to nothing.
     return {
-        fireMage: 2 + Math.floor(tier * 1.5),
-        necromancer: Math.max(2, tier),
-        lancer: 2 + Math.floor(tier * 1.5)
+        fireMage: Math.max(1, Math.floor((2 + Math.floor(tier * 1.5)) * WAVES.SPAWN_SCALE)),
+        necromancer: Math.max(1, Math.floor(Math.max(2, tier) * WAVES.SPAWN_SCALE)),
+        lancer: Math.max(1, Math.floor((2 + Math.floor(tier * 1.5)) * WAVES.SPAWN_SCALE))
     };
 
 }

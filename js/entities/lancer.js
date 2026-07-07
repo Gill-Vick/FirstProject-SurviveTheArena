@@ -27,7 +27,7 @@ class Lancer extends Enemy {
                 ENEMY_TYPES.lancer.SPEED *
                 Game.enemySpeedMultiplier,
 
-            hp: 1 + Math.floor((Game.wave - 1) / 3),
+            hp: 1 + Math.floor((Game.wave - 1) / 6),
 
             color: ENEMY_TYPES.lancer.COLOR
 

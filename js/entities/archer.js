@@ -19,7 +19,7 @@ class Archer extends Enemy {
                 ENEMY_TYPES.archer.SPEED *
                 Game.enemySpeedMultiplier,
 
-            hp: 1 + Math.floor((Game.wave - 1) / 5),
+            hp: 1 + Math.floor((Game.wave - 1) / 10),
 
             color: ENEMY_TYPES.archer.COLOR
 

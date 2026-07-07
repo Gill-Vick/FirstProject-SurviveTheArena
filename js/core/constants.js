@@ -394,7 +394,7 @@ const BOSS = {
     DISPLAY_NAME: "Castle Guard",
 
     BASE_HP: 30,
-    HP_PER_WAVE: 5,
+    HP_PER_WAVE: 2.5,
 
     ATTACK_COOLDOWN: 100,
 
@@ -421,7 +421,7 @@ const KNIGHT = {
     COLOR: "#34495e",
 
     BASE_HP: 50,
-    HP_PER_WAVE: 6,
+    HP_PER_WAVE: 3,
 
     // Sword - same swing shape as the player's (angle, arc,
     // progress-driven hitbox), just longer and slower to
@@ -433,10 +433,10 @@ const KNIGHT = {
 
     // Dashes in from range like the player's own dash, then
     // strings a sword swing right after closing the gap.
-    DASH_TRIGGER_RANGE: 260,
+    DASH_TRIGGER_RANGE: 130,
     DASH_SPEED: 14,
     DASH_DURATION: 14,
-    DASH_COOLDOWN: 2200
+    DASH_COOLDOWN: 1300
 
 };
 
@@ -507,6 +507,11 @@ const WAVES = {
     START_GRUNTS: 5,
     GRUNTS_PER_WAVE: 2,
 
+    // Global spawn-count dial. 1.0 = original counts, 0.5 =
+    // ~50% (0.3 = 70%) fewer enemies per wave. Applied in getSet1Counts()
+    // and getSet2Counts() in wave.js.
+    SPAWN_SCALE: 0.5,
+
     // Lower "every N waves" divisors = more of that unit per
     // wave. Tightened across the board for a much harder ramp.
     TANK_EVERY: 1.5,
@@ -519,9 +524,9 @@ const WAVES = {
 
     BOSS_WAVE: 5,
     KNIGHT_WAVE: 10,
-    KING_WAVE: 20,
-    BOSS_ESCORT_GRUNTS: 20,
-    BOSS_ESCORT_TANKS: 10,
+    KING_WAVE: 15,
+    BOSS_ESCORT_GRUNTS: 8,
+    BOSS_ESCORT_TANKS: 4,
 
     TRANSITION_TIME: 1500,
 
@@ -566,8 +571,8 @@ const EFFECTS = {
 // =====================================
 
 const BESTIARY_ORDER = [
-    "grunt", "tank", "archer", "runner", "boss", "knight",
-    "fireMage", "necromancer", "skeleton", "lancer", "king"
+    "grunt", "tank", "archer", "runner", "boss",
+    "fireMage", "necromancer", "skeleton", "lancer", "knight", "king"
 ];
 
 const BESTIARY = {
@@ -579,8 +584,8 @@ const BESTIARY = {
         isBoss: false,
         desc: "The arena's cannon fodder. Slow-witted but relentless.",
         behavior: "Walks straight toward you for a melee hit.",
-        hpAtWave(w) { return 1 + Math.floor((w - 1) / 3); },
-        hpScale: "1 + floor((wave - 1) / 3)",
+        hpAtWave(w) { return 1 + Math.floor((w - 1) / 6); },
+        hpScale: "1 + floor((wave - 1) / 6)",
         baseSpeed: 2
     },
 
@@ -591,8 +596,8 @@ const BESTIARY = {
         isBoss: false,
         desc: "A hulking bruiser that soaks up punishment.",
         behavior: "Slow chase. Immune to knockback.",
-        hpAtWave(w) { return 3 + Math.floor((w - 1) / 3) * 2; },
-        hpScale: "3 + floor((wave - 1) / 3) × 2",
+        hpAtWave(w) { return 3 + Math.floor((w - 1) / 3); },
+        hpScale: "3 + floor((wave - 1) / 3)",
         baseSpeed: 1
     },
 
@@ -603,8 +608,8 @@ const BESTIARY = {
         isBoss: false,
         desc: "Keeps its distance and peppers you with arrows.",
         behavior: "Kites at range, firing arrows on cooldown.",
-        hpAtWave(w) { return 1 + Math.floor((w - 1) / 5); },
-        hpScale: "1 + floor((wave - 1) / 5)",
+        hpAtWave(w) { return 1 + Math.floor((w - 1) / 10); },
+        hpScale: "1 + floor((wave - 1) / 10)",
         baseSpeed: 1.6
     },
 
@@ -615,8 +620,8 @@ const BESTIARY = {
         isBoss: false,
         desc: "Fast and fragile — closes gaps in a blink.",
         behavior: "Chases you, then periodically triples speed in a charge.",
-        hpAtWave(w) { return 1 + Math.floor((w - 1) / 5); },
-        hpScale: "1 + floor((wave - 1) / 5)",
+        hpAtWave(w) { return 1 + Math.floor((w - 1) / 10); },
+        hpScale: "1 + floor((wave - 1) / 10)",
         baseSpeed: 3
     },
 
@@ -652,8 +657,8 @@ const BESTIARY = {
         emoji: "🔥",
         desc: "A pyromancer who turns the floor into lava.",
         behavior: "Holds range and casts burning ground hazards at you.",
-        hpAtWave(w) { return 1 + Math.floor((w - 1) / 5); },
-        hpScale: "1 + floor((wave - 1) / 5)",
+        hpAtWave(w) { return 1 + Math.floor((w - 1) / 10); },
+        hpScale: "1 + floor((wave - 1) / 10)",
         baseSpeed: 1.4
     },
 
@@ -665,8 +670,8 @@ const BESTIARY = {
         emoji: "☠",
         desc: "Raises the dead to overwhelm you.",
         behavior: "Summons skeleton minions on cooldown.",
-        hpAtWave(w) { return 2 + Math.floor((w - 1) / 5); },
-        hpScale: "2 + floor((wave - 1) / 5)",
+        hpAtWave(w) { return 2 + Math.floor((w - 1) / 10); },
+        hpScale: "2 + floor((wave - 1) / 10)",
         baseSpeed: 0.9
     },
 
@@ -678,7 +683,7 @@ const BESTIARY = {
         emoji: "💀",
         desc: "Undead fodder summoned by necromancers.",
         behavior: "Rushes the player quickly but dies easily.",
-        hpAtWave(w) { return Math.max(1, Math.floor((1 + Math.floor((w - 1) / 3)) / 2)); },
+        hpAtWave(w) { return Math.max(1, Math.floor((1 + Math.floor((w - 1) / 6)) / 2)); },
         hpScale: "max(1, floor(grunt HP / 2))",
         baseSpeed: 3.2
     },
@@ -690,8 +695,8 @@ const BESTIARY = {
         isBoss: false,
         desc: "A disciplined knight with shield and lance.",
         behavior: "Blocks hits with a shield, then thrusts or lunges.",
-        hpAtWave(w) { return 1 + Math.floor((w - 1) / 3); },
-        hpScale: "1 + floor((wave - 1) / 3)",
+        hpAtWave(w) { return 1 + Math.floor((w - 1) / 6); },
+        hpScale: "1 + floor((wave - 1) / 6)",
         baseSpeed: 2
     },
 

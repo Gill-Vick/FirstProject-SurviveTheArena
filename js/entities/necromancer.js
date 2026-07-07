@@ -14,7 +14,7 @@ class Necromancer extends Enemy {
                 ENEMY_TYPES.necromancer.SPEED *
                 Game.enemySpeedMultiplier,
 
-            hp: 2 + Math.floor((Game.wave - 1) / 5),
+            hp: 2 + Math.floor((Game.wave - 1) / 10),
 
             color: ENEMY_TYPES.necromancer.COLOR
 

@@ -18,7 +18,7 @@ class Runner extends Enemy {
                 ENEMY_TYPES.runner.SPEED *
                 Game.enemySpeedMultiplier,
 
-            hp: 1 + Math.floor((Game.wave - 1) / 5),
+            hp: 1 + Math.floor((Game.wave - 1) / 10),
 
             color: ENEMY_TYPES.runner.COLOR
 

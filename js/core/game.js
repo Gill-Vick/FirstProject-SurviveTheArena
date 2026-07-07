@@ -263,7 +263,12 @@ function resetGame() {
 
 function getWaveSpeedMultiplier() {
 
-    return 1 + (Game.wave - 1) * 0.08;
+    // No more wave-over-wave speed scaling - it's a flat
+    // multiplier now, just nudged up 20% over the old
+    // wave-1 baseline so combat still feels lively without
+    // enemies snowballing into an unfair speed race by the
+    // late waves.
+    return 1.2;
 
 }
 
