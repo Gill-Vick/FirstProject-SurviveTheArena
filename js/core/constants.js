@@ -425,18 +425,33 @@ const KNIGHT = {
 
     // Sword - same swing shape as the player's (angle, arc,
     // progress-driven hitbox), just longer and slower to
-    // wind down so it reads as a heavier weapon.
+    // wind down so it reads as a heavier weapon. Duration
+    // nudged up a touch and cooldown pulled back a bit for
+    // balance, so it's not swinging quite so relentlessly.
     SWORD_LENGTH: 130,
     SWORD_ARC: Math.PI * 1.2,
-    SWING_DURATION: 16,
-    SWING_COOLDOWN: 900,
+    SWING_DURATION: 18,
+    SWING_COOLDOWN: 1100,
 
     // Dashes in from range like the player's own dash, then
     // strings a sword swing right after closing the gap.
+    // Cooldown pulled back a bit for balance, same reasoning
+    // as the sword above.
     DASH_TRIGGER_RANGE: 130,
-    DASH_SPEED: 14,
+    DASH_SPEED: 12,
     DASH_DURATION: 14,
-    DASH_COOLDOWN: 1300
+    DASH_COOLDOWN: 1800,
+
+    // Bow - the player's own shortbow, but fired as a wider
+    // five-arrow volley and on a longer cooldown than the
+    // player's, so it reads as ranged harassment layered on
+    // top of the sword/dash rather than a main weapon.
+    BOW_ARROW_COUNT: 5,
+    BOW_SPREAD: 0.24,
+    BOW_COOLDOWN: 2400,
+    BOW_SPEED: 10,
+    BOW_SIZE: 6,
+    BOW_COLOR: "#8b6914"
 
 };
 
@@ -507,10 +522,10 @@ const WAVES = {
     START_GRUNTS: 5,
     GRUNTS_PER_WAVE: 2,
 
-    // Global spawn-count dial. 1.0 = original counts, 0.5 =
-    // ~50% (0.3 = 70%) fewer enemies per wave. Applied in getSet1Counts()
+    // Global spawn-count dial. 1.0 = original counts, 0.4 =
+    // ~60% fewer enemies per wave. Applied in getSet1Counts()
     // and getSet2Counts() in wave.js.
-    SPAWN_SCALE: 0.5,
+    SPAWN_SCALE: 0.4,
 
     // Lower "every N waves" divisors = more of that unit per
     // wave. Tightened across the board for a much harder ramp.
@@ -571,8 +586,8 @@ const EFFECTS = {
 // =====================================
 
 const BESTIARY_ORDER = [
-    "grunt", "tank", "archer", "runner", "boss",
-    "fireMage", "necromancer", "skeleton", "lancer", "knight", "king"
+    "grunt", "tank", "archer", "runner", "boss", "knight",
+    "fireMage", "necromancer", "skeleton", "lancer", "king"
 ];
 
 const BESTIARY = {

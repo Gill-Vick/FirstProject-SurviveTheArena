@@ -48,6 +48,11 @@ class Knight extends Enemy {
         this.dashDY = 0;
         this.dashTimer = 0;
 
+        // Bow - ticks independently of the sword/dash state
+        // machine below. Starts partway into its cooldown so
+        // it doesn't loose a volley the instant it spawns in.
+        this.bowCooldown = KNIGHT.BOW_COOLDOWN * 0.5;
+
     }
 
     // =====================================
@@ -94,6 +99,9 @@ class Knight extends Enemy {
         if (this.swingCooldown > 0)
             this.swingCooldown -= Game.dt;
 
+        if (this.bowCooldown > 0)
+            this.bowCooldown -= Game.dt;
+
         if (this.swordSwing) {
 
             this.swordTimer -= Game.timeScale;
@@ -107,6 +115,18 @@ class Knight extends Enemy {
                 this.swordSwing = false;
 
             return;
+
+        }
+
+        // Ranged harassment - independent of the melee state
+        // machine below, so it can fire whether the Knight is
+        // chasing or mid-dash. Only held back during the sword
+        // swing itself (blocked above via the early return).
+        if (this.bowCooldown <= 0) {
+
+            this.fireBowVolley();
+
+            this.bowCooldown = KNIGHT.BOW_COOLDOWN;
 
         }
 
@@ -157,6 +177,51 @@ class Knight extends Enemy {
             this.swingProgress = 0;
             this.attackHitPlayer = false;
             this.swingCooldown = KNIGHT.SWING_COOLDOWN;
+
+        }
+
+    }
+
+    // Same fan-spread math as Player.fireBow() - a set number
+    // of arrows spread evenly around the angle to the player,
+    // just wider (5 arrows) and slower to recharge.
+
+    fireBowVolley() {
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        const px = player.x + player.size / 2;
+        const py = player.y + player.size / 2;
+
+        const baseAngle = Math.atan2(py - cy, px - cx);
+
+        const arrowCount = KNIGHT.BOW_ARROW_COUNT;
+        const spread = KNIGHT.BOW_SPREAD;
+        const startAngle = baseAngle - (arrowCount - 1) * spread / 2;
+
+        for (let i = 0; i < arrowCount; i++) {
+
+            const angle = startAngle + i * spread;
+
+            Game.projectiles.push(new Projectile(
+
+                cx + Math.cos(angle) * 30,
+                cy + Math.sin(angle) * 30,
+                angle,
+
+                {
+
+                    speed: KNIGHT.BOW_SPEED,
+                    color: KNIGHT.BOW_COLOR,
+                    size: KNIGHT.BOW_SIZE,
+                    life: 130,
+                    sourceType: "knight",
+                    isArrow: true
+
+                }
+
+            ));
 
         }
 
