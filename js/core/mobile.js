@@ -298,6 +298,38 @@ function ensureViewportMeta() {
     meta.content =
         "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover";
 
+    // game.js sizes the canvas (canvas.width = window.innerWidth)
+    // the instant it loads, at the top of its file - and since
+    // this file necessarily loads after game.js (it needs
+    // `canvas` to already exist), that sizing already happened
+    // by the time we get here. Without a viewport meta tag in
+    // place *at that moment*, mobile browsers report
+    // window.innerWidth as a wide desktop-emulated layout width
+    // (~980px) instead of the phone's real width, so the canvas
+    // ends up sized way too large - which reads as everything
+    // being "zoomed in", since only a small corner of that
+    // oversized coordinate space fits on the actual screen.
+    //
+    // Fixing the meta tag alone doesn't retroactively fix a
+    // canvas that's already the wrong size, so force an
+    // immediate resync here (this doesn't depend on script
+    // load order - it corrects things no matter when it runs),
+    // plus a couple of follow-up resyncs on the next frame(s)
+    // in case the browser needs a moment to apply the new
+    // viewport before window.innerWidth reflects it.
+
+    resyncCanvasSize();
+
+    requestAnimationFrame(resyncCanvasSize);
+    requestAnimationFrame(() => requestAnimationFrame(resyncCanvasSize));
+
+}
+
+function resyncCanvasSize() {
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
 }
 
 // The existing window "resize" listener (in main.js) syncs
@@ -310,16 +342,9 @@ function ensureViewportMeta() {
 
 function watchOrientationResize() {
 
-    function resync() {
-
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-
-    }
-
     window.addEventListener("orientationchange", () => {
 
-        setTimeout(resync, 300);
+        setTimeout(resyncCanvasSize, 300);
 
     });
 
