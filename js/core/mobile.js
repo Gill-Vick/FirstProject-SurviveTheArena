@@ -271,17 +271,35 @@ function bindTapButton(el, onTap) {
 }
 
 // =====================================
-// Viewport / Resize
+// Viewport / Canvas Scaling
 // =====================================
 //
-// The "page zooms in after rotating" symptom is almost
-// always a missing or loose <meta viewport> tag - without
-// one pinned to the device's actual width, mobile browsers
-// recompute their zoom level relative to the *old* viewport
-// once the page reflows into its new (landscape) dimensions.
-// This creates/overwrites that tag so the CSS viewport always
-// matches the device 1:1 and pinch-zoom can't creep in,
-// regardless of orientation.
+// The "page zooms in after rotating" symptom is largely a
+// missing/loose <meta viewport> tag - without one pinned to
+// the device's actual width, mobile browsers report
+// window.innerWidth as a wide desktop-emulated layout width
+// (~980px) instead of the phone's real width.
+//
+// But fixing that alone isn't enough. Every size in this
+// game - fonts, entity dimensions, UI layout offsets, spawn
+// distances - is an absolute pixel value tuned against
+// canvas.width/height matching "a normal browser window". On
+// desktop that's exactly true (canvas.width = window.innerWidth
+// there). A phone's real pixel dimensions are a small fraction
+// of that, so matching them 1:1 makes every one of those same
+// absolute values dominate the screen ("zoomed in"), and makes
+// edge-of-canvas enemy spawns land right on top of the player.
+//
+// Fix: on touch devices, keep the canvas's internal drawing
+// buffer - and therefore every coordinate the rest of the game
+// computes against - at a fixed logical resolution in that same
+// "normal browser window" ballpark, and instead scale how it's
+// *displayed* via CSS to fit the real screen, letterboxed to
+// preserve the aspect ratio. Desktop is completely untouched -
+// none of this runs unless MobileInput.active.
+
+const MOBILE_LOGICAL_WIDTH = 1280;
+const MOBILE_LOGICAL_HEIGHT = 720;
 
 function ensureViewportMeta() {
 
@@ -298,53 +316,85 @@ function ensureViewportMeta() {
     meta.content =
         "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover";
 
-    // game.js sizes the canvas (canvas.width = window.innerWidth)
-    // the instant it loads, at the top of its file - and since
-    // this file necessarily loads after game.js (it needs
-    // `canvas` to already exist), that sizing already happened
-    // by the time we get here. Without a viewport meta tag in
-    // place *at that moment*, mobile browsers report
-    // window.innerWidth as a wide desktop-emulated layout width
-    // (~980px) instead of the phone's real width, so the canvas
-    // ends up sized way too large - which reads as everything
-    // being "zoomed in", since only a small corner of that
-    // oversized coordinate space fits on the actual screen.
-    //
-    // Fixing the meta tag alone doesn't retroactively fix a
-    // canvas that's already the wrong size, so force an
-    // immediate resync here (this doesn't depend on script
-    // load order - it corrects things no matter when it runs),
-    // plus a couple of follow-up resyncs on the next frame(s)
-    // in case the browser needs a moment to apply the new
-    // viewport before window.innerWidth reflects it.
+    applyMobileCanvasScale();
 
-    resyncCanvasSize();
-
-    requestAnimationFrame(resyncCanvasSize);
-    requestAnimationFrame(() => requestAnimationFrame(resyncCanvasSize));
+    // A couple of deferred follow-ups in case the browser needs
+    // a moment to actually apply the new viewport/layout before
+    // window.innerWidth reflects it.
+    requestAnimationFrame(applyMobileCanvasScale);
+    requestAnimationFrame(() => requestAnimationFrame(applyMobileCanvasScale));
 
 }
 
-function resyncCanvasSize() {
+function applyMobileCanvasScale() {
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    // The actual drawing buffer / coordinate system every part
+    // of the game computes against - fixed, regardless of the
+    // real device's pixel dimensions.
+    canvas.width = MOBILE_LOGICAL_WIDTH;
+    canvas.height = MOBILE_LOGICAL_HEIGHT;
+
+    const viewportW = window.innerWidth;
+    const viewportH = window.innerHeight;
+
+    // "Contain" fit - scale down until the whole logical canvas
+    // fits inside the real viewport, preserving aspect ratio.
+    // Letterboxes (black bars) if the device's aspect ratio
+    // doesn't exactly match 16:9.
+    const scale = Math.min(
+        viewportW / MOBILE_LOGICAL_WIDTH,
+        viewportH / MOBILE_LOGICAL_HEIGHT
+    );
+
+    const displayWidth = MOBILE_LOGICAL_WIDTH * scale;
+    const displayHeight = MOBILE_LOGICAL_HEIGHT * scale;
+
+    canvas.style.position = "fixed";
+    canvas.style.width = displayWidth + "px";
+    canvas.style.height = displayHeight + "px";
+    canvas.style.left = ((viewportW - displayWidth) / 2) + "px";
+    canvas.style.top = ((viewportH - displayHeight) / 2) + "px";
+
+    // The joystick/button overlay is positioned with px offsets
+    // from its own edges (see injectMobileStyles), so keeping
+    // its container synced to the canvas's actual on-screen
+    // rect - rather than the full viewport - keeps it lined up
+    // with the game even when letterboxing leaves black bars on
+    // the sides.
+    const controls = document.getElementById("mobileControls");
+
+    if (controls) {
+
+        controls.style.left = canvas.style.left;
+        controls.style.top = canvas.style.top;
+        controls.style.width = canvas.style.width;
+        controls.style.height = canvas.style.height;
+
+    }
 
 }
 
-// The existing window "resize" listener (in main.js) syncs
-// canvas.width/height to window.innerWidth/innerHeight, but
-// on many mobile browsers that fires a beat too early during
-// a rotation - while the address bar / browser chrome is
-// still animating away - so the canvas can grab a stale,
-// pre-rotation size. Resync a moment later once things have
-// settled, on top of whatever main.js already does.
+// main.js has its own plain "resize" listener that sets
+// canvas.width/height straight to window.innerWidth/innerHeight
+// (correct for desktop, but exactly the real-pixel sizing this
+// file is deliberately overriding here). Rather than depend on
+// listener registration order, re-apply the logical-resolution
+// scaling via requestAnimationFrame on every resize - rAF
+// callbacks always run after the current tick's synchronous
+// listeners, so this reliably runs *after* main.js's and wins.
 
 function watchOrientationResize() {
 
     window.addEventListener("orientationchange", () => {
 
-        setTimeout(resyncCanvasSize, 300);
+        setTimeout(applyMobileCanvasScale, 300);
+        requestAnimationFrame(applyMobileCanvasScale);
+
+    });
+
+    window.addEventListener("resize", () => {
+
+        requestAnimationFrame(applyMobileCanvasScale);
 
     });
 
@@ -446,9 +496,15 @@ function injectMobileStyles() {
 
     style.textContent = `
 
+        html, body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            overflow: hidden;
+        }
+
         #mobileControls {
             position: fixed;
-            inset: 0;
             pointer-events: none;
             z-index: 1000;
             font-family: Arial, sans-serif;

@@ -15,14 +15,40 @@ let aimAngle = 0;
 let isMouseDown = false;
 
 // =====================================
+// Coordinate Mapping
+// =====================================
+//
+// canvas.width/height (its internal drawing resolution, and
+// therefore the coordinate space every game system computes
+// against) doesn't necessarily match canvas.getBoundingClientRect()
+// (its actual on-screen CSS size) - on desktop those are the
+// same thing so this is a 1:1 no-op, but on mobile the canvas
+// is deliberately displayed smaller/letterboxed than its fixed
+// logical resolution (see mobile.js). Scaling by the ratio
+// between the two keeps clicks/taps landing exactly where
+// they visually appear regardless of that difference.
+
+function getCanvasCoords(e) {
+
+    const rect = canvas.getBoundingClientRect();
+
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY
+    };
+
+}
+
+// =====================================
 // Mouse Input
 // =====================================
 
 canvas.addEventListener("mousedown", (e) => {
 
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const { x, y } = getCanvasCoords(e);
 
     // Left Click
     if (e.button === 0) {
@@ -66,10 +92,10 @@ canvas.addEventListener("mousedown", (e) => {
 
 canvas.addEventListener("mousemove", (e) => {
 
-    const rect = canvas.getBoundingClientRect();
+    const coords = getCanvasCoords(e);
 
-    mouseX = e.clientX - rect.left;
-    mouseY = e.clientY - rect.top;
+    mouseX = coords.x;
+    mouseY = coords.y;
 
     if (Game.state === "menu")
         handleMenuMouseMove(mouseX, mouseY);
