@@ -33,6 +33,7 @@ function initMobileControls() {
 
     injectMobileStyles();
     buildMobileDOM();
+    initOrientationLock();
 
     const moveStick = document.getElementById("moveJoystick");
     const aimStick = document.getElementById("aimJoystick");
@@ -267,6 +268,73 @@ function bindTapButton(el, onTap) {
 }
 
 // =====================================
+// Landscape Orientation
+// =====================================
+//
+// True programmatic orientation LOCKING is unreliable on the
+// open web - it generally only works inside an installed
+// PWA or a fullscreen context, and iOS Safari doesn't expose
+// the Screen Orientation lock API at all. So this does two
+// things:
+//
+//   1. Best-effort: try screen.orientation.lock("landscape")
+//      after a user gesture. Wrapped so a failure/rejection
+//      (the common case) is silently ignored.
+//
+//   2. Guaranteed: a full-screen "rotate your device" overlay
+//      that shows up automatically (pure CSS, no JS polling
+//      needed) any time the device is actually in portrait,
+//      and hides itself the instant it's rotated to landscape.
+//      This is the part that actually guarantees the game is
+//      only played in landscape, regardless of what the lock
+//      API does.
+
+function initOrientationLock() {
+
+    function tryLock() {
+
+        if (
+
+            screen.orientation &&
+            typeof screen.orientation.lock === "function"
+
+        ) {
+
+            screen.orientation.lock("landscape").catch(() => {});
+
+        }
+
+    }
+
+    tryLock();
+
+    // Locking usually requires a user gesture - retry on the
+    // first touch, once, in case the initial attempt above
+    // was rejected for that reason.
+    document.addEventListener("touchstart", tryLock, { once: true });
+
+    buildRotateOverlay();
+
+}
+
+function buildRotateOverlay() {
+
+    const overlay = document.createElement("div");
+    overlay.id = "rotateOverlay";
+
+    overlay.innerHTML = `
+        <div class="rotate-icon">⤾</div>
+        <div class="rotate-title">Rotate your device</div>
+        <div class="rotate-subtitle">This game plays best in landscape</div>
+    `;
+
+    document.body.appendChild(overlay);
+
+}
+
+
+
+// =====================================
 // DOM / CSS
 // =====================================
 
@@ -373,6 +441,53 @@ function injectMobileStyles() {
         #laserBtn {
             right: 200px;
             bottom: 270px;
+        }
+
+        #rotateOverlay {
+            position: fixed;
+            inset: 0;
+            background: #0b0b0b;
+            color: white;
+            z-index: 3000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+            pointer-events: auto;
+        }
+
+        /* Pure CSS - shows/hides itself automatically as the
+           device is rotated, no JS polling needed. */
+        @media (orientation: portrait) {
+
+            #rotateOverlay {
+                display: flex;
+            }
+
+        }
+
+        #rotateOverlay .rotate-icon {
+            font-size: 56px;
+            margin-bottom: 16px;
+            animation: rotateHint 1.6s ease-in-out infinite;
+        }
+
+        #rotateOverlay .rotate-title {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        #rotateOverlay .rotate-subtitle {
+            font-size: 14px;
+            opacity: 0.7;
+            margin-top: 6px;
+        }
+
+        @keyframes rotateHint {
+            0%, 100% { transform: rotate(0deg); }
+            50% { transform: rotate(90deg); }
         }
 
         @media (max-width: 480px) {

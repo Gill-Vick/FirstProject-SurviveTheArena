@@ -425,27 +425,19 @@ const KNIGHT = {
 
     // Sword - same swing shape as the player's (angle, arc,
     // progress-driven hitbox), just longer and slower to
-    // wind down so it reads as a heavier weapon. Duration
-    // nudged up a touch and cooldown pulled back a bit for
-    // balance, so it's not swinging quite so relentlessly.
+    // wind down so it reads as a heavier weapon
     SWORD_LENGTH: 130,
     SWORD_ARC: Math.PI * 1.2,
     SWING_DURATION: 20,
     SWING_COOLDOWN: 1150,
 
-    // Dashes in from range like the player's own dash, then
-    // strings a sword swing right after closing the gap.
-    // Cooldown pulled back a bit for balance, same reasoning
-    // as the sword above.
+    // Dashes in from range like the player's own dash
     DASH_TRIGGER_RANGE: 130,
     DASH_SPEED: 12,
     DASH_DURATION: 14,
     DASH_COOLDOWN: 1900,
 
-    // Bow - the player's own shortbow, but fired as a wider
-    // five-arrow volley and on a longer cooldown than the
-    // player's, so it reads as ranged harassment layered on
-    // top of the sword/dash rather than a main weapon.
+    // Bow - the player's own shortbow
     BOW_ARROW_COUNT: 7,
     BOW_SPREAD: 0.26,
     BOW_COOLDOWN: 2500,
