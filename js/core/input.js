@@ -37,11 +37,14 @@ canvas.addEventListener("mousedown", (e) => {
                 break;
 
             case "gameover":
+
+                const homeBtn = getHomeButton();
+
                 if (
-                    x > homeButton.x &&
-                    x < homeButton.x + homeButton.width &&
-                    y > homeButton.y &&
-                    y < homeButton.y + homeButton.height
+                    x > homeBtn.x &&
+                    x < homeBtn.x + homeBtn.width &&
+                    y > homeBtn.y &&
+                    y < homeBtn.y + homeBtn.height
                 ) {
                     resetGame();
                 }
@@ -128,7 +131,7 @@ window.addEventListener("keydown", (e) => {
 
     if (
 
-        (e.code === "Space" || e.code === "ShiftLeft") &&
+        e.code === "Space" &&
         Game.state === "playing"
 
     ) {

@@ -31,6 +31,9 @@ function initMobileControls() {
     // Canvas shouldn't try to pan/zoom/scroll under touch.
     canvas.style.touchAction = "none";
 
+    ensureViewportMeta();
+    watchOrientationResize();
+
     injectMobileStyles();
     buildMobileDOM();
     initOrientationLock();
@@ -268,8 +271,61 @@ function bindTapButton(el, onTap) {
 }
 
 // =====================================
-// Landscape Orientation
+// Viewport / Resize
 // =====================================
+//
+// The "page zooms in after rotating" symptom is almost
+// always a missing or loose <meta viewport> tag - without
+// one pinned to the device's actual width, mobile browsers
+// recompute their zoom level relative to the *old* viewport
+// once the page reflows into its new (landscape) dimensions.
+// This creates/overwrites that tag so the CSS viewport always
+// matches the device 1:1 and pinch-zoom can't creep in,
+// regardless of orientation.
+
+function ensureViewportMeta() {
+
+    let meta = document.querySelector('meta[name="viewport"]');
+
+    if (!meta) {
+
+        meta = document.createElement("meta");
+        meta.name = "viewport";
+        document.head.appendChild(meta);
+
+    }
+
+    meta.content =
+        "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover";
+
+}
+
+// The existing window "resize" listener (in main.js) syncs
+// canvas.width/height to window.innerWidth/innerHeight, but
+// on many mobile browsers that fires a beat too early during
+// a rotation - while the address bar / browser chrome is
+// still animating away - so the canvas can grab a stale,
+// pre-rotation size. Resync a moment later once things have
+// settled, on top of whatever main.js already does.
+
+function watchOrientationResize() {
+
+    function resync() {
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+    }
+
+    window.addEventListener("orientationchange", () => {
+
+        setTimeout(resync, 300);
+
+    });
+
+}
+
+
 //
 // True programmatic orientation LOCKING is unreliable on the
 // open web - it generally only works inside an installed

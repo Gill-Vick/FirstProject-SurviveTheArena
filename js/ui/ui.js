@@ -2,26 +2,48 @@
 // Buttons
 // =====================================
 
-const startButton = {
-    x: canvas.width / 2 - 110,
-    y: canvas.height / 2 - 60,
-    width: 220,
-    height: 60
-};
+// startButton/shopButton/bestiaryButton/homeButton used to be
+// plain consts computed once at load, using whatever
+// canvas.width/height happened to be at that moment. That's
+// fine until the canvas resizes (e.g. rotating a phone from
+// portrait to landscape) - the consts never updated, so the
+// buttons stayed pinned to stale, now-wrong coordinates and
+// effectively vanished off-layout. They're functions now,
+// recomputed against the *current* canvas size every time
+// they're drawn or hit-tested.
 
-const shopButton = {
-    x: canvas.width / 2 - 110,
-    y: canvas.height / 2 + 20,
-    width: 220,
-    height: 60
-};
+function getStartButton() {
 
-const bestiaryButton = {
-    x: canvas.width / 2 - 110,
-    y: canvas.height / 2 + 100,
-    width: 220,
-    height: 60
-};
+    return {
+        x: canvas.width / 2 - 110,
+        y: canvas.height / 2 - 60,
+        width: 220,
+        height: 60
+    };
+
+}
+
+function getShopButton() {
+
+    return {
+        x: canvas.width / 2 - 110,
+        y: canvas.height / 2 + 20,
+        width: 220,
+        height: 60
+    };
+
+}
+
+function getBestiaryButton() {
+
+    return {
+        x: canvas.width / 2 - 110,
+        y: canvas.height / 2 + 100,
+        width: 220,
+        height: 60
+    };
+
+}
 
 const shopBackButton = {
     x: 40,
@@ -37,12 +59,16 @@ const bestiaryBackButton = {
     height: 50
 };
 
-const homeButton = {
-    x: canvas.width / 2 - 100,
-    y: canvas.height / 2 + 100,
-    width: 200,
-    height: 70
-};
+function getHomeButton() {
+
+    return {
+        x: canvas.width / 2 - 100,
+        y: canvas.height / 2 + 100,
+        width: 200,
+        height: 70
+    };
+
+}
 
 const SHOP_ITEM_IDS = [
     "shield", "bow",
@@ -317,9 +343,9 @@ function drawMenu() {
         return;
     }
 
-    drawButton(startButton, "START", "lime", "black");
-    drawButton(shopButton, "SHOP", "#c9a227", "black");
-    drawButton(bestiaryButton, "BESTIARY", "#8B4513", "white");
+    drawButton(getStartButton(), "START", "lime", "black");
+    drawButton(getShopButton(), "SHOP", "#c9a227", "black");
+    drawButton(getBestiaryButton(), "BESTIARY", "#8B4513", "white");
 
 }
 
@@ -654,13 +680,13 @@ function handleMenuClick(x, y) {
 
     }
 
-    if (hitRect(startButton, x, y))
+    if (hitRect(getStartButton(), x, y))
         startGame();
 
-    if (hitRect(shopButton, x, y))
+    if (hitRect(getShopButton(), x, y))
         Game.menuView = "shop";
 
-    if (hitRect(bestiaryButton, x, y))
+    if (hitRect(getBestiaryButton(), x, y))
         Game.menuView = "bestiary";
 
 }
@@ -873,6 +899,6 @@ function drawGameOver() {
         360
     );
 
-    drawButton(homeButton, "RETURN HOME", "lime", "black");
+    drawButton(getHomeButton(), "RETURN HOME", "lime", "black");
 
 }
