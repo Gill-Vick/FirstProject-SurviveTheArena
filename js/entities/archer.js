@@ -11,7 +11,7 @@ class Archer extends Enemy {
 
     constructor(x, y) {
 
-        super(x, y, {
+        super(scale(x), scale(y), {
 
             size: ENEMY_TYPES.archer.SIZE,
 

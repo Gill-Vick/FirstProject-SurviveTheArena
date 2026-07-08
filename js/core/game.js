@@ -16,6 +16,27 @@ ctx.imageSmoothingEnabled = false;
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
+const BASE_RESOLUTION = {
+    WIDTH: 1680,
+    HEIGHT: 1092
+};
+
+function scaleX(px) {
+    return px * (canvas.width / BASE_RESOLUTION.WIDTH);
+}
+
+function scaleY(px) {
+    return px * (canvas.height / BASE_RESOLUTION.HEIGHT);
+}
+
+// Uniform scaling for gameplay objects
+function scale(px) {
+    return px * Math.min(
+        canvas.width / BASE_RESOLUTION.WIDTH,
+        canvas.height / BASE_RESOLUTION.HEIGHT
+    );
+}
+
 // =====================================
 // Main Game Object
 // =====================================
@@ -105,8 +126,8 @@ class SpawnWarning {
 
     constructor(x, y, radius, delay, onSpawn) {
 
-        this.x = x;
-        this.y = y;
+        this.x = scaleX(x);
+        this.y = scaleY(y);
         this.radius = radius;
         this.timer = delay;
         this.onSpawn = onSpawn;
@@ -144,7 +165,7 @@ class SpawnWarning {
 
         ctx.strokeStyle = `rgba(255, 30, 30, ${pulse + 0.25})`;
         ctx.fillStyle = `rgba(255, 30, 30, ${pulse * 0.35})`;
-        ctx.lineWidth = 3;
+        ctx.lineWidth = scaleX(3);
 
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
@@ -383,8 +404,8 @@ function draw() {
     // Screen shake matrix calculation
 
     if (Game.screenShake > 0) {
-        const shakeX = (Math.random() - 0.5) * Game.screenShake;
-        const shakeY = (Math.random() - 0.5) * Game.screenShake;
+        const shakeX = scaleX((Math.random() - 0.5) * Game.screenShake);
+        const shakeY = scaleY((Math.random() - 0.5) * Game.screenShake);
         ctx.translate(shakeX, shakeY);
         // Exponential decay via Math.pow so the shake dies
         // out at the same real-world rate regardless of fps.
