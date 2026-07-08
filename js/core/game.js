@@ -16,26 +16,6 @@ ctx.imageSmoothingEnabled = false;
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-const BASE_RESOLUTION = {
-    WIDTH: 1680,
-    HEIGHT: 1092
-};
-
-function scaleX(px) {
-    return px * (canvas.width / BASE_RESOLUTION.WIDTH);
-}
-
-function scaleY(px) {
-    return px * (canvas.height / BASE_RESOLUTION.HEIGHT);
-}
-
-// Uniform scaling for gameplay objects
-function scale(px) {
-    return px * Math.min(
-        canvas.width / BASE_RESOLUTION.WIDTH,
-        canvas.height / BASE_RESOLUTION.HEIGHT
-    );
-}
 
 // =====================================
 // Main Game Object
