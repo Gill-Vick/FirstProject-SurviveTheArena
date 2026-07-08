@@ -13,7 +13,7 @@ class Archer extends Enemy {
 
         super(scale(x), scale(y), {
 
-            size: ENEMY_TYPES.archer.SIZE,
+            size: scale(ENEMY_TYPES.archer.SIZE),
 
             speed:
                 ENEMY_TYPES.archer.SPEED *
@@ -114,7 +114,7 @@ class Archer extends Enemy {
                 speed: ENEMY_TYPES.archer.PROJECTILE_SPEED,
                 color: ENEMY_TYPES.archer.PROJECTILE_COLOR,
 
-                size: 6,
+                size: scale(6),
                 life: 150,
                 sourceType: "archer",
                 isArrow: true
