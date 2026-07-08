@@ -15,10 +15,10 @@
 function getStartButton() {
 
     return {
-        x: canvas.width / 2 - 110,
-        y: canvas.height / 2 - 60,
-        width: 220,
-        height: 60
+        x: canvas.width / 2 - canvas.width / 14,
+        y: canvas.height / 2 - canvas.height / 18,
+        width: canvas.width / 7,
+        height: canvas.height / 16
     };
 
 }
@@ -26,10 +26,10 @@ function getStartButton() {
 function getShopButton() {
 
     return {
-        x: canvas.width / 2 - 110,
-        y: canvas.height / 2 + 20,
-        width: 220,
-        height: 60
+        x: canvas.width / 2 - canvas.width / 14,
+        y: canvas.height / 2 + canvas.height / 24,
+        width: canvas.width / 7,
+        height: canvas.height / 16
     };
 
 }
@@ -37,10 +37,10 @@ function getShopButton() {
 function getBestiaryButton() {
 
     return {
-        x: canvas.width / 2 - 110,
-        y: canvas.height / 2 + 100,
-        width: 220,
-        height: 60
+        x: canvas.width / 2 - canvas.width / 14,
+        y: canvas.height / 2 + canvas.height / 7.2,
+        width: canvas.width / 7,
+        height: canvas.height / 16
     };
 
 }
@@ -844,7 +844,7 @@ function drawHUD() {
     }
 
 }
-
+z
 // =====================================
 // Wave Messages
 // =====================================
