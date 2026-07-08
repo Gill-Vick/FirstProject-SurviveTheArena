@@ -1,71 +1,116 @@
 // =====================================
+// Percentage-of-canvas layout helpers
+// =====================================
+//
+// Centralized scaling system: every position/size in this
+// file is expressed as a percentage of the *current*
+// canvas.width/height via pw()/ph(), computed fresh on every
+// call rather than cached. That's what makes every menu, the
+// HUD, the shop, and the bestiary automatically re-layout
+// correctly the instant canvas.width/height changes (window
+// resize, mobile rotation, whatever) - nothing here needs to
+// know or care what the actual resolution is.
+
+function pw(pct) {
+
+    return canvas.width * pct;
+
+}
+
+function ph(pct) {
+
+    return canvas.height * pct;
+
+}
+
+// =====================================
 // Buttons
 // =====================================
+//
+// These used to be plain consts computed once at load time -
+// which meant they went stale the moment canvas.width/height
+// changed. They're functions now, recomputed from the
+// *current* canvas size every time they're drawn or
+// hit-tested, so a button's clickable area can never drift
+// out of sync with where it's actually drawn.
 
-// startButton/shopButton/bestiaryButton/homeButton used to be
-// plain consts computed once at load, using whatever
-// canvas.width/height happened to be at that moment. That's
-// fine until the canvas resizes (e.g. rotating a phone from
-// portrait to landscape) - the consts never updated, so the
-// buttons stayed pinned to stale, now-wrong coordinates and
-// effectively vanished off-layout. They're functions now,
-// recomputed against the *current* canvas size every time
-// they're drawn or hit-tested.
+function getMenuButtonMetrics() {
+
+    return {
+        width: pw(0.24),
+        height: ph(0.11),
+        gap: ph(0.03),
+        startY: ph(0.40)
+    };
+
+}
 
 function getStartButton() {
 
+    const m = getMenuButtonMetrics();
+
     return {
-        x: canvas.width / 2 - canvas.width / 14,
-        y: canvas.height / 2 - canvas.height / 18,
-        width: canvas.width / 7,
-        height: canvas.height / 16
+        x: canvas.width / 2 - m.width / 2,
+        y: m.startY,
+        width: m.width,
+        height: m.height
     };
 
 }
 
 function getShopButton() {
 
+    const m = getMenuButtonMetrics();
+
     return {
-        x: canvas.width / 2 - canvas.width / 14,
-        y: canvas.height / 2 + canvas.height / 24,
-        width: canvas.width / 7,
-        height: canvas.height / 16
+        x: canvas.width / 2 - m.width / 2,
+        y: m.startY + m.height + m.gap,
+        width: m.width,
+        height: m.height
     };
 
 }
 
 function getBestiaryButton() {
 
+    const m = getMenuButtonMetrics();
+
     return {
-        x: canvas.width / 2 - canvas.width / 14,
-        y: canvas.height / 2 + canvas.height / 7.2,
-        width: canvas.width / 7,
-        height: canvas.height / 16
+        x: canvas.width / 2 - m.width / 2,
+        y: m.startY + (m.height + m.gap) * 2,
+        width: m.width,
+        height: m.height
     };
 
 }
 
-const shopBackButton = {
-    x: 40,
-    y: 40,
-    width: 140,
-    height: 50
-};
+function getShopBackButton() {
 
-const bestiaryBackButton = {
-    x: 40,
-    y: 40,
-    width: 140,
-    height: 50
-};
+    return {
+        x: pw(0.03),
+        y: ph(0.05),
+        width: pw(0.11),
+        height: ph(0.065)
+    };
+
+}
+
+function getBestiaryBackButton() {
+
+    return getShopBackButton();
+
+}
 
 function getHomeButton() {
 
+    const width = pw(0.2);
+    const height = ph(0.12);
+
     return {
-        x: canvas.width / 2 - 100,
-        y: canvas.height / 2 + 100,
-        width: 200,
-        height: 70
+        x: canvas.width / 2 - width / 2,
+        y: ph(0.62),
+        width,
+        height
     };
 
 }
@@ -75,80 +120,173 @@ const SHOP_ITEM_IDS = [
     "wetStone", "circleStrike", "hermesShoes", "kingsBlade", "critRate"
 ];
 
-const SHOP_ROW_HEIGHT = 78;
-const SHOP_ROW_START = 130;
-const SHOP_BTN_WIDTH = 110;
-const SHOP_BTN_HEIGHT = 36;
+// =====================================
+// Shop Row Layout
+// =====================================
 
-const BESTIARY_COLS = 5;
-const BESTIARY_CELL = 110;
-const BESTIARY_GRID_X = 80;
-const BESTIARY_GRID_Y = 200;
+function getShopRowMetrics() {
+
+    return {
+        rowHeight: ph(0.095),
+        rowStart: ph(0.17),
+        marginX: pw(0.04)
+    };
+
+}
+
+function getShopBtnSize() {
+
+    return {
+        width: pw(0.085),
+        height: ph(0.045)
+    };
+
+}
 
 function getShopBuyButton(index) {
 
+    const { rowHeight, rowStart } = getShopRowMetrics();
+    const btn = getShopBtnSize();
+
     return {
-        x: canvas.width - SHOP_BTN_WIDTH - 50,
-        y: SHOP_ROW_START + index * SHOP_ROW_HEIGHT + 18,
-        width: SHOP_BTN_WIDTH,
-        height: SHOP_BTN_HEIGHT
+        x: canvas.width - btn.width - pw(0.04),
+        y: rowStart + index * rowHeight + ph(0.022),
+        width: btn.width,
+        height: btn.height
     };
 
 }
 
 function getShopEquipButton(index) {
 
+    const { rowHeight, rowStart } = getShopRowMetrics();
+    const btn = getShopBtnSize();
+
     return {
-        x: canvas.width - SHOP_BTN_WIDTH * 2 - 70,
-        y: SHOP_ROW_START + index * SHOP_ROW_HEIGHT + 18,
-        width: SHOP_BTN_WIDTH,
-        height: SHOP_BTN_HEIGHT
+        x: canvas.width - btn.width * 2 - pw(0.055),
+        y: rowStart + index * rowHeight + ph(0.022),
+        width: btn.width,
+        height: btn.height
     };
 
 }
 
 function getShopCritSlider(index) {
 
+    const { rowHeight, rowStart, marginX } = getShopRowMetrics();
+
     return {
-        x: 70,
-        y: SHOP_ROW_START + index * SHOP_ROW_HEIGHT + 58,
-        width: 220,
-        height: 16
+        x: marginX,
+        y: rowStart + index * rowHeight + ph(0.068),
+        width: pw(0.18),
+        height: ph(0.02)
     };
 
 }
 
 function getShopBowSlider(index) {
 
+    const { rowHeight, rowStart, marginX } = getShopRowMetrics();
+
     return {
-        x: 280,
-        y: SHOP_ROW_START + index * SHOP_ROW_HEIGHT + 38,
-        width: 102,
-        height: 22
+        x: marginX + pw(0.19),
+        y: rowStart + index * rowHeight + ph(0.045),
+        width: pw(0.09),
+        height: ph(0.028)
     };
 
 }
 
-// New: Multi-stage UI selector coordinates for the Shield upgrade tiers
 function getShopShieldSlider(index) {
+
+    const { rowHeight, rowStart, marginX } = getShopRowMetrics();
+
     return {
-        x: 280,
-        y: SHOP_ROW_START + index * SHOP_ROW_HEIGHT + 38,
-        width: 68,
-        height: 22
+        x: marginX + pw(0.19),
+        y: rowStart + index * rowHeight + ph(0.045),
+        width: pw(0.06),
+        height: ph(0.028)
     };
+
+}
+
+// =====================================
+// Bestiary Grid Layout
+// =====================================
+//
+// Previously a fixed 110px cell size starting at a fixed
+// x=80 offset - on any canvas wider than ~700px (which is
+// most of them) that left the whole grid squashed into a
+// fraction of the available width instead of spanning it.
+//
+// Cell size here is *derived* - computed from however much
+// space is actually available, both width- and height-wise
+// (so it can never overflow vertically either), then the
+// grid is centered in whichever axis ends up with room to
+// spare. That means it always spans the full width when
+// there's enough vertical room, and shrinks gracefully
+// instead of overflowing when there isn't.
+
+function getBestiaryPanelRect() {
+
+    const marginX = pw(0.05);
+    const marginY = ph(0.11);
+
+    return {
+        x: marginX,
+        y: marginY,
+        width: canvas.width - marginX * 2,
+        height: canvas.height - marginY * 2
+    };
+
+}
+
+function getBestiaryGridMetrics() {
+
+    const cols = 5;
+    const rows = Math.ceil(BESTIARY_ORDER.length / cols);
+
+    const panel = getBestiaryPanelRect();
+
+    // Gaps are a meaningfully bigger chunk of the available
+    // space than before, so cells read as clearly separate
+    // instead of packed edge-to-edge.
+    const gapX = pw(0.02);
+    const gapY = ph(0.045);
+
+    const gridTop = ph(0.30);
+    const gridBottom = panel.y + panel.height - ph(0.03);
+
+    const availableWidth = panel.width - pw(0.04);
+    const availableHeight = gridBottom - gridTop;
+
+    const cellFromWidth = (availableWidth - gapX * (cols - 1)) / cols;
+    const cellFromHeight = (availableHeight - gapY * (rows - 1)) / rows;
+
+    // Capped by whichever axis is tighter, so the grid never
+    // overflows the panel - it just spans however much of the
+    // wider axis it can while staying square.
+    const cell = Math.min(cellFromWidth, cellFromHeight);
+
+    const usedWidth = cell * cols + gapX * (cols - 1);
+    const gridX = panel.x + pw(0.02) + (availableWidth - usedWidth) / 2;
+
+    return { cols, rows, gridX, gridY: gridTop, gapX, gapY, cell };
+
 }
 
 function getBestiaryCell(index) {
 
-    const col = index % BESTIARY_COLS;
-    const row = Math.floor(index / BESTIARY_COLS);
+    const { cols, gridX, gridY, gapX, gapY, cell } = getBestiaryGridMetrics();
+
+    const col = index % cols;
+    const row = Math.floor(index / cols);
 
     return {
-        x: BESTIARY_GRID_X + col * (BESTIARY_CELL + 16),
-        y: BESTIARY_GRID_Y + row * (BESTIARY_CELL + 20),
-        width: BESTIARY_CELL,
-        height: BESTIARY_CELL
+        x: gridX + col * (cell + gapX),
+        y: gridY + row * (cell + gapY),
+        width: cell,
+        height: cell
     };
 
 }
@@ -166,16 +304,18 @@ function hitRect(btn, x, y) {
 
 function drawButton(btn, label, fill, textColor, fontSize) {
 
+    const size = fontSize ?? ph(0.028);
+
     ctx.fillStyle = fill;
     ctx.fillRect(btn.x, btn.y, btn.width, btn.height);
 
     ctx.fillStyle = textColor;
-    ctx.font = `${fontSize ?? 22}px Arial`;
+    ctx.font = `${size}px Arial`;
     ctx.textAlign = "center";
     ctx.fillText(
         label,
         btn.x + btn.width / 2,
-        btn.y + btn.height / 2 + 8
+        btn.y + btn.height / 2 + size * 0.35
     );
 
 }
@@ -192,25 +332,31 @@ function drawCoinDisplay(x, y, size) {
 function drawBowStageIndicator(slider) {
 
     const currentStage = Save.equippedBowStage;
-    const labels = ["", "1", "2", "3"];
+    const labels = ["1", "2", "3"];
 
-    ctx.font = "14px Arial";
+    const segW = slider.width / 3;
+    const boxW = segW * 0.85;
+    const fontSize = slider.height * 0.65;
+
+    ctx.font = `${fontSize}px Arial`;
     ctx.textAlign = "center";
 
     for (let s = 1; s <= 3; s++) {
 
-        const cx = slider.x + (s - 1) * 36;
+        const segX = slider.x + (s - 1) * segW;
 
         ctx.fillStyle = s === currentStage ? "#c9a227" : "#444";
-        ctx.fillRect(cx, slider.y, 28, 22);
+        ctx.fillRect(segX, slider.y, boxW, slider.height);
 
         ctx.fillStyle = s === currentStage ? "black" : "#aaa";
-        ctx.fillText(labels[s], cx + 14, slider.y + 16);
+        ctx.fillText(labels[s - 1], segX + boxW / 2, slider.y + slider.height * 0.72);
 
         if (s < 3) {
 
             ctx.fillStyle = "#888";
-            ctx.fillText("→", cx + 32, slider.y + 16);
+            ctx.font = `${fontSize * 0.75}px Arial`;
+            ctx.fillText("→", segX + segW * 0.95, slider.y + slider.height * 0.72);
+            ctx.font = `${fontSize}px Arial`;
 
         }
 
@@ -220,44 +366,60 @@ function drawBowStageIndicator(slider) {
 
 function bowStageFromSliderX(slider, x) {
 
-    // Center point divisions for 3 discrete columns (1, 2, 3) inside the 102px width
     const relativeX = x - slider.x;
+    const segW = slider.width / 3;
 
-    if (relativeX < 34) return 1;
-    if (relativeX < 68) return 2;
+    if (relativeX < segW) return 1;
+    if (relativeX < segW * 2) return 2;
     return 3;
 
 }
 
-// New: Visual stage indicator for shifting between Wooden (W) and Onyx (O) shields
+// Visual stage indicator for shifting between Wooden (W) and Onyx (O) shields
 function drawShieldStageIndicator(slider) {
-    const currentStage = Save.equippedShieldStage ?? 1;
-    const labels = ["", "W", "O"];
 
-    ctx.font = "14px Arial";
+    const currentStage = Save.equippedShieldStage ?? 1;
+    const labels = ["W", "O"];
+
+    const segW = slider.width / 2;
+    const boxW = segW * 0.85;
+    const fontSize = slider.height * 0.65;
+
+    ctx.font = `${fontSize}px Arial`;
     ctx.textAlign = "center";
 
     for (let s = 1; s <= 2; s++) {
-        const cx = slider.x + (s - 1) * 36;
+
+        const segX = slider.x + (s - 1) * segW;
 
         ctx.fillStyle = s === currentStage ? "#4da6ff" : "#444";
-        ctx.fillRect(cx, slider.y, 28, 22);
+        ctx.fillRect(segX, slider.y, boxW, slider.height);
 
         ctx.fillStyle = s === currentStage ? "black" : "#aaa";
-        ctx.fillText(labels[s], cx + 14, slider.y + 16);
+        ctx.fillText(labels[s - 1], segX + boxW / 2, slider.y + slider.height * 0.72);
 
         if (s < 2) {
+
             ctx.fillStyle = "#888";
-            ctx.fillText("→", cx + 32, slider.y + 16);
+            ctx.font = `${fontSize * 0.75}px Arial`;
+            ctx.fillText("→", segX + segW * 0.95, slider.y + slider.height * 0.72);
+            ctx.font = `${fontSize}px Arial`;
+
         }
+
     }
+
 }
 
-// New: Processes user X coordinate input on the shield slider segment
+// Processes user X coordinate input on the shield slider segment
 function shieldStageFromSliderX(slider, x) {
+
     const relativeX = x - slider.x;
-    if (relativeX < 34) return 1;
+    const segW = slider.width / 2;
+
+    if (relativeX < segW) return 1;
     return 2;
+
 }
 
 function drawCritSlider(slider, value, maxLevel) {
@@ -271,22 +433,23 @@ function drawCritSlider(slider, value, maxLevel) {
     ctx.fillRect(slider.x, slider.y, slider.width * pct, slider.height);
 
     const knobX = slider.x + slider.width * pct;
+    const knobRadius = slider.height * 0.55;
 
     ctx.fillStyle = "white";
     ctx.beginPath();
-    ctx.arc(knobX, slider.y + slider.height / 2, 8, 0, Math.PI * 2);
+    ctx.arc(knobX, slider.y + slider.height / 2, knobRadius, 0, Math.PI * 2);
     ctx.fill();
 
     const equippedPct = Math.round(Save.getEquippedCritChance() * 100);
     const maxPct = Math.round(Save.getCritChance() * 100);
 
     ctx.fillStyle = "#4da6ff";
-    ctx.font = "14px Arial";
+    ctx.font = `${slider.height * 0.9}px Arial`;
     ctx.textAlign = "left";
     ctx.fillText(
         `Equipped: ${equippedPct}%  (owned up to ${maxPct}%)`,
-        slider.x + slider.width + 12,
-        slider.y + 13
+        slider.x + slider.width + slider.height,
+        slider.y + slider.height * 0.75
     );
 
 }
@@ -322,11 +485,11 @@ function drawMenu() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     ctx.fillStyle = "white";
-    ctx.font = "80px Arial";
+    ctx.font = `${ph(0.09)}px Arial`;
     ctx.textAlign = "center";
-    ctx.fillText("SURVIVE THE ARENA", canvas.width / 2, 120);
+    ctx.fillText("SURVIVE THE ARENA", canvas.width / 2, ph(0.16));
 
-    drawCoinDisplay(canvas.width - 220, 50, 32);
+    drawCoinDisplay(canvas.width - pw(0.17), ph(0.09), ph(0.032));
 
     if (Game.menuView === "shop") {
         drawShop();
@@ -343,53 +506,56 @@ function drawMenu() {
         return;
     }
 
-    drawButton(getStartButton(), "START", "lime", "black");
-    drawButton(getShopButton(), "SHOP", "#c9a227", "black");
-    drawButton(getBestiaryButton(), "BESTIARY", "#8B4513", "white");
+    const btnFont = ph(0.03);
+
+    drawButton(getStartButton(), "START", "lime", "black", btnFont);
+    drawButton(getShopButton(), "SHOP", "#c9a227", "black", btnFont);
+    drawButton(getBestiaryButton(), "BESTIARY", "#8B4513", "white", btnFont);
 
 }
 
 function drawShop() {
 
     ctx.fillStyle = "white";
-    ctx.font = "48px Arial";
+    ctx.font = `${ph(0.06)}px Arial`;
     ctx.textAlign = "center";
-    ctx.fillText("SHOP", canvas.width / 2, 100);
+    ctx.fillText("SHOP", canvas.width / 2, ph(0.14));
 
-    drawButton(shopBackButton, "BACK", "#555", "white");
+    drawButton(getShopBackButton(), "BACK", "#555", "white", ph(0.024));
+
+    const { rowHeight, rowStart, marginX } = getShopRowMetrics();
 
     SHOP_ITEM_IDS.forEach((id, i) => {
 
         const item = SHOP_ITEMS[id];
-        const rowY = SHOP_ROW_START + i * SHOP_ROW_HEIGHT;
+        const rowY = rowStart + i * rowHeight;
         const buyBtn = getShopBuyButton(i);
         const equipBtn = getShopEquipButton(i);
-        
-        // Updated: Ownership evaluation includes tracking up to Shield Stage 2 (Onyx)
+
         const owned = id === "bow" ? Save.bowStage >= 3 : (id === "shield" ? Save.shieldStage >= 2 : (!item.repeatable && Save.owns(id)));
         const blockReason = Save.getPurchaseBlockReason(id);
         const canBuy = Save.canPurchase(id);
 
         ctx.fillStyle = "rgba(0,0,0,0.45)";
-        ctx.fillRect(50, rowY - 6, canvas.width - 100, SHOP_ROW_HEIGHT - 8);
+        ctx.fillRect(marginX, rowY - ph(0.008), canvas.width - marginX * 2, rowHeight - ph(0.01));
 
         ctx.fillStyle = "white";
-        ctx.font = "bold 22px Arial";
+        ctx.font = `bold ${ph(0.026)}px Arial`;
         ctx.textAlign = "left";
-        ctx.fillText(item.name, 70, rowY + 16);
+        ctx.fillText(item.name, marginX + pw(0.015), rowY + ph(0.02));
 
-        ctx.font = "16px Arial";
+        ctx.font = `${ph(0.018)}px Arial`;
         ctx.fillStyle = "#ccc";
-        ctx.fillText(item.desc, 70, rowY + 36);
+        ctx.fillText(item.desc, marginX + pw(0.015), rowY + ph(0.045));
 
         ctx.fillStyle = "gold";
-        ctx.font = "16px Arial";
+        ctx.font = `${ph(0.018)}px Arial`;
         if (id === "bow" && Save.bowStage >= 3) {
-            ctx.fillText("Max level reached", 70, rowY + 54);
+            ctx.fillText("Max level reached", marginX + pw(0.015), rowY + ph(0.065));
         } else if (id === "shield" && Save.shieldStage >= 2) {
-            ctx.fillText("Max level reached", 70, rowY + 54);
+            ctx.fillText("Max level reached", marginX + pw(0.015), rowY + ph(0.065));
         } else {
-            ctx.fillText(`${item.price} coins`, 70, rowY + 54);
+            ctx.fillText(`${item.price} coins`, marginX + pw(0.015), rowY + ph(0.065));
         }
 
         if (id === "bow") {
@@ -397,7 +563,6 @@ function drawShop() {
             drawBowStageIndicator(slider);
         }
 
-        // New: Draw the level selection panel for your shield if you own at least the basic version
         if (id === "shield" && Save.shieldStage >= 1) {
             const slider = getShopShieldSlider(i);
             drawShieldStageIndicator(slider);
@@ -419,7 +584,7 @@ function drawShop() {
                 equipped ? "UNEQUIP" : "EQUIP",
                 equipped ? "#2a5a2a" : "#555",
                 "white",
-                18
+                ph(0.018)
             );
 
         }
@@ -431,23 +596,23 @@ function drawShop() {
 
         if (owned) {
 
-            drawButton(buyBtn, "OWNED", "#444", "#aaa", 18);
+            drawButton(buyBtn, "OWNED", "#444", "#aaa", ph(0.018));
 
         } else if (maxed) {
 
-            drawButton(buyBtn, "MAXED", "#444", "#aaa", 18);
+            drawButton(buyBtn, "MAXED", "#444", "#aaa", ph(0.018));
 
         } else if (blockReason) {
 
-            drawButton(buyBtn, blockReason, "#333", "#ccc", 14);
+            drawButton(buyBtn, blockReason, "#333", "#ccc", ph(0.014));
 
         } else if (canBuy) {
 
-            drawButton(buyBtn, "BUY", "lime", "black", 18);
+            drawButton(buyBtn, "BUY", "lime", "black", ph(0.018));
 
         } else {
 
-            drawButton(buyBtn, "BUY", "#663333", "#888", 18);
+            drawButton(buyBtn, "BUY", "#663333", "#888", ph(0.018));
 
         }
 
@@ -464,7 +629,7 @@ function drawEnemyPreview(type, x, y, w, h, unlocked) {
     if (entry.isBoss) {
 
         ctx.strokeStyle = "gold";
-        ctx.lineWidth = 3;
+        ctx.lineWidth = Math.max(2, ph(0.004));
         ctx.strokeRect(x, y, w, h);
 
     }
@@ -475,9 +640,9 @@ function drawEnemyPreview(type, x, y, w, h, unlocked) {
         ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
 
         ctx.fillStyle = "#888";
-        ctx.font = "bold 48px Arial";
+        ctx.font = `bold ${Math.floor(Math.min(w, h) * 0.45)}px Arial`;
         ctx.textAlign = "center";
-        ctx.fillText("?", x + w / 2, y + h / 2 + 16);
+        ctx.fillText("?", x + w / 2, y + h / 2 + Math.min(w, h) * 0.15);
 
         ctx.restore();
         return;
@@ -518,18 +683,20 @@ function drawEnemyPreview(type, x, y, w, h, unlocked) {
 
 function drawBestiary() {
 
+    const panel = getBestiaryPanelRect();
+
     ctx.fillStyle = "#5c4033";
-    ctx.fillRect(60, 80, canvas.width - 120, canvas.height - 140);
+    ctx.fillRect(panel.x, panel.y, panel.width, panel.height);
     ctx.strokeStyle = "#c9a227";
-    ctx.lineWidth = 4;
-    ctx.strokeRect(60, 80, canvas.width - 120, canvas.height - 140);
+    ctx.lineWidth = Math.max(3, ph(0.006));
+    ctx.strokeRect(panel.x, panel.y, panel.width, panel.height);
 
     ctx.fillStyle = "white";
-    ctx.font = "48px Arial";
+    ctx.font = `${ph(0.055)}px Arial`;
     ctx.textAlign = "center";
-    ctx.fillText("BESTIARY", canvas.width / 2, 130);
+    ctx.fillText("BESTIARY", canvas.width / 2, ph(0.185));
 
-    drawButton(bestiaryBackButton, "BACK", "#555", "white");
+    drawButton(getBestiaryBackButton(), "BACK", "#555", "white", ph(0.024));
 
     BESTIARY_ORDER.forEach((type, i) => {
 
@@ -538,17 +705,22 @@ function drawBestiary() {
         const unlocked = Save.isBestiaryUnlocked(type);
 
         ctx.fillStyle = "rgba(0,0,0,0.35)";
-        ctx.fillRect(cell.x - 4, cell.y - 4, cell.width + 8, cell.height + 28);
+        ctx.fillRect(
+            cell.x - cell.width * 0.04,
+            cell.y - cell.width * 0.04,
+            cell.width * 1.08,
+            cell.height + ph(0.04)
+        );
 
         drawEnemyPreview(type, cell.x, cell.y, cell.width, cell.height, unlocked);
 
         ctx.fillStyle = unlocked ? "white" : "#666";
-        ctx.font = "14px Arial";
+        ctx.font = `${Math.max(10, cell.width * 0.12)}px Arial`;
         ctx.textAlign = "center";
         ctx.fillText(
             unlocked ? entry.name : "???",
             cell.x + cell.width / 2,
-            cell.y + cell.height + 18
+            cell.y + cell.height + cell.width * 0.16
         );
 
     });
@@ -563,32 +735,36 @@ function drawBestiaryDetail() {
     if (!entry)
         return;
 
+    const panel = getBestiaryPanelRect();
+
     ctx.fillStyle = "#5c4033";
-    ctx.fillRect(60, 80, canvas.width - 120, canvas.height - 140);
+    ctx.fillRect(panel.x, panel.y, panel.width, panel.height);
     ctx.strokeStyle = "#c9a227";
-    ctx.lineWidth = 4;
-    ctx.strokeRect(60, 80, canvas.width - 120, canvas.height - 140);
+    ctx.lineWidth = Math.max(3, ph(0.006));
+    ctx.strokeRect(panel.x, panel.y, panel.width, panel.height);
 
-    drawButton(bestiaryBackButton, "BACK", "#555", "white");
+    drawButton(getBestiaryBackButton(), "BACK", "#555", "white", ph(0.024));
 
-    const previewX = 120;
-    const previewY = 160;
-    const previewSize = 180;
+    const previewX = panel.x + pw(0.04);
+    const previewY = panel.y + ph(0.09);
+    const previewSize = Math.min(pw(0.16), panel.height * 0.4);
 
     drawEnemyPreview(type, previewX, previewY, previewSize, previewSize, true);
 
+    const textX = previewX + previewSize + pw(0.03);
+
     ctx.fillStyle = entry.isBoss ? "gold" : "white";
-    ctx.font = "bold 42px Arial";
+    ctx.font = `bold ${ph(0.05)}px Arial`;
     ctx.textAlign = "left";
-    ctx.fillText(entry.name, previewX + previewSize + 40, 200);
+    ctx.fillText(entry.name, textX, previewY + ph(0.05));
 
     ctx.fillStyle = "#ccc";
-    ctx.font = "22px Arial";
-    ctx.fillText(entry.desc, previewX + previewSize + 40, 250);
+    ctx.font = `${ph(0.026)}px Arial`;
+    ctx.fillText(entry.desc, textX, previewY + ph(0.12));
 
     ctx.fillStyle = "#aaa";
-    ctx.font = "20px Arial";
-    ctx.fillText(`Behavior: ${entry.behavior}`, previewX + previewSize + 40, 290);
+    ctx.font = `${ph(0.023)}px Arial`;
+    ctx.fillText(`Behavior: ${entry.behavior}`, textX, previewY + ph(0.17));
 
     const wave1Hp = entry.hpAtWave(1);
     const wave5Hp = entry.hpAtWave(5);
@@ -597,16 +773,18 @@ function drawBestiaryDetail() {
     const speed5 = (entry.baseSpeed * (1 + 4 * 0.08)).toFixed(1);
     const speed10 = (entry.baseSpeed * (1 + 9 * 0.08)).toFixed(1);
 
+    const statsY = previewY + previewSize + ph(0.08);
+
     ctx.fillStyle = "white";
-    ctx.font = "bold 24px Arial";
-    ctx.fillText("Stats", previewX + previewSize + 40, 350);
+    ctx.font = `bold ${ph(0.028)}px Arial`;
+    ctx.fillText("Stats", panel.x + pw(0.03), statsY);
 
     ctx.fillStyle = "#ddd";
-    ctx.font = "20px Arial";
-    ctx.fillText(`HP scaling: ${entry.hpScale}`, previewX + previewSize + 40, 385);
-    ctx.fillText(`Wave 1 HP: ${wave1Hp}   Wave 5: ${wave5Hp}   Wave 10: ${wave10Hp}`, previewX + previewSize + 40, 415);
-    ctx.fillText(`Base speed: ${entry.baseSpeed} (+8% per wave)`, previewX + previewSize + 40, 445);
-    ctx.fillText(`Speed W1: ${speed1}   W5: ${speed5}   W10: ${speed10}`, previewX + previewSize + 40, 475);
+    ctx.font = `${ph(0.023)}px Arial`;
+    ctx.fillText(`HP scaling: ${entry.hpScale}`, panel.x + pw(0.03), statsY + ph(0.05));
+    ctx.fillText(`Wave 1 HP: ${wave1Hp}   Wave 5: ${wave5Hp}   Wave 10: ${wave10Hp}`, panel.x + pw(0.03), statsY + ph(0.09));
+    ctx.fillText(`Base speed: ${entry.baseSpeed} (+8% per wave)`, panel.x + pw(0.03), statsY + ph(0.13));
+    ctx.fillText(`Speed W1: ${speed1}   W5: ${speed5}   W10: ${speed10}`, panel.x + pw(0.03), statsY + ph(0.17));
 
 }
 
@@ -614,7 +792,7 @@ function handleMenuClick(x, y) {
 
     if (Game.menuView === "shop") {
 
-        if (hitRect(shopBackButton, x, y)) {
+        if (hitRect(getShopBackButton(), x, y)) {
             Game.menuView = "main";
             return;
         }
@@ -633,7 +811,6 @@ function handleMenuClick(x, y) {
                 Save.setEquippedBowStage(bowStageFromSliderX(getShopBowSlider(i), x));
             }
 
-            // New: Intercept shield level panel clicks to dynamically scale the equipment profile back and forth
             if (id === "shield" && Save.shieldStage >= 1 && hitRect(getShopShieldSlider(i), x, y)) {
                 const targetStage = shieldStageFromSliderX(getShopShieldSlider(i), x);
                 Save.setEquippedShieldStage(targetStage);
@@ -650,7 +827,7 @@ function handleMenuClick(x, y) {
 
     if (Game.menuView === "bestiaryDetail") {
 
-        if (hitRect(bestiaryBackButton, x, y))
+        if (hitRect(getBestiaryBackButton(), x, y))
             Game.menuView = "bestiary";
 
         return;
@@ -659,7 +836,7 @@ function handleMenuClick(x, y) {
 
     if (Game.menuView === "bestiary") {
 
-        if (hitRect(bestiaryBackButton, x, y)) {
+        if (hitRect(getBestiaryBackButton(), x, y)) {
             Game.menuView = "main";
             return;
         }
@@ -714,7 +891,6 @@ function handleMenuMouseMove(x, y) {
         }
     }
 
-    // New: Handle slider adjustments across tiers for the shield during mouse drag events
     if (Game.shopShieldDragging) {
         const shieldIndex = SHOP_ITEM_IDS.indexOf("shield");
         if (shieldIndex >= 0) {
@@ -740,7 +916,6 @@ function handleMenuMouseDown(x, y) {
         Game.shopBowDragging = true;
     }
 
-    // New: Engages active tracking lock for dragging shield tiers
     const shieldIndex = SHOP_ITEM_IDS.indexOf("shield");
     if (shieldIndex >= 0 && Save.shieldStage >= 1 && hitRect(getShopShieldSlider(shieldIndex), x, y)) {
         Game.shopShieldDragging = true;
@@ -752,7 +927,7 @@ function handleMenuMouseUp() {
 
     Game.shopCritDragging = false;
     Game.shopBowDragging = false;
-    Game.shopShieldDragging = false; // New: Clears drag flag
+    Game.shopShieldDragging = false;
 
 }
 
@@ -763,17 +938,17 @@ function handleMenuMouseUp() {
 function drawHUD() {
 
     ctx.fillStyle = "white";
-    ctx.font = "bold 30px Arial";
+    ctx.font = `bold ${ph(0.035)}px Arial`;
     ctx.textAlign = "left";
 
-    ctx.fillText(`Wave: ${Game.wave}`, 20, 40);
+    ctx.fillText(`Wave: ${Game.wave}`, pw(0.015), ph(0.05));
 
     const realElapsedSecs = Game.elapsedTime / (1000 * GAME_SPEED);
     const minutes = Math.floor(realElapsedSecs / 60);
     const seconds = Math.floor(realElapsedSecs % 60);
     const timeText = `${minutes}:${seconds.toString().padStart(2, "0")}`;
 
-    ctx.fillText(timeText, 20, 80);
+    ctx.fillText(timeText, pw(0.015), ph(0.095));
 
     const getDashText = (cd) => {
         if (cd <= 0)
@@ -791,17 +966,19 @@ function drawHUD() {
         dash2
             ? `Dash: ${dash1} | ${dash2}`
             : `Dash: ${dash1}`,
-        20,
-        120
+        pw(0.015),
+        ph(0.14)
     );
 
-    drawCoinDisplay(20, 160, 26);
+    drawCoinDisplay(pw(0.015), ph(0.185), ph(0.03));
 
-    let nextLineY = 200;
+    let nextLineY = ph(0.23);
+    const lineStep = ph(0.045);
 
     if (Save.isEquipped("bow")) {
 
         ctx.fillStyle = "white";
+        ctx.font = `bold ${ph(0.035)}px Arial`;
 
         let bowText = "READY [E]";
         if (player.bowCooldown > 0) {
@@ -810,14 +987,15 @@ function drawHUD() {
         }
 
         const arrows = Save.getBowArrowCount();
-        ctx.fillText(`Bow (${arrows}): ${bowText}`, 20, nextLineY);
-        nextLineY += 40;
+        ctx.fillText(`Bow (${arrows}): ${bowText}`, pw(0.015), nextLineY);
+        nextLineY += lineStep;
 
     }
 
     if (Save.isEquipped("kingsBlade")) {
 
         ctx.fillStyle = "white";
+        ctx.font = `bold ${ph(0.035)}px Arial`;
 
         let kbText = "READY [RMB]";
         if (player.kingsBladeCooldown > 0) {
@@ -825,26 +1003,27 @@ function drawHUD() {
             kbText = `${realKbSecs}s`;
         }
 
-        ctx.fillText(`King's Blade: ${kbText}`, 20, nextLineY);
-        nextLineY += 40;
+        ctx.fillText(`King's Blade: ${kbText}`, pw(0.015), nextLineY);
+        nextLineY += lineStep;
 
     }
 
     if (Save.isEquipped("shield")) {
 
-        // Updated: Dynamically shifts label text and highlights the status in unique purple hue if Onyx Tier is down/up-selected
+        ctx.font = `bold ${ph(0.035)}px Arial`;
+
         const displayLabel = (Save.equippedShieldStage === 2) ? "Onyx Shield" : "Shield";
         ctx.fillStyle = player.shieldActive ? ((Save.equippedShieldStage === 2) ? "#b533ff" : "#44ffda") : "#666";
         ctx.fillText(
             `${displayLabel}: ${player.shieldActive ? "ACTIVE" : "USED"}`,
-            20,
+            pw(0.015),
             nextLineY
         );
 
     }
 
 }
-z
+
 // =====================================
 // Wave Messages
 // =====================================
@@ -856,16 +1035,16 @@ function drawWaveMessages() {
         Game.waveMessageTimer--;
 
         ctx.textAlign = "center";
-        ctx.font = "60px Arial";
+        ctx.font = `${ph(0.07)}px Arial`;
         ctx.fillStyle = "white";
-        ctx.fillText(`WAVE ${Game.wave}`, canvas.width / 2, 150);
+        ctx.fillText(`WAVE ${Game.wave}`, canvas.width / 2, ph(0.21));
 
     }
 
     if (Game.waveTransition) {
 
         ctx.textAlign = "center";
-        ctx.font = "70px Arial";
+        ctx.font = `${ph(0.08)}px Arial`;
         ctx.fillStyle = "gold";
         ctx.fillText("WAVE COMPLETE", canvas.width / 2, canvas.height / 2);
 
@@ -880,25 +1059,25 @@ function drawWaveMessages() {
 function drawGameOver() {
 
     ctx.fillStyle = "white";
-    ctx.font = "80px Arial";
+    ctx.font = `${ph(0.09)}px Arial`;
     ctx.textAlign = "center";
-    ctx.fillText("GAME OVER", canvas.width / 2, 220);
+    ctx.fillText("GAME OVER", canvas.width / 2, ph(0.31));
 
-    ctx.font = "40px Arial";
+    ctx.font = `${ph(0.045)}px Arial`;
     ctx.fillText(
         `You were slain by ${Game.killedBy ?? "an unknown enemy"}`,
         canvas.width / 2,
-        300
+        ph(0.42)
     );
 
     ctx.fillStyle = "gold";
-    ctx.font = "32px Arial";
+    ctx.font = `${ph(0.036)}px Arial`;
     ctx.fillText(
         `Total Coins: ${Save.coins}`,
         canvas.width / 2,
-        360
+        ph(0.5)
     );
 
-    drawButton(getHomeButton(), "RETURN HOME", "lime", "black");
+    drawButton(getHomeButton(), "RETURN HOME", "lime", "black", ph(0.028));
 
 }
