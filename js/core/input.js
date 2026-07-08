@@ -157,7 +157,7 @@ window.addEventListener("keydown", (e) => {
 
     if (
 
-        e.code === "Space" &&
+        (e.code === "Space" || e.code === "ShiftLeft") &&
         Game.state === "playing"
 
     ) {
