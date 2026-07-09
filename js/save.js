@@ -32,7 +32,9 @@ const Save = {
         wetStone: false,
         hermesShoes: false,
         circleStrike: false,
-        kingsBlade: false
+        kingsBlade: false,
+        phoenixFeather: false,
+        windrunnerBoots: false
     },
 
     equipped: {
@@ -41,7 +43,9 @@ const Save = {
         wetStone: false,
         hermesShoes: false,
         circleStrike: false,
-        kingsBlade: false
+        kingsBlade: false,
+        phoenixFeather: false,
+        windrunnerBoots: false
     },
 
     bestiaryUnlocked: {},
@@ -74,6 +78,8 @@ const Save = {
             this.inventory.hermesShoes = !!data.inventory?.hermesShoes;
             this.inventory.circleStrike = !!data.inventory?.circleStrike;
             this.inventory.kingsBlade = !!data.inventory?.kingsBlade;
+            this.inventory.phoenixFeather = !!data.inventory?.phoenixFeather;
+            this.inventory.windrunnerBoots = !!data.inventory?.windrunnerBoots;
 
             this.equipped.shield = !!data.equipped?.shield;
             this.equipped.bow = !!data.equipped?.bow;
@@ -81,6 +87,8 @@ const Save = {
             this.equipped.hermesShoes = !!data.equipped?.hermesShoes;
             this.equipped.circleStrike = !!data.equipped?.circleStrike;
             this.equipped.kingsBlade = !!data.equipped?.kingsBlade;
+            this.equipped.phoenixFeather = !!data.equipped?.phoenixFeather;
+            this.equipped.windrunnerBoots = !!data.equipped?.windrunnerBoots;
 
             this.bestiaryUnlocked = { ...(data.bestiaryUnlocked ?? {}) };
 
@@ -184,6 +192,9 @@ const Save = {
 
         if (item.requiresKingKilled && !this.kingKilled)
             return "Defeat the King";
+
+        if (item.requiresKnightKilled && !this.knightKilled)
+            return "Defeat the Knight";
 
         if (itemId === "bow" && this.bowStage >= 3)
             return "Maxed out";

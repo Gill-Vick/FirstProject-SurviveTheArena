@@ -10,7 +10,13 @@ class Player {
         this.y = canvas.height / 2;
 
         this.size = PLAYER.SIZE;
-        this.speed = PLAYER.SPEED;
+
+        this.speed = PLAYER.SPEED * (
+            Save.isEquipped("windrunnerBoots")
+                ? WINDRUNNER.SPEED_MULTIPLIER
+                : 1
+        );
+
         this.color = PLAYER.COLOR;
 
         // Sprite animation
@@ -31,6 +37,10 @@ class Player {
         this.shieldActive = Save.isEquipped("shield");
 
         this.invulnTimer = 0;
+
+        // Phoenix Feather - one revive per run, consumed the
+        // moment it's used (see takeHit()).
+        this.phoenixUsed = false;
 
         // Bow
 
@@ -96,6 +106,23 @@ class Player {
             this.invulnTimer = SHIELD.INVULN_MS;
 
             Game.screenShake = EFFECTS.SHAKE_ON_KILL;
+
+            return false;
+
+        }
+
+        if (Save.isEquipped("phoenixFeather") && !this.phoenixUsed) {
+
+            this.phoenixUsed = true;
+
+            this.invulnTimer = PHOENIX.INVULN_MS;
+
+            Game.screenShake = EFFECTS.SHAKE_ON_DEATH;
+
+            Particle.createHitBurst(
+                this.x + this.size / 2,
+                this.y + this.size / 2
+            );
 
             return false;
 

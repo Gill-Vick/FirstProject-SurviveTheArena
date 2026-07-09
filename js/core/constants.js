@@ -101,6 +101,32 @@ const SHIELD = {
 };
 
 // =====================================
+// Phoenix Feather (shop item)
+// =====================================
+//
+// A one-time revive unlocked by defeating the Knight - the
+// hit that would normally end the run instead consumes the
+// feather and grants a window of invulnerability. Only one
+// charge per run (Player.phoenixUsed resets on startGame()).
+
+const PHOENIX = {
+    INVULN_MS: 2000,
+    GLOW_COLOR: "#ffb347"
+};
+
+// =====================================
+// Windrunner Boots (shop item)
+// =====================================
+//
+// Also unlocked by defeating the Knight - a flat, always-on
+// movement speed boost. Helps with kiting/repositioning
+// around the King's laser sweeps and sword lunges.
+
+const WINDRUNNER = {
+    SPEED_MULTIPLIER: 1.2
+};
+
+// =====================================
 // Coin Rewards
 // =====================================
 
@@ -187,6 +213,22 @@ const SHOP_ITEMS = {
         name: "King's Blade",
         desc: "2 dmg sword + right-click laser (5 dmg, 4s cd)",
         requiresKingKilled: false,
+        equippable: true
+    },
+
+    phoenixFeather: {
+        price: 0,
+        name: "Phoenix Feather",
+        desc: "Revive once per run with 2s invuln",
+        requiresKnightKilled: false,
+        equippable: true
+    },
+
+    windrunnerBoots: {
+        price: 0,
+        name: "Windrunner Boots",
+        desc: "+20% movement speed",
+        requiresKnightKilled: false,
         equippable: true
     },
 

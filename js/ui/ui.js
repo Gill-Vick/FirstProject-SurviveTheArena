@@ -117,18 +117,29 @@ function getHomeButton() {
 
 const SHOP_ITEM_IDS = [
     "shield", "bow",
-    "wetStone", "circleStrike", "hermesShoes", "kingsBlade", "critRate"
+    "wetStone", "circleStrike", "hermesShoes", "kingsBlade",
+    "phoenixFeather", "windrunnerBoots",
+    "critRate"
 ];
 
 // =====================================
 // Shop Row Layout
 // =====================================
+//
+// rowHeight shrinks automatically as more items get added to
+// SHOP_ITEM_IDS, so the full list always fits between
+// rowStart and the bottom of the screen instead of overflowing
+// it. Capped at the original 0.095 so the layout looks
+// unchanged for the smaller list sizes it was tuned for.
 
 function getShopRowMetrics() {
 
+    const rowStart = 0.17;
+    const available = 0.8 - rowStart;
+
     return {
-        rowHeight: ph(0.095),
-        rowStart: ph(0.17),
+        rowHeight: ph(Math.min(0.095, available / SHOP_ITEM_IDS.length)),
+        rowStart: ph(rowStart),
         marginX: pw(0.04)
     };
 
