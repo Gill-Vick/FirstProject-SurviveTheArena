@@ -118,7 +118,7 @@ function getHomeButton() {
 const SHOP_ITEM_IDS = [
     "shield", "bow",
     "wetStone", "circleStrike", "hermesShoes", "kingsBlade",
-    "phoenixFeather", "windrunnerBoots",
+    "knightLocket", "windrunnerAnklet",
     "critRate"
 ];
 
@@ -215,7 +215,7 @@ function getShopShieldSlider(index) {
     return {
         x: marginX + pw(0.19),
         y: rowStart + index * rowHeight + ph(0.045),
-        width: pw(0.06),
+        width: pw(0.09),
         height: ph(0.028)
     };
 
@@ -386,20 +386,20 @@ function bowStageFromSliderX(slider, x) {
 
 }
 
-// Visual stage indicator for shifting between Wooden (W) and Onyx (O) shields
+// Visual stage indicator for shifting between Wooden (W), Onyx (O), and Bulwark (B) shields
 function drawShieldStageIndicator(slider) {
 
     const currentStage = Save.equippedShieldStage ?? 1;
-    const labels = ["W", "O"];
+    const labels = ["W", "O", "B"];
 
-    const segW = slider.width / 2;
+    const segW = slider.width / 3;
     const boxW = segW * 0.85;
     const fontSize = slider.height * 0.65;
 
     ctx.font = `${fontSize}px Arial`;
     ctx.textAlign = "center";
 
-    for (let s = 1; s <= 2; s++) {
+    for (let s = 1; s <= 3; s++) {
 
         const segX = slider.x + (s - 1) * segW;
 
@@ -409,7 +409,7 @@ function drawShieldStageIndicator(slider) {
         ctx.fillStyle = s === currentStage ? "black" : "#aaa";
         ctx.fillText(labels[s - 1], segX + boxW / 2, slider.y + slider.height * 0.72);
 
-        if (s < 2) {
+        if (s < 3) {
 
             ctx.fillStyle = "#888";
             ctx.font = `${fontSize * 0.75}px Arial`;
@@ -426,10 +426,11 @@ function drawShieldStageIndicator(slider) {
 function shieldStageFromSliderX(slider, x) {
 
     const relativeX = x - slider.x;
-    const segW = slider.width / 2;
+    const segW = slider.width / 3;
 
     if (relativeX < segW) return 1;
-    return 2;
+    if (relativeX < segW * 2) return 2;
+    return 3;
 
 }
 
@@ -468,6 +469,51 @@ function drawCritSlider(slider, value, maxLevel) {
 function critLevelFromSliderX(slider, x) {
 
     const maxLevel = Save.critRateLevel;
+
+    if (maxLevel <= 0)
+        return 0;
+
+    const pct = Math.max(0, Math.min(1, (x - slider.x) / slider.width));
+
+    return Math.round(pct * maxLevel);
+
+}
+
+function drawLocketSlider(slider, value, maxLevel) {
+
+    ctx.fillStyle = "#333";
+    ctx.fillRect(slider.x, slider.y, slider.width, slider.height);
+
+    const pct = maxLevel > 0 ? value / maxLevel : 0;
+
+    ctx.fillStyle = "#ff69b4";
+    ctx.fillRect(slider.x, slider.y, slider.width * pct, slider.height);
+
+    const knobX = slider.x + slider.width * pct;
+    const knobRadius = slider.height * 0.55;
+
+    ctx.fillStyle = "white";
+    ctx.beginPath();
+    ctx.arc(knobX, slider.y + slider.height / 2, knobRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    const equippedPct = Math.round(Save.getEquippedCharmChance() * 100);
+    const maxPct = Math.round(Save.getCharmChance() * 100);
+
+    ctx.fillStyle = "#ff69b4";
+    ctx.font = `${slider.height * 0.9}px Arial`;
+    ctx.textAlign = "left";
+    ctx.fillText(
+        `Equipped: ${equippedPct}%  (owned up to ${maxPct}%)`,
+        slider.x + slider.width + slider.height,
+        slider.y + slider.height * 0.75
+    );
+
+}
+
+function locketLevelFromSliderX(slider, x) {
+
+    const maxLevel = Save.knightLocketLevel;
 
     if (maxLevel <= 0)
         return 0;
@@ -543,7 +589,7 @@ function drawShop() {
         const buyBtn = getShopBuyButton(i);
         const equipBtn = getShopEquipButton(i);
 
-        const owned = id === "bow" ? Save.bowStage >= 3 : (id === "shield" ? Save.shieldStage >= 2 : (!item.repeatable && Save.owns(id)));
+        const owned = id === "bow" ? Save.bowStage >= 3 : (id === "shield" ? Save.shieldStage >= 3 : (!item.repeatable && Save.owns(id)));
         const blockReason = Save.getPurchaseBlockReason(id);
         const canBuy = Save.canPurchase(id);
 
@@ -563,7 +609,7 @@ function drawShop() {
         ctx.font = `${ph(0.018)}px Arial`;
         if (id === "bow" && Save.bowStage >= 3) {
             ctx.fillText("Max level reached", marginX + pw(0.015), rowY + ph(0.065));
-        } else if (id === "shield" && Save.shieldStage >= 2) {
+        } else if (id === "shield" && Save.shieldStage >= 3) {
             ctx.fillText("Max level reached", marginX + pw(0.015), rowY + ph(0.065));
         } else {
             ctx.fillText(`${item.price} coins`, marginX + pw(0.015), rowY + ph(0.065));
@@ -579,10 +625,17 @@ function drawShop() {
             drawShieldStageIndicator(slider);
         }
 
-        if (item.repeatable) {
+        if (item.repeatable && id === "critRate") {
 
             const slider = getShopCritSlider(i);
             drawCritSlider(slider, Save.equippedCritLevel, Save.critRateLevel);
+
+        }
+
+        if (item.repeatable && id === "knightLocket") {
+
+            const slider = getShopCritSlider(i);
+            drawLocketSlider(slider, Save.equippedKnightLocketLevel, Save.knightLocketLevel);
 
         }
 
@@ -602,8 +655,9 @@ function drawShop() {
 
         const maxed =
             (item.repeatable && id === "critRate" && Save.getCritChance() >= CRIT.MAX) ||
+            (item.repeatable && id === "knightLocket" && Save.getCharmChance() >= CHARM.MAX) ||
             (id === "bow" && Save.bowStage >= 3) ||
-            (id === "shield" && Save.shieldStage >= 2);
+            (id === "shield" && Save.shieldStage >= 3);
 
         if (owned) {
 
@@ -827,8 +881,11 @@ function handleMenuClick(x, y) {
                 Save.setEquippedShieldStage(targetStage);
             }
 
-            if (item.repeatable && hitRect(getShopCritSlider(i), x, y))
+            if (id === "critRate" && item.repeatable && hitRect(getShopCritSlider(i), x, y))
                 Save.setEquippedCritLevel(critLevelFromSliderX(getShopCritSlider(i), x));
+
+            if (id === "knightLocket" && item.repeatable && hitRect(getShopCritSlider(i), x, y))
+                Save.setEquippedKnightLocketLevel(locketLevelFromSliderX(getShopCritSlider(i), x));
 
         });
 
@@ -910,6 +967,15 @@ function handleMenuMouseMove(x, y) {
         }
     }
 
+    if (Game.shopLocketDragging) {
+        const locketIndex = SHOP_ITEM_IDS.indexOf("knightLocket");
+        if (locketIndex >= 0) {
+            Save.setEquippedKnightLocketLevel(
+                locketLevelFromSliderX(getShopCritSlider(locketIndex), x)
+            );
+        }
+    }
+
 }
 
 function handleMenuMouseDown(x, y) {
@@ -932,6 +998,11 @@ function handleMenuMouseDown(x, y) {
         Game.shopShieldDragging = true;
     }
 
+    const locketIndex = SHOP_ITEM_IDS.indexOf("knightLocket");
+    if (locketIndex >= 0 && hitRect(getShopCritSlider(locketIndex), x, y)) {
+        Game.shopLocketDragging = true;
+    }
+
 }
 
 function handleMenuMouseUp() {
@@ -939,6 +1010,7 @@ function handleMenuMouseUp() {
     Game.shopCritDragging = false;
     Game.shopBowDragging = false;
     Game.shopShieldDragging = false;
+    Game.shopLocketDragging = false;
 
 }
 

@@ -104,6 +104,9 @@ class Projectile {
 
                 enemy.applyKnockback(px, py, 10);
 
+                if (player)
+                    player.tryCharmOnHit(enemy);
+
                 if (enemy.isDead())
                     onEnemyKilled(enemy);
 

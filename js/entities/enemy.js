@@ -24,6 +24,11 @@ class Enemy {
 
         this.flashTimer = 0;
 
+        // Knight's Locket - see applyCharm(). 0 = not charmed.
+        // charmImmune can be set true by subclasses (e.g. King)
+        // to opt out entirely, same pattern as knockbackImmune.
+        this.charmTimer = 0;
+
     }
 
     update() {
@@ -46,11 +51,34 @@ class Enemy {
         if (this.flashTimer > 0)
             this.flashTimer -= Game.timeScale;
 
+        if (this.charmTimer > 0)
+            this.charmTimer -= Game.dt;
+
         this.move();
 
-        this.attack();
+        // Charmed enemies can still move, but can't attack or
+        // deal contact damage for the duration.
+        if (this.charmTimer <= 0) {
 
-        this.checkPlayerCollision();
+            this.attack();
+
+            this.checkPlayerCollision();
+
+        }
+
+    }
+
+    // Rolled by the player's Knight's Locket on hit. No-op
+    // against charm-immune enemies (King). Re-applying while
+    // already charmed just refreshes to the fresh duration
+    // rather than stacking.
+
+    applyCharm(durationMs) {
+
+        if (this.charmImmune)
+            return;
+
+        this.charmTimer = Math.max(this.charmTimer, durationMs);
 
     }
 
@@ -156,6 +184,9 @@ class Enemy {
         if (this.isElite)
             this.drawEliteRing();
 
+        if (this.charmTimer > 0)
+            this.drawCharmIndicator();
+
         ctx.shadowBlur = EFFECTS.ENEMY_GLOW;
         ctx.shadowColor = this.color;
 
@@ -179,6 +210,28 @@ class Enemy {
         ctx.shadowBlur = 0;
 
         this.drawHealthBar();
+
+    }
+
+    // Small heart icon above the enemy while charmed - offset
+    // to the upper-right corner rather than dead-center so it
+    // doesn't collide with boss name labels drawn there.
+
+    drawCharmIndicator() {
+
+        ctx.save();
+
+        ctx.fillStyle = "#ff69b4";
+        ctx.font = "bold 16px Arial";
+        ctx.textAlign = "center";
+
+        ctx.fillText(
+            "💗",
+            this.x + this.size + 6,
+            this.y - 2
+        );
+
+        ctx.restore();
 
     }
 

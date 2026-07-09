@@ -16,6 +16,7 @@ class King extends Enemy {
         this.type = "king";
         this.isBoss = true;
         this.knockbackImmune = true;
+        this.charmImmune = true;
         this.maxHp = KING.HP;
 
         // Sword

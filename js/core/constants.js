@@ -101,29 +101,34 @@ const SHIELD = {
 };
 
 // =====================================
-// Phoenix Feather (shop item)
+// Windrunner Anklet (shop item)
 // =====================================
 //
-// A one-time revive unlocked by defeating the Knight - the
-// hit that would normally end the run instead consumes the
-// feather and grants a window of invulnerability. Only one
-// charge per run (Player.phoenixUsed resets on startGame()).
-
-const PHOENIX = {
-    INVULN_MS: 2000,
-    GLOW_COLOR: "#ffb347"
-};
-
-// =====================================
-// Windrunner Boots (shop item)
-// =====================================
-//
-// Also unlocked by defeating the Knight - a flat, always-on
+// Unlocked by defeating the Knight - a flat, always-on
 // movement speed boost. Helps with kiting/repositioning
 // around the King's laser sweeps and sword lunges.
 
 const WINDRUNNER = {
     SPEED_MULTIPLIER: 1.2
+};
+
+// =====================================
+// Knight's Locket (shop item)
+// =====================================
+//
+// Also unlocked by defeating the Knight - each successful
+// player hit (sword, bow, King's Blade laser) has a chance to
+// charm the enemy it lands on, silencing its attack() for
+// CHARM.DURATION_MS. Repeatable purchase, same idea as
+// critRate: base chance on first purchase, +1% per upgrade
+// after that, capped at CHARM.MAX. The King is immune (see
+// King.charmImmune), same treatment as knockback immunity.
+
+const CHARM = {
+    DURATION_MS: 1500,
+    BASE: 0.05,
+    PER_UPGRADE: 0.01,
+    MAX: 0.10
 };
 
 // =====================================
@@ -152,14 +157,15 @@ const SHOP_ITEMS = {
 
     shield: {
         get price() {
-            if (Save.shieldStage === 1) return 0; // Keeping 0 as template baseline
             return 0;
         },
         get name() {
+            if (Save.shieldStage >= 3) return "Bulwark Shield";
             if (Save.shieldStage >= 1) return "Onyx Shield";
             return "Wooden Shield";
         },
         get desc() {
+            if (Save.shieldStage >= 3) return "Blocks 2 hits, 1s invuln + AOE Nuke (5 dmg) each";
             if (Save.shieldStage >= 1) return "Blocks 1 hit, 1s invuln + AOE Nuke (5 dmg)";
             return "Blocks 1 hit + 1s invuln";
         },
@@ -216,17 +222,21 @@ const SHOP_ITEMS = {
         equippable: true
     },
 
-    phoenixFeather: {
+    knightLocket: {
         price: 0,
-        name: "Phoenix Feather",
-        desc: "Revive once per run with 2s invuln",
+        get name() {
+            return "Knight's Locket";
+        },
+        get desc() {
+            return `${Math.round(Save.getCharmChance() * 100)}% chance to charm enemies for 1.5s (silences their attack)`;
+        },
         requiresKnightKilled: false,
-        equippable: true
+        repeatable: true
     },
 
-    windrunnerBoots: {
+    windrunnerAnklet: {
         price: 0,
-        name: "Windrunner Boots",
+        name: "Windrunner Anklet",
         desc: "+20% movement speed",
         requiresKnightKilled: false,
         equippable: true

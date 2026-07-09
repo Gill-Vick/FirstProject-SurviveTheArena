@@ -12,7 +12,7 @@ class Player {
         this.size = PLAYER.SIZE;
 
         this.speed = PLAYER.SPEED * (
-            Save.isEquipped("windrunnerBoots")
+            Save.isEquipped("windrunnerAnklet")
                 ? WINDRUNNER.SPEED_MULTIPLIER
                 : 1
         );
@@ -36,11 +36,14 @@ class Player {
 
         this.shieldActive = Save.isEquipped("shield");
 
-        this.invulnTimer = 0;
+        // Bulwark stage (shieldStage 3) lets the shield block a
+        // second hit before it breaks - each block still procs
+        // the Onyx nuke individually (see takeHit()).
+        this.shieldCharges = this.shieldActive
+            ? (Save.equippedShieldStage >= 3 ? 2 : 1)
+            : 0;
 
-        // Phoenix Feather - one revive per run, consumed the
-        // moment it's used (see takeHit()).
-        this.phoenixUsed = false;
+        this.invulnTimer = 0;
 
         // Bow
 
@@ -101,28 +104,14 @@ class Player {
                 this.triggerNuke();
             }
 
-            this.shieldActive = false;
+            this.shieldCharges--;
+
+            if (this.shieldCharges <= 0)
+                this.shieldActive = false;
 
             this.invulnTimer = SHIELD.INVULN_MS;
 
             Game.screenShake = EFFECTS.SHAKE_ON_KILL;
-
-            return false;
-
-        }
-
-        if (Save.isEquipped("phoenixFeather") && !this.phoenixUsed) {
-
-            this.phoenixUsed = true;
-
-            this.invulnTimer = PHOENIX.INVULN_MS;
-
-            Game.screenShake = EFFECTS.SHAKE_ON_DEATH;
-
-            Particle.createHitBurst(
-                this.x + this.size / 2,
-                this.y + this.size / 2
-            );
 
             return false;
 
@@ -146,6 +135,29 @@ class Player {
                 onEnemyKilled(enemy);
             }
         });
+    }
+
+    // =====================================
+    // Knight's Locket
+    // =====================================
+    //
+    // Rolled once per successful hit landed on an enemy, from
+    // any of the player's damage sources (sword, bow, King's
+    // Blade laser - see attackEnemies(), fireKingsBladeLaser(),
+    // and projectile.js's player-owned collision check). No-op
+    // if the locket hasn't been purchased, or against a
+    // charm-immune enemy (see King.charmImmune).
+
+    tryCharmOnHit(enemy) {
+
+        const chance = Save.getEquippedCharmChance();
+
+        if (chance <= 0)
+            return;
+
+        if (Math.random() < chance)
+            enemy.applyCharm(CHARM.DURATION_MS);
+
     }
 
     getSwordDamage() {
@@ -472,6 +484,8 @@ class Player {
 
                 enemy.applyKnockback(cx, cy, critical ? 16 : 12);
 
+                this.tryCharmOnHit(enemy);
+
                 if (enemy.isDead())
                     onEnemyKilled(enemy);
 
@@ -584,6 +598,8 @@ class Player {
                 );
 
                 enemy.hitThisSwing = true;
+
+                this.tryCharmOnHit(enemy);
 
                 if (enemy.isDead())
                     onEnemyKilled(enemy);

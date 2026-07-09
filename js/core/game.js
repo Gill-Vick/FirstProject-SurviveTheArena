@@ -40,6 +40,8 @@ const Game = {
 
     shopCritDragging: false,
 
+    shopLocketDragging: false,
+
     // Who/what killed the player, shown on the game over
     // screen (e.g. "a Grunt", "the King").
     killedBy: null,
