@@ -24,6 +24,12 @@ class Projectile {
         this.crit = options.crit ?? false;
         this.isArrow = options.isArrow ?? false;
 
+        // How many enemies this can hit before dying (>1 with
+        // the Ranger's Falcon Quiver). Enemies already struck
+        // are remembered so a pierced target isn't hit twice.
+        this.pierce = options.pierce ?? 1;
+        this.enemiesHit = null;
+
     }
 
     update() {
@@ -91,6 +97,9 @@ class Projectile {
 
         for (const enemy of Game.enemies) {
 
+            if (this.enemiesHit && this.enemiesHit.has(enemy))
+                continue;
+
             if (
 
                 px > enemy.x - this.size &&
@@ -100,19 +109,37 @@ class Projectile {
 
             ) {
 
-                enemy.takeDamage(this.damage, this.crit);
+                // Class-specific per-target bonuses (e.g. the
+                // Ranger's Hunter's Mark). Warrior damage is
+                // always integer × 1, so the ceil is a no-op
+                // for the original kit.
+                const multiplier = player
+                    ? player.getProjectileDamageMultiplier(enemy)
+                    : 1;
+
+                enemy.takeDamage(Math.ceil(this.damage * multiplier), this.crit);
 
                 enemy.applyKnockback(px, py, 10);
 
+                // On-hit effects (Warrior charm rolls, Ranger
+                // burns/marks).
                 if (player)
-                    player.tryCharmOnHit(enemy);
+                    player.onProjectileHit(enemy);
 
                 if (enemy.isDead())
                     onEnemyKilled(enemy);
 
-                this.life = 0;
+                this.pierce--;
 
-                return;
+                if (this.pierce <= 0) {
+
+                    this.life = 0;
+
+                    return;
+
+                }
+
+                (this.enemiesHit ??= new Set()).add(enemy);
 
             }
 

@@ -116,11 +116,67 @@ function getHomeButton() {
 }
 
 const SHOP_ITEM_IDS = [
+
+    // Warrior
     "shield", "bow",
     "wetStone", "circleStrike", "hermesShoes", "kingsBlade",
     "knightLocket", "windrunnerAnklet",
+
+    // Ranger
+    "cloak", "dagger", "emberArrows",
+    "falconQuiver", "swiftdrawGloves",
+    "huntersMark", "galeRecurve", "stormpiercer",
+
+    // Shared
     "critRate"
+
 ];
+
+// The Armoury only lists the currently selected class's
+// items, plus shared ones (crit). Every row index used for
+// layout/hit-testing below is an index into THIS list, not
+// SHOP_ITEM_IDS.
+function getArmouryItemIds() {
+
+    return SHOP_ITEM_IDS.filter(id => {
+
+        const classId = SHOP_ITEMS[id].classId ?? "shared";
+
+        return classId === "shared" || classId === Save.selectedClass;
+
+    });
+
+}
+
+// Cycles the Armoury's class selector. Persisted immediately,
+// so whichever class is showing when the player leaves the
+// Armoury is the class the next run starts as.
+function cycleArmouryClass(step) {
+
+    const index = CLASSES.findIndex(c => c.id === Save.selectedClass);
+
+    const next = (index + step + CLASSES.length) % CLASSES.length;
+
+    Save.setSelectedClass(CLASSES[next].id);
+
+}
+
+// Left (-1) / right (+1) class selector arrows, flanking the
+// class name under the ARMOURY title.
+function getArmouryClassArrowButton(direction) {
+
+    const width = pw(0.045);
+    const height = ph(0.055);
+    const offset = pw(0.13);
+
+    return {
+        x: canvas.width / 2 + direction * offset - width / 2,
+        y: ph(0.11),
+        width,
+        height
+    };
+
+}
 
 // =====================================
 // Shop Row Layout
@@ -134,11 +190,13 @@ const SHOP_ITEM_IDS = [
 
 function getShopRowMetrics() {
 
-    const rowStart = 0.17;
+    // Rows start a little lower than they used to, leaving
+    // room for the class selector under the ARMOURY title.
+    const rowStart = 0.19;
     const available = 0.8 - rowStart;
 
     return {
-        rowHeight: ph(Math.min(0.095, available / SHOP_ITEM_IDS.length)),
+        rowHeight: ph(Math.min(0.095, available / getArmouryItemIds().length)),
         rowStart: ph(rowStart),
         marginX: pw(0.04)
     };
@@ -195,20 +253,9 @@ function getShopCritSlider(index) {
 
 }
 
-function getShopBowSlider(index) {
-
-    const { rowHeight, rowStart, marginX } = getShopRowMetrics();
-
-    return {
-        x: marginX + pw(0.19),
-        y: rowStart + index * rowHeight + ph(0.045),
-        width: pw(0.09),
-        height: ph(0.028)
-    };
-
-}
-
-function getShopShieldSlider(index) {
+// Stage picker rect for any staged item's row (bow, shield,
+// cloak, dagger).
+function getShopStageSlider(index) {
 
     const { rowHeight, rowStart, marginX } = getShopRowMetrics();
 
@@ -340,10 +387,26 @@ function drawCoinDisplay(x, y, size) {
 
 }
 
-function drawBowStageIndicator(slider) {
+// =====================================
+// Staged Item Sliders
+// =====================================
+//
+// One shared 3-segment stage picker for every staged item
+// (bow 1/2/3, shield W/O/B, cloak T/S/P, dagger 1/2/3) -
+// the per-item labels/colors live in STAGE_SLIDER_STYLE.
 
-    const currentStage = Save.equippedBowStage;
-    const labels = ["1", "2", "3"];
+const STAGE_SLIDER_STYLE = {
+
+    bow: { labels: ["1", "2", "3"], activeColor: "#c9a227" },
+    shield: { labels: ["W", "O", "B"], activeColor: "#4da6ff" },
+    cloak: { labels: ["T", "S", "P"], activeColor: "#9b59b6" },
+    dagger: { labels: ["1", "2", "3"], activeColor: "#95a5a6" }
+
+};
+
+function drawStageIndicator(slider, currentStage, itemId) {
+
+    const { labels, activeColor } = STAGE_SLIDER_STYLE[itemId];
 
     const segW = slider.width / 3;
     const boxW = segW * 0.85;
@@ -356,7 +419,7 @@ function drawBowStageIndicator(slider) {
 
         const segX = slider.x + (s - 1) * segW;
 
-        ctx.fillStyle = s === currentStage ? "#c9a227" : "#444";
+        ctx.fillStyle = s === currentStage ? activeColor : "#444";
         ctx.fillRect(segX, slider.y, boxW, slider.height);
 
         ctx.fillStyle = s === currentStage ? "black" : "#aaa";
@@ -375,55 +438,8 @@ function drawBowStageIndicator(slider) {
 
 }
 
-function bowStageFromSliderX(slider, x) {
-
-    const relativeX = x - slider.x;
-    const segW = slider.width / 3;
-
-    if (relativeX < segW) return 1;
-    if (relativeX < segW * 2) return 2;
-    return 3;
-
-}
-
-// Visual stage indicator for shifting between Wooden (W), Onyx (O), and Bulwark (B) shields
-function drawShieldStageIndicator(slider) {
-
-    const currentStage = Save.equippedShieldStage ?? 1;
-    const labels = ["W", "O", "B"];
-
-    const segW = slider.width / 3;
-    const boxW = segW * 0.85;
-    const fontSize = slider.height * 0.65;
-
-    ctx.font = `${fontSize}px Arial`;
-    ctx.textAlign = "center";
-
-    for (let s = 1; s <= 3; s++) {
-
-        const segX = slider.x + (s - 1) * segW;
-
-        ctx.fillStyle = s === currentStage ? "#4da6ff" : "#444";
-        ctx.fillRect(segX, slider.y, boxW, slider.height);
-
-        ctx.fillStyle = s === currentStage ? "black" : "#aaa";
-        ctx.fillText(labels[s - 1], segX + boxW / 2, slider.y + slider.height * 0.72);
-
-        if (s < 3) {
-
-            ctx.fillStyle = "#888";
-            ctx.font = `${fontSize * 0.75}px Arial`;
-            ctx.fillText("→", segX + segW * 0.95, slider.y + slider.height * 0.72);
-            ctx.font = `${fontSize}px Arial`;
-
-        }
-
-    }
-
-}
-
-// Processes user X coordinate input on the shield slider segment
-function shieldStageFromSliderX(slider, x) {
+// Which of the 3 segments an X coordinate lands in.
+function stageFromSliderX(slider, x) {
 
     const relativeX = x - slider.x;
     const segW = slider.width / 3;
@@ -541,10 +557,16 @@ function drawMenu() {
     ctx.fillStyle = "rgba(0,0,0,0.35)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.fillStyle = "white";
-    ctx.font = `${ph(0.09)}px Arial`;
-    ctx.textAlign = "center";
-    ctx.fillText("SURVIVE THE ARENA", canvas.width / 2, ph(0.16));
+    // The big title belongs to the main menu view - the
+    // Armoury draws its own header in the same spot.
+    if (Game.menuView !== "shop") {
+
+        ctx.fillStyle = "white";
+        ctx.font = `${ph(0.09)}px Arial`;
+        ctx.textAlign = "center";
+        ctx.fillText("SURVIVE THE ARENA", canvas.width / 2, ph(0.16));
+
+    }
 
     drawCoinDisplay(canvas.width - pw(0.17), ph(0.09), ph(0.032));
 
@@ -566,7 +588,7 @@ function drawMenu() {
     const btnFont = ph(0.03);
 
     drawButton(getStartButton(), "START", "lime", "black", btnFont);
-    drawButton(getShopButton(), "SHOP", "#c9a227", "black", btnFont);
+    drawButton(getShopButton(), "ARMOURY", "#c9a227", "black", btnFont);
     drawButton(getBestiaryButton(), "BESTIARY", "#8B4513", "white", btnFont);
 
 }
@@ -574,22 +596,40 @@ function drawMenu() {
 function drawShop() {
 
     ctx.fillStyle = "white";
-    ctx.font = `${ph(0.06)}px Arial`;
+    ctx.font = `${ph(0.055)}px Arial`;
     ctx.textAlign = "center";
-    ctx.fillText("SHOP", canvas.width / 2, ph(0.14));
+    ctx.fillText("ARMOURY", canvas.width / 2, ph(0.08));
 
     drawButton(getShopBackButton(), "BACK", "#555", "white", ph(0.024));
 
+    // Class selector - the class showing here is the class
+    // the next run plays as.
+    const selectedClass =
+        CLASSES.find(c => c.id === Save.selectedClass) ?? CLASSES[0];
+
+    drawButton(getArmouryClassArrowButton(-1), "◀", "#333", "white", ph(0.026));
+    drawButton(getArmouryClassArrowButton(1), "▶", "#333", "white", ph(0.026));
+
+    ctx.fillStyle = "#c9a227";
+    ctx.font = `bold ${ph(0.04)}px Arial`;
+    ctx.textAlign = "center";
+    ctx.fillText(selectedClass.name, canvas.width / 2, ph(0.152));
+
     const { rowHeight, rowStart, marginX } = getShopRowMetrics();
 
-    SHOP_ITEM_IDS.forEach((id, i) => {
+    getArmouryItemIds().forEach((id, i) => {
 
         const item = SHOP_ITEMS[id];
         const rowY = rowStart + i * rowHeight;
         const buyBtn = getShopBuyButton(i);
         const equipBtn = getShopEquipButton(i);
 
-        const owned = id === "bow" ? Save.bowStage >= 3 : (id === "shield" ? Save.shieldStage >= 3 : (!item.repeatable && Save.owns(id)));
+        const staged = STAGED_ITEM_IDS.includes(id);
+
+        const owned = staged
+            ? Save.getStage(id) >= 3
+            : (!item.repeatable && Save.owns(id));
+
         const blockReason = Save.getPurchaseBlockReason(id);
         const canBuy = Save.canPurchase(id);
 
@@ -607,22 +647,21 @@ function drawShop() {
 
         ctx.fillStyle = "gold";
         ctx.font = `${ph(0.018)}px Arial`;
-        if (id === "bow" && Save.bowStage >= 3) {
-            ctx.fillText("Max level reached", marginX + pw(0.015), rowY + ph(0.065));
-        } else if (id === "shield" && Save.shieldStage >= 3) {
+        if (staged && Save.getStage(id) >= 3) {
             ctx.fillText("Max level reached", marginX + pw(0.015), rowY + ph(0.065));
         } else {
             ctx.fillText(`${item.price} coins`, marginX + pw(0.015), rowY + ph(0.065));
         }
 
-        if (id === "bow") {
-            const slider = getShopBowSlider(i);
-            drawBowStageIndicator(slider);
+        // Staged items get the 3-segment stage picker. Bow and
+        // dagger always show theirs; shield and cloak only once
+        // the first stage is owned (matching the old behavior).
+        if (id === "bow" || id === "dagger") {
+            drawStageIndicator(getShopStageSlider(i), Save.getEquippedStage(id), id);
         }
 
-        if (id === "shield" && Save.shieldStage >= 1) {
-            const slider = getShopShieldSlider(i);
-            drawShieldStageIndicator(slider);
+        if ((id === "shield" || id === "cloak") && Save.getStage(id) >= 1) {
+            drawStageIndicator(getShopStageSlider(i), Save.getEquippedStage(id), id);
         }
 
         if (item.repeatable && id === "critRate") {
@@ -656,8 +695,7 @@ function drawShop() {
         const maxed =
             (item.repeatable && id === "critRate" && Save.getCritChance() >= CRIT.MAX) ||
             (item.repeatable && id === "knightLocket" && Save.getCharmChance() >= CHARM.MAX) ||
-            (id === "bow" && Save.bowStage >= 3) ||
-            (id === "shield" && Save.shieldStage >= 3);
+            (staged && Save.getStage(id) >= 3);
 
         if (owned) {
 
@@ -862,7 +900,17 @@ function handleMenuClick(x, y) {
             return;
         }
 
-        SHOP_ITEM_IDS.forEach((id, i) => {
+        if (hitRect(getArmouryClassArrowButton(-1), x, y)) {
+            cycleArmouryClass(-1);
+            return;
+        }
+
+        if (hitRect(getArmouryClassArrowButton(1), x, y)) {
+            cycleArmouryClass(1);
+            return;
+        }
+
+        getArmouryItemIds().forEach((id, i) => {
 
             const item = SHOP_ITEMS[id];
 
@@ -872,14 +920,12 @@ function handleMenuClick(x, y) {
             if (hitRect(getShopBuyButton(i), x, y))
                 Save.purchase(id);
 
-            if (id === "bow" && hitRect(getShopBowSlider(i), x, y)) {
-                Save.setEquippedBowStage(bowStageFromSliderX(getShopBowSlider(i), x));
-            }
-
-            if (id === "shield" && Save.shieldStage >= 1 && hitRect(getShopShieldSlider(i), x, y)) {
-                const targetStage = shieldStageFromSliderX(getShopShieldSlider(i), x);
-                Save.setEquippedShieldStage(targetStage);
-            }
+            // Staged items: clicking the stage picker sets the
+            // equipped stage (clamped to what's owned in
+            // Save.setEquippedStage). Bow/dagger accept clicks
+            // whenever visible; shield/cloak need stage 1 owned.
+            if (STAGED_ITEM_IDS.includes(id) && Save.getStage(id) >= 1 && hitRect(getShopStageSlider(i), x, y))
+                Save.setEquippedStage(id, stageFromSliderX(getShopStageSlider(i), x));
 
             if (id === "critRate" && item.repeatable && hitRect(getShopCritSlider(i), x, y))
                 Save.setEquippedCritLevel(critLevelFromSliderX(getShopCritSlider(i), x));
@@ -941,8 +987,10 @@ function handleMenuMouseMove(x, y) {
     if (Game.menuView !== "shop")
         return;
 
+    const itemIds = getArmouryItemIds();
+
     if (Game.shopCritDragging) {
-        const critIndex = SHOP_ITEM_IDS.indexOf("critRate");
+        const critIndex = itemIds.indexOf("critRate");
         if (critIndex >= 0) {
             Save.setEquippedCritLevel(
                 critLevelFromSliderX(getShopCritSlider(critIndex), x)
@@ -950,25 +998,20 @@ function handleMenuMouseMove(x, y) {
         }
     }
 
-    if (Game.shopBowDragging) {
-        const bowIndex = SHOP_ITEM_IDS.indexOf("bow");
-        if (bowIndex >= 0) {
-            Save.setEquippedBowStage(
-                bowStageFromSliderX(getShopBowSlider(bowIndex), x)
+    // Staged item pickers (bow/shield for Warrior, cloak/
+    // dagger for Ranger) all drag the same way.
+    if (Game.shopStageDragging) {
+        const stageIndex = itemIds.indexOf(Game.shopStageDragging);
+        if (stageIndex >= 0) {
+            Save.setEquippedStage(
+                Game.shopStageDragging,
+                stageFromSliderX(getShopStageSlider(stageIndex), x)
             );
         }
     }
 
-    if (Game.shopShieldDragging) {
-        const shieldIndex = SHOP_ITEM_IDS.indexOf("shield");
-        if (shieldIndex >= 0) {
-            const targetStage = shieldStageFromSliderX(getShopShieldSlider(shieldIndex), x);
-            Save.setEquippedShieldStage(targetStage);
-        }
-    }
-
     if (Game.shopLocketDragging) {
-        const locketIndex = SHOP_ITEM_IDS.indexOf("knightLocket");
+        const locketIndex = itemIds.indexOf("knightLocket");
         if (locketIndex >= 0) {
             Save.setEquippedKnightLocketLevel(
                 locketLevelFromSliderX(getShopCritSlider(locketIndex), x)
@@ -983,22 +1026,30 @@ function handleMenuMouseDown(x, y) {
     if (Game.menuView !== "shop")
         return;
 
-    const critIndex = SHOP_ITEM_IDS.indexOf("critRate");
+    const itemIds = getArmouryItemIds();
+
+    const critIndex = itemIds.indexOf("critRate");
     if (critIndex >= 0 && hitRect(getShopCritSlider(critIndex), x, y)) {
         Game.shopCritDragging = true;
     }
 
-    const bowIndex = SHOP_ITEM_IDS.indexOf("bow");
-    if (bowIndex >= 0 && hitRect(getShopBowSlider(bowIndex), x, y)) {
-        Game.shopBowDragging = true;
-    }
+    // Whichever staged item's picker was grabbed (if any) -
+    // stored by id so mouse-move knows which one to drive.
+    STAGED_ITEM_IDS.forEach(id => {
 
-    const shieldIndex = SHOP_ITEM_IDS.indexOf("shield");
-    if (shieldIndex >= 0 && Save.shieldStage >= 1 && hitRect(getShopShieldSlider(shieldIndex), x, y)) {
-        Game.shopShieldDragging = true;
-    }
+        const stageIndex = itemIds.indexOf(id);
 
-    const locketIndex = SHOP_ITEM_IDS.indexOf("knightLocket");
+        if (
+            stageIndex >= 0 &&
+            Save.getStage(id) >= 1 &&
+            hitRect(getShopStageSlider(stageIndex), x, y)
+        ) {
+            Game.shopStageDragging = id;
+        }
+
+    });
+
+    const locketIndex = itemIds.indexOf("knightLocket");
     if (locketIndex >= 0 && hitRect(getShopCritSlider(locketIndex), x, y)) {
         Game.shopLocketDragging = true;
     }
@@ -1008,8 +1059,7 @@ function handleMenuMouseDown(x, y) {
 function handleMenuMouseUp() {
 
     Game.shopCritDragging = false;
-    Game.shopBowDragging = false;
-    Game.shopShieldDragging = false;
+    Game.shopStageDragging = null;
     Game.shopLocketDragging = false;
 
 }
@@ -1041,7 +1091,7 @@ function drawHUD() {
     };
 
     const dash1 = getDashText(player.dashCooldowns[0]);
-    const dash2 = Save.isEquipped("hermesShoes")
+    const dash2 = player.getDashSlotCount() >= 2
         ? getDashText(player.dashCooldowns[1])
         : null;
 
@@ -1058,52 +1108,18 @@ function drawHUD() {
     let nextLineY = ph(0.23);
     const lineStep = ph(0.045);
 
-    if (Save.isEquipped("bow")) {
+    // Kit status lines (Warrior: bow/King's Blade/shield,
+    // Ranger: dagger/storm lance) - each class reports its
+    // own (see getHUDStatusLines).
+    player.getHUDStatusLines().forEach(line => {
 
-        ctx.fillStyle = "white";
+        ctx.fillStyle = line.color;
         ctx.font = `bold ${ph(0.035)}px Arial`;
+        ctx.fillText(line.text, pw(0.015), nextLineY);
 
-        let bowText = "READY [E]";
-        if (player.bowCooldown > 0) {
-            const realBowSecs = (player.bowCooldown / (1000 * GAME_SPEED)).toFixed(1);
-            bowText = `${realBowSecs}s`;
-        }
-
-        const arrows = Save.getBowArrowCount();
-        ctx.fillText(`Bow (${arrows}): ${bowText}`, pw(0.015), nextLineY);
         nextLineY += lineStep;
 
-    }
-
-    if (Save.isEquipped("kingsBlade")) {
-
-        ctx.fillStyle = "white";
-        ctx.font = `bold ${ph(0.035)}px Arial`;
-
-        let kbText = "READY [RMB]";
-        if (player.kingsBladeCooldown > 0) {
-            const realKbSecs = (player.kingsBladeCooldown / (1000 * GAME_SPEED)).toFixed(1);
-            kbText = `${realKbSecs}s`;
-        }
-
-        ctx.fillText(`King's Blade: ${kbText}`, pw(0.015), nextLineY);
-        nextLineY += lineStep;
-
-    }
-
-    if (Save.isEquipped("shield")) {
-
-        ctx.font = `bold ${ph(0.035)}px Arial`;
-
-        const displayLabel = (Save.equippedShieldStage === 2) ? "Onyx Shield" : "Shield";
-        ctx.fillStyle = player.shieldActive ? ((Save.equippedShieldStage === 2) ? "#b533ff" : "#44ffda") : "#666";
-        ctx.fillText(
-            `${displayLabel}: ${player.shieldActive ? "ACTIVE" : "USED"}`,
-            pw(0.015),
-            nextLineY
-        );
-
-    }
+    });
 
 }
 

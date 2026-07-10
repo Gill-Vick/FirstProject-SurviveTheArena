@@ -8,6 +8,10 @@ const Save = {
 
     coins: 0,
 
+    // Class used for the next run - set by the Armoury's
+    // class selector arrows (see ui.js), read by startGame().
+    selectedClass: "warrior",
+
     firstBossKilled: false,
 
     knightKilled: false,
@@ -19,7 +23,7 @@ const Save = {
     equippedCritLevel: 0,
 
     shieldStage: 0,
-    
+
     equippedShieldStage: 0,
 
     bowStage: 0,
@@ -30,6 +34,15 @@ const Save = {
 
     equippedKnightLocketLevel: 0,
 
+    // Ranger staged items - same shape as shield/bow above.
+    cloakStage: 0,
+
+    equippedCloakStage: 0,
+
+    daggerStage: 0,
+
+    equippedDaggerStage: 0,
+
     inventory: {
         shield: false,
         bow: false,
@@ -37,7 +50,15 @@ const Save = {
         hermesShoes: false,
         circleStrike: false,
         kingsBlade: false,
-        windrunnerAnklet: false
+        windrunnerAnklet: false,
+        cloak: false,
+        dagger: false,
+        emberArrows: false,
+        falconQuiver: false,
+        swiftdrawGloves: false,
+        huntersMark: false,
+        galeRecurve: false,
+        stormpiercer: false
     },
 
     equipped: {
@@ -47,7 +68,15 @@ const Save = {
         hermesShoes: false,
         circleStrike: false,
         kingsBlade: false,
-        windrunnerAnklet: false
+        windrunnerAnklet: false,
+        cloak: false,
+        dagger: false,
+        emberArrows: false,
+        falconQuiver: false,
+        swiftdrawGloves: false,
+        huntersMark: false,
+        galeRecurve: false,
+        stormpiercer: false
     },
 
     bestiaryUnlocked: {},
@@ -75,22 +104,27 @@ const Save = {
             this.equippedBowStage = data.equippedBowStage ?? this.bowStage;
             this.knightLocketLevel = data.knightLocketLevel ?? 0;
             this.equippedKnightLocketLevel = data.equippedKnightLocketLevel ?? this.knightLocketLevel;
+            this.cloakStage = data.cloakStage ?? 0;
+            this.equippedCloakStage = data.equippedCloakStage ?? this.cloakStage;
+            this.daggerStage = data.daggerStage ?? 0;
+            this.equippedDaggerStage = data.equippedDaggerStage ?? this.daggerStage;
 
-            this.inventory.shield = !!data.inventory?.shield;
-            this.inventory.bow = !!data.inventory?.bow;
-            this.inventory.wetStone = !!data.inventory?.wetStone;
-            this.inventory.hermesShoes = !!data.inventory?.hermesShoes;
-            this.inventory.circleStrike = !!data.inventory?.circleStrike;
-            this.inventory.kingsBlade = !!data.inventory?.kingsBlade;
-            this.inventory.windrunnerAnklet = !!data.inventory?.windrunnerAnklet;
+            // Saves that predate the class system just fall
+            // back to Warrior (the original kit).
+            this.selectedClass = CLASSES.some(c => c.id === data.selectedClass)
+                ? data.selectedClass
+                : "warrior";
 
-            this.equipped.shield = !!data.equipped?.shield;
-            this.equipped.bow = !!data.equipped?.bow;
-            this.equipped.wetStone = !!data.equipped?.wetStone;
-            this.equipped.hermesShoes = !!data.equipped?.hermesShoes;
-            this.equipped.circleStrike = !!data.equipped?.circleStrike;
-            this.equipped.kingsBlade = !!data.equipped?.kingsBlade;
-            this.equipped.windrunnerAnklet = !!data.equipped?.windrunnerAnklet;
+            // One flag per item id, looped over the defaults
+            // above - new items only need to be added there,
+            // and saves that predate an item leave it false.
+            Object.keys(this.inventory).forEach(id => {
+                this.inventory[id] = !!data.inventory?.[id];
+            });
+
+            Object.keys(this.equipped).forEach(id => {
+                this.equipped[id] = !!data.equipped?.[id];
+            });
 
             this.bestiaryUnlocked = { ...(data.bestiaryUnlocked ?? {}) };
 
@@ -107,6 +141,7 @@ const Save = {
         localStorage.setItem(SAVE_KEY, JSON.stringify({
 
             coins: this.coins,
+            selectedClass: this.selectedClass,
             firstBossKilled: this.firstBossKilled,
             knightKilled: this.knightKilled,
             kingKilled: this.kingKilled,
@@ -118,6 +153,10 @@ const Save = {
             equippedBowStage: this.equippedBowStage,
             knightLocketLevel: this.knightLocketLevel,
             equippedKnightLocketLevel: this.equippedKnightLocketLevel,
+            cloakStage: this.cloakStage,
+            equippedCloakStage: this.equippedCloakStage,
+            daggerStage: this.daggerStage,
+            equippedDaggerStage: this.equippedDaggerStage,
             inventory: { ...this.inventory },
             equipped: { ...this.equipped },
             bestiaryUnlocked: { ...this.bestiaryUnlocked }
@@ -133,6 +172,55 @@ const Save = {
 
     },
 
+    setSelectedClass(classId) {
+
+        if (!CLASSES.some(c => c.id === classId))
+            return;
+
+        this.selectedClass = classId;
+        this.persist();
+
+    },
+
+    // =====================================
+    // Staged Items (shield/bow/cloak/dagger)
+    // =====================================
+    //
+    // Generic accessors for every STAGED_ITEM_IDS entry, so
+    // ui.js/purchase logic don't need a hardcoded branch per
+    // staged item.
+
+    getStage(itemId) {
+
+        if (itemId === "bow") return this.bowStage;
+        if (itemId === "shield") return this.shieldStage;
+        if (itemId === "cloak") return this.cloakStage;
+        if (itemId === "dagger") return this.daggerStage;
+
+        return 0;
+
+    },
+
+    getEquippedStage(itemId) {
+
+        if (itemId === "bow") return this.equippedBowStage;
+        if (itemId === "shield") return this.equippedShieldStage;
+        if (itemId === "cloak") return this.equippedCloakStage;
+        if (itemId === "dagger") return this.equippedDaggerStage;
+
+        return 0;
+
+    },
+
+    setEquippedStage(itemId, stage) {
+
+        if (itemId === "bow") return this.setEquippedBowStage(stage);
+        if (itemId === "shield") return this.setEquippedShieldStage(stage);
+        if (itemId === "cloak") return this.setEquippedCloakStage(stage);
+        if (itemId === "dagger") return this.setEquippedDaggerStage(stage);
+
+    },
+
     canAfford(price) {
 
         return this.coins >= price;
@@ -141,11 +229,8 @@ const Save = {
 
     owns(itemId) {
 
-        if (itemId === "bow")
-            return this.bowStage >= 1;
-
-        if (itemId === "shield")
-            return this.shieldStage >= 1;
+        if (STAGED_ITEM_IDS.includes(itemId))
+            return this.getStage(itemId) >= 1;
 
         return !!this.inventory[itemId];
 
@@ -153,11 +238,8 @@ const Save = {
 
     isEquipped(itemId) {
 
-        if (itemId === "bow")
-            return this.bowStage >= 1 && this.equipped.bow;
-
-        if (itemId === "shield")
-            return this.shieldStage >= 1 && this.equipped.shield;
+        if (STAGED_ITEM_IDS.includes(itemId))
+            return this.getStage(itemId) >= 1 && !!this.equipped[itemId];
 
         return !!this.inventory[itemId] && !!this.equipped[itemId];
 
@@ -200,20 +282,22 @@ const Save = {
         if (item.requiresKnightKilled && !this.knightKilled)
             return "Defeat the Knight";
 
-        if (itemId === "bow" && this.bowStage >= 3)
+        if ((itemId === "bow" || itemId === "dagger") && this.getStage(itemId) >= 3)
             return "Maxed out";
 
-        if (itemId === "shield") {
+        // Shield and cloak share a shape: 3 stages, with the
+        // final stage locked behind the Knight.
+        if (itemId === "shield" || itemId === "cloak") {
 
-            if (this.shieldStage >= 3)
+            if (this.getStage(itemId) >= 3)
                 return "Maxed out";
 
-            if (this.shieldStage === 2 && !this.knightKilled)
+            if (this.getStage(itemId) === 2 && !this.knightKilled)
                 return "Defeat the Knight";
 
         }
 
-        if (!item.repeatable && itemId !== "bow" && itemId !== "shield" && this.owns(itemId))
+        if (!item.repeatable && !STAGED_ITEM_IDS.includes(itemId) && this.owns(itemId))
             return null;
 
         if (item.repeatable && itemId === "critRate" && this.getCritChance() >= CRIT.MAX)
@@ -239,7 +323,7 @@ const Save = {
         if (this.getPurchaseBlockReason(itemId))
             return false;
 
-        if (item.repeatable || itemId === "bow" || itemId === "shield")
+        if (item.repeatable || STAGED_ITEM_IDS.includes(itemId))
             return true;
 
         if (this.owns(itemId))
@@ -290,6 +374,20 @@ const Save = {
             this.inventory.shield = true;
             this.equipped.shield = true;
 
+        } else if (itemId === "cloak") {
+
+            this.cloakStage++;
+            this.equippedCloakStage = this.cloakStage;
+            this.inventory.cloak = true;
+            this.equipped.cloak = true;
+
+        } else if (itemId === "dagger") {
+
+            this.daggerStage++;
+            this.equippedDaggerStage = this.daggerStage;
+            this.inventory.dagger = true;
+            this.equipped.dagger = true;
+
         } else {
 
             this.inventory[itemId] = true;
@@ -319,6 +417,28 @@ const Save = {
         this.equippedShieldStage = Math.max(
             1,
             Math.min(this.shieldStage, Math.floor(stage))
+        );
+
+        this.persist();
+
+    },
+
+    setEquippedCloakStage(stage) {
+
+        this.equippedCloakStage = Math.max(
+            1,
+            Math.min(this.cloakStage, Math.floor(stage))
+        );
+
+        this.persist();
+
+    },
+
+    setEquippedDaggerStage(stage) {
+
+        this.equippedDaggerStage = Math.max(
+            1,
+            Math.min(this.daggerStage, Math.floor(stage))
         );
 
         this.persist();

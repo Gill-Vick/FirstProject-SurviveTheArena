@@ -42,6 +42,10 @@ const Game = {
 
     shopLocketDragging: false,
 
+    // Which staged item's stage picker is being dragged
+    // (item id string), or null. See handleMenuMouseDown.
+    shopStageDragging: null,
+
     // Who/what killed the player, shown on the game over
     // screen (e.g. "a Grunt", "the King").
     killedBy: null,
@@ -164,6 +168,13 @@ class SpawnWarning {
 
 let player;
 
+// Constructor registry for playable classes, keyed by the
+// ids in CLASSES (constants.js). Each class file
+// (entities/warrior.js, entities/ranger.js) registers
+// itself here when it loads.
+
+const PLAYER_CLASSES = {};
+
 // =====================================
 // Game Functions
 // =====================================
@@ -200,7 +211,12 @@ function startGame() {
 
     Game.spawnTelegraphs = [];
 
-    player = new Player();
+    // Whichever class the Armoury last showed is the class
+    // this run plays as (see Save.selectedClass).
+    const PlayerClass =
+        PLAYER_CLASSES[Save.selectedClass] ?? PLAYER_CLASSES.warrior;
+
+    player = new PlayerClass();
 
     generateArena();
 

@@ -106,14 +106,14 @@ function initMobileControls() {
     bindTapButton(bowBtn, () => {
 
         if (Game.state === "playing")
-            player.fireBow();
+            player.onAbilityKey();
 
     });
 
     bindTapButton(laserBtn, () => {
 
         if (Game.state === "playing")
-            player.fireKingsBladeLaser();
+            player.onSecondaryFire();
 
     });
 
@@ -138,15 +138,33 @@ function updateMobileUIVisibility() {
     if (root)
         root.style.display = Game.state === "playing" ? "block" : "none";
 
+    // Ability buttons defer to the current class instance -
+    // which button exists (and what it's called) depends on
+    // the class's kit. player only exists mid-run, but that's
+    // exactly when the buttons are visible anyway.
+    const inRun = Game.state === "playing" && typeof player !== "undefined" && player;
+
     const bowBtn = document.getElementById("bowBtn");
 
-    if (bowBtn)
-        bowBtn.style.display = Save.isEquipped("bow") ? "flex" : "none";
+    if (bowBtn) {
+
+        bowBtn.style.display = inRun && player.hasAbilityButton() ? "flex" : "none";
+
+        if (inRun)
+            bowBtn.textContent = player.getAbilityButtonLabel();
+
+    }
 
     const laserBtn = document.getElementById("laserBtn");
 
-    if (laserBtn)
-        laserBtn.style.display = Save.isEquipped("kingsBlade") ? "flex" : "none";
+    if (laserBtn) {
+
+        laserBtn.style.display = inRun && player.hasSecondaryButton() ? "flex" : "none";
+
+        if (inRun)
+            laserBtn.textContent = player.getSecondaryButtonLabel();
+
+    }
 
     requestAnimationFrame(updateMobileUIVisibility);
 

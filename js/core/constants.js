@@ -132,6 +132,152 @@ const CHARM = {
 };
 
 // =====================================
+// Playable Classes
+// =====================================
+//
+// Master list of playable classes, in the order the
+// Armoury's arrows cycle through them. Each class file
+// (entities/warrior.js, entities/ranger.js) registers its
+// constructor in PLAYER_CLASSES (see game.js) under the same
+// id. Adding a 3rd class = a new entry here, a new Player
+// subclass file, and SHOP_ITEMS entries tagged with the new
+// classId.
+
+const CLASSES = [
+    { id: "warrior", name: "Warrior" },
+    { id: "ranger", name: "Ranger" }
+];
+
+// =====================================
+// Ranger - Bow (class weapon)
+// =====================================
+//
+// Unlike the Warrior's purchasable Shortbow item, this IS
+// the Ranger's primary attack - hold attack to fire arrows
+// on cooldown. Damage mirrors the sword's progression: 1
+// base, doubled by the Stormpiercer the same way the King's
+// Blade doubles the sword's base damage.
+
+const RANGER_BOW = {
+    COOLDOWN: 500,
+    DAMAGE: 1,
+    SPEED: 14,
+    SIZE: 6,
+    COLOR: "#2e8b57",
+    FAN_SPREAD: 0.14
+};
+
+// =====================================
+// Ranger - Shade Cloak (staged survivability)
+// =====================================
+//
+// The Ranger's answer to the Warrior's shield line. Instead
+// of blocking hits, dashing "phases" the Ranger - plain
+// invulnerability frames granted off the shared dash.
+// Tattered -> Shadow -> Phantom, with Phantom gated behind
+// the Knight exactly like the Bulwark shield. Phantom also
+// damages anything the dash passes through.
+
+const CLOAK = {
+    // Phase duration in real ms, indexed by equipped cloak
+    // stage (index 0 = not owned/equipped).
+    PHASE_MS: [0, 350, 600, 900],
+    DASH_DAMAGE: 3,
+    DASH_HIT_WIDTH: 50,
+    GLOW_COLOR: "#9b59b6"
+};
+
+// =====================================
+// Ranger - Talon Dagger (staged)
+// =====================================
+//
+// Close-range panic button on [E] - the Ranger's version of
+// the Warrior's purchasable bow (the second attack option
+// outside the class weapon). Stage 2 strikes twice per stab,
+// stage 3 injects a venom DoT.
+
+const DAGGER = {
+    RANGE: 95,
+    ARC: Math.PI * 1.1,
+    DAMAGE: 2,
+    COOLDOWN: 1500,
+    SWING_MS: 150,
+    VENOM_DAMAGE_PER_TICK: 1,
+    VENOM_TICKS: 3,
+    VENOM_TICK_MS: 1000
+};
+
+// =====================================
+// Ranger - Emberweave Arrows
+// =====================================
+//
+// The Ranger's wetStone-equivalent bow damage item: every
+// arrow hit ignites the target for a short burn, roughly
+// doubling an arrow's effective damage the way the wet
+// stone doubles the sword's.
+
+const EMBER_ARROWS = {
+    BURN_DAMAGE_PER_TICK: 1,
+    BURN_TICKS: 2,
+    BURN_TICK_MS: 800
+};
+
+// =====================================
+// Ranger - Falcon Quiver / Swiftdraw Gloves
+// =====================================
+//
+// First-boss-tier power spikes for a kiting playstyle:
+// arrows that punch through packed groups, and a flat bow
+// fire-rate boost.
+
+const FALCON_QUIVER = {
+    PIERCE: 3
+};
+
+const SWIFTDRAW = {
+    COOLDOWN_MULTIPLIER: 0.7
+};
+
+// =====================================
+// Ranger - Hunter's Mark / Gale Recurve
+// =====================================
+//
+// Knight-tier pair, same spirit as the Warrior's Locket +
+// Anklet. Arrow hits mark the target for a few seconds;
+// marked enemies take +50% damage (rounded up) from all of
+// the Ranger's attacks. The Gale Recurve fans the bow into
+// 2 arrows per shot.
+
+const HUNTERS_MARK = {
+    DURATION_MS: 4000,
+    DAMAGE_MULTIPLIER: 1.5,
+    COLOR: "gold"
+};
+
+const GALE_RECURVE = {
+    ARROW_COUNT: 2
+};
+
+// =====================================
+// Ranger - Stormpiercer (King-gated)
+// =====================================
+//
+// The Ranger's King's Blade: upgrades base arrows to 2
+// damage, and grants a right-click storm lance - an instant
+// piercing line of lightning mirroring the King's Blade
+// laser's numbers.
+
+const STORMPIERCER = {
+    BASE_DAMAGE: 2,
+    LASER_COOLDOWN: 4000,
+    LASER_DAMAGE: 5,
+    LASER_DURATION: 200, // ms the lance is visible/active for
+    LASER_WIDTH: 26,
+    LASER_COLOR: "#b19cd9",
+    ARROW_COLOR: "#8e7cc3"
+};
+
+// =====================================
 // Coin Rewards
 // =====================================
 
@@ -150,12 +296,24 @@ const COINS = {
 };
 
 // =====================================
-// Shop
+// Armoury (Shop)
 // =====================================
+//
+// Every item is tagged with the class whose kit it belongs
+// to ("warrior" / "ranger"), or "shared" for the handful of
+// global upgrades (crit). The Armoury only lists the
+// currently selected class's items plus the shared ones.
+
+// Items with a multi-stage purchase track (dedicated *Stage
+// fields in Save instead of a plain inventory flag).
+const STAGED_ITEM_IDS = ["shield", "bow", "cloak", "dagger"];
 
 const SHOP_ITEMS = {
 
+    // ----- Warrior -----
+
     shield: {
+        classId: "warrior",
         get price() {
             return 0;
         },
@@ -173,6 +331,7 @@ const SHOP_ITEMS = {
     },
 
     bow: {
+        classId: "warrior",
         equippable: true,
         get price() {
             if (Save.bowStage === 1) return 0;
@@ -192,6 +351,7 @@ const SHOP_ITEMS = {
     },
 
     wetStone: {
+        classId: "warrior",
         price: 0,
         name: "Wet Stone",
         desc: "Sword deals 2 damage",
@@ -199,6 +359,7 @@ const SHOP_ITEMS = {
     },
 
     circleStrike: {
+        classId: "warrior",
         price: 0,
         name: "Circle Strike",
         desc: "Sword goes around you",
@@ -207,6 +368,7 @@ const SHOP_ITEMS = {
     },
 
     hermesShoes: {
+        classId: "warrior",
         price: 0,
         name: "Hermes Shoes",
         desc: "Second dash charge",
@@ -215,6 +377,7 @@ const SHOP_ITEMS = {
     },
 
     kingsBlade: {
+        classId: "warrior",
         price: 0,
         name: "King's Blade",
         desc: "2 dmg sword + right-click laser (5 dmg, 4s cd)",
@@ -223,6 +386,7 @@ const SHOP_ITEMS = {
     },
 
     knightLocket: {
+        classId: "warrior",
         price: 0,
         get name() {
             return "Knight's Locket";
@@ -235,6 +399,7 @@ const SHOP_ITEMS = {
     },
 
     windrunnerAnklet: {
+        classId: "warrior",
         price: 0,
         name: "Windrunner Anklet",
         desc: "+20% movement speed",
@@ -242,7 +407,101 @@ const SHOP_ITEMS = {
         equippable: true
     },
 
+    // ----- Ranger -----
+
+    cloak: {
+        classId: "ranger",
+        get price() {
+            return 0;
+        },
+        get name() {
+            if (Save.cloakStage >= 3) return "Phantom Cloak";
+            if (Save.cloakStage >= 1) return "Shadow Cloak";
+            return "Tattered Cloak";
+        },
+        get desc() {
+            if (Save.cloakStage >= 3) return "Dash phases 0.9s + deals 3 dmg to enemies dashed through";
+            if (Save.cloakStage >= 1) return "Dash phases 0.6s (untouchable while phasing)";
+            return "Dash phases 0.35s (untouchable while phasing)";
+        },
+        equippable: true
+    },
+
+    dagger: {
+        classId: "ranger",
+        equippable: true,
+        get price() {
+            return 0;
+        },
+        get name() {
+            if (Save.daggerStage === 1) return "Twin Talons";
+            if (Save.daggerStage === 2) return "Serpent Fang";
+            return "Talon Dagger";
+        },
+        get desc() {
+            if (Save.daggerStage === 1) return "Dagger strikes twice per stab";
+            if (Save.daggerStage === 2) return "Stabs inject venom — 3 dmg over 3s";
+            return "Press E — 2 dmg close-range stab (1.5s cd)";
+        }
+    },
+
+    emberArrows: {
+        classId: "ranger",
+        price: 0,
+        name: "Emberweave Arrows",
+        desc: "Arrow hits ignite enemies — 2 burn dmg over ~1.5s",
+        equippable: true
+    },
+
+    falconQuiver: {
+        classId: "ranger",
+        price: 0,
+        name: "Falcon Quiver",
+        desc: "Arrows pierce through up to 3 enemies",
+        requiresFirstBoss: true,
+        equippable: true
+    },
+
+    swiftdrawGloves: {
+        classId: "ranger",
+        price: 0,
+        name: "Swiftdraw Gloves",
+        desc: "Bow fires ~40% faster",
+        requiresFirstBoss: true,
+        equippable: true
+    },
+
+    huntersMark: {
+        classId: "ranger",
+        price: 0,
+        name: "Hunter's Mark",
+        desc: "Arrow hits mark enemies — marked take +50% damage for 4s",
+        requiresKnightKilled: true,
+        equippable: true
+    },
+
+    galeRecurve: {
+        classId: "ranger",
+        price: 0,
+        name: "Gale Recurve",
+        desc: "Bow fires 2 arrows in a fan",
+        requiresKnightKilled: true,
+        equippable: true
+    },
+
+    stormpiercer: {
+        classId: "ranger",
+        price: 0,
+        name: "Stormpiercer",
+        desc: "2 dmg arrows + right-click storm lance (5 dmg, 4s cd)",
+        requiresKingKilled: true,
+        equippable: true
+    },
+
+    // ----- Shared -----
+
     critRate: {
+        classId: "shared",
         price: 0,
         name: "Critical Training",
         desc: "Permanently +1% crit chance",

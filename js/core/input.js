@@ -79,13 +79,14 @@ canvas.addEventListener("mousedown", (e) => {
         }
     }
 
-    // Right Click (fires the King's Blade laser ability)
+    // Right Click - the class's secondary ability (Warrior:
+    // King's Blade laser, Ranger: storm lance)
     if (e.button === 2) {
 
         if (Game.state !== "playing")
             return;
 
-        player.fireKingsBladeLaser();
+        player.onSecondaryFire();
     }
 
 });
@@ -137,7 +138,7 @@ window.addEventListener("blur", () => {
 
 });
 
-// Right-click fires the King's Blade laser ability. Prevent
+// Right-click fires the class's secondary ability. Prevent
 // the browser's context menu from popping up over the canvas
 // so right-click is free to use as a game input.
 
@@ -168,6 +169,8 @@ window.addEventListener("keydown", (e) => {
 
     }
 
+    // [E] - the class's ability key (Warrior: shortbow,
+    // Ranger: dagger)
     if (
 
         e.key.toLowerCase() === "e" &&
@@ -175,7 +178,7 @@ window.addEventListener("keydown", (e) => {
 
     ) {
 
-        player.fireBow();
+        player.onAbilityKey();
 
     }
 
