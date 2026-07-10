@@ -35,13 +35,22 @@ const Save = {
     equippedKnightLocketLevel: 0,
 
     // Ranger staged items - same shape as shield/bow above.
+    daggerStage: 0,
+
+    equippedDaggerStage: 0,
+
+    braceletStage: 0,
+
+    equippedBraceletStage: 0,
+
+    // Thief staged items.
     cloakStage: 0,
 
     equippedCloakStage: 0,
 
-    daggerStage: 0,
+    throwingKnifeStage: 0,
 
-    equippedDaggerStage: 0,
+    equippedThrowingKnifeStage: 0,
 
     inventory: {
         shield: false,
@@ -58,7 +67,13 @@ const Save = {
         swiftdrawGloves: false,
         huntersMark: false,
         galeRecurve: false,
-        stormpiercer: false
+        stormpiercer: false,
+        bracelet: false,
+        throwingKnife: false,
+        thiefsWit: false,
+        voidEnchant: false,
+        masterOfBlade: false,
+        serratedBlade: false
     },
 
     equipped: {
@@ -76,7 +91,13 @@ const Save = {
         swiftdrawGloves: false,
         huntersMark: false,
         galeRecurve: false,
-        stormpiercer: false
+        stormpiercer: false,
+        bracelet: false,
+        throwingKnife: false,
+        thiefsWit: false,
+        voidEnchant: false,
+        masterOfBlade: false,
+        serratedBlade: false
     },
 
     bestiaryUnlocked: {},
@@ -108,6 +129,10 @@ const Save = {
             this.equippedCloakStage = data.equippedCloakStage ?? this.cloakStage;
             this.daggerStage = data.daggerStage ?? 0;
             this.equippedDaggerStage = data.equippedDaggerStage ?? this.daggerStage;
+            this.throwingKnifeStage = data.throwingKnifeStage ?? 0;
+            this.equippedThrowingKnifeStage = data.equippedThrowingKnifeStage ?? this.throwingKnifeStage;
+            this.braceletStage = data.braceletStage ?? 0;
+            this.equippedBraceletStage = data.equippedBraceletStage ?? this.braceletStage;
 
             // Saves that predate the class system just fall
             // back to Warrior (the original kit).
@@ -157,6 +182,10 @@ const Save = {
             equippedCloakStage: this.equippedCloakStage,
             daggerStage: this.daggerStage,
             equippedDaggerStage: this.equippedDaggerStage,
+            throwingKnifeStage: this.throwingKnifeStage,
+            equippedThrowingKnifeStage: this.equippedThrowingKnifeStage,
+            braceletStage: this.braceletStage,
+            equippedBraceletStage: this.equippedBraceletStage,
             inventory: { ...this.inventory },
             equipped: { ...this.equipped },
             bestiaryUnlocked: { ...this.bestiaryUnlocked }
@@ -183,7 +212,7 @@ const Save = {
     },
 
     // =====================================
-    // Staged Items (shield/bow/cloak/dagger)
+    // Staged Items (shield/bow/cloak/dagger/throwingKnife)
     // =====================================
     //
     // Generic accessors for every STAGED_ITEM_IDS entry, so
@@ -196,6 +225,8 @@ const Save = {
         if (itemId === "shield") return this.shieldStage;
         if (itemId === "cloak") return this.cloakStage;
         if (itemId === "dagger") return this.daggerStage;
+        if (itemId === "throwingKnife") return this.throwingKnifeStage;
+        if (itemId === "bracelet") return this.braceletStage;
 
         return 0;
 
@@ -207,6 +238,8 @@ const Save = {
         if (itemId === "shield") return this.equippedShieldStage;
         if (itemId === "cloak") return this.equippedCloakStage;
         if (itemId === "dagger") return this.equippedDaggerStage;
+        if (itemId === "throwingKnife") return this.equippedThrowingKnifeStage;
+        if (itemId === "bracelet") return this.equippedBraceletStage;
 
         return 0;
 
@@ -218,6 +251,22 @@ const Save = {
         if (itemId === "shield") return this.setEquippedShieldStage(stage);
         if (itemId === "cloak") return this.setEquippedCloakStage(stage);
         if (itemId === "dagger") return this.setEquippedDaggerStage(stage);
+        if (itemId === "throwingKnife") return this.setEquippedThrowingKnifeStage(stage);
+        if (itemId === "bracelet") return this.setEquippedBraceletStage(stage);
+
+    },
+
+    // How many purchasable stages an item actually has. Bow/
+    // shield/cloak/bracelet have a real 3rd stage; dagger and
+    // throwing knife only have 2 named upgrades (their 3rd
+    // slider segment is unreachable - equipping is clamped to
+    // the owned stage, same as any other partially-owned item).
+    getMaxStage(itemId) {
+
+        if (itemId === "dagger" || itemId === "throwingKnife")
+            return 2;
+
+        return 3;
 
     },
 
@@ -282,12 +331,12 @@ const Save = {
         if (item.requiresKnightKilled && !this.knightKilled)
             return "Defeat the Knight";
 
-        if ((itemId === "bow" || itemId === "dagger") && this.getStage(itemId) >= 3)
+        if ((itemId === "bow" || itemId === "dagger" || itemId === "throwingKnife") && this.getStage(itemId) >= this.getMaxStage(itemId))
             return "Maxed out";
 
-        // Shield and cloak share a shape: 3 stages, with the
-        // final stage locked behind the Knight.
-        if (itemId === "shield" || itemId === "cloak") {
+        // Shield, cloak, and bracelet share a shape: 3 stages,
+        // with the final stage locked behind the Knight.
+        if (itemId === "shield" || itemId === "cloak" || itemId === "bracelet") {
 
             if (this.getStage(itemId) >= 3)
                 return "Maxed out";
@@ -388,6 +437,20 @@ const Save = {
             this.inventory.dagger = true;
             this.equipped.dagger = true;
 
+        } else if (itemId === "throwingKnife") {
+
+            this.throwingKnifeStage++;
+            this.equippedThrowingKnifeStage = this.throwingKnifeStage;
+            this.inventory.throwingKnife = true;
+            this.equipped.throwingKnife = true;
+
+        } else if (itemId === "bracelet") {
+
+            this.braceletStage++;
+            this.equippedBraceletStage = this.braceletStage;
+            this.inventory.bracelet = true;
+            this.equipped.bracelet = true;
+
         } else {
 
             this.inventory[itemId] = true;
@@ -439,6 +502,28 @@ const Save = {
         this.equippedDaggerStage = Math.max(
             1,
             Math.min(this.daggerStage, Math.floor(stage))
+        );
+
+        this.persist();
+
+    },
+
+    setEquippedThrowingKnifeStage(stage) {
+
+        this.equippedThrowingKnifeStage = Math.max(
+            1,
+            Math.min(this.throwingKnifeStage, Math.floor(stage))
+        );
+
+        this.persist();
+
+    },
+
+    setEquippedBraceletStage(stage) {
+
+        this.equippedBraceletStage = Math.max(
+            1,
+            Math.min(this.braceletStage, Math.floor(stage))
         );
 
         this.persist();

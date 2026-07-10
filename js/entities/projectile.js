@@ -23,12 +23,32 @@ class Projectile {
         this.sourceType = options.sourceType ?? null;
         this.crit = options.crit ?? false;
         this.isArrow = options.isArrow ?? false;
+        this.isKnife = options.isKnife ?? false;
 
         // How many enemies this can hit before dying (>1 with
         // the Ranger's Falcon Quiver). Enemies already struck
         // are remembered so a pierced target isn't hit twice.
         this.pierce = options.pierce ?? 1;
         this.enemiesHit = null;
+
+        // Fired exactly once, whenever this projectile stops
+        // existing - whether it landed a killing/final hit or
+        // simply ran out of life/left the screen. (enemy is
+        // null on a whiff.) Used by the Thief's Heart Stealer
+        // to know where to teleport once a knife resolves.
+        this.onResolve = options.onResolve ?? null;
+        this.resolved = false;
+
+    }
+
+    resolve(x, y, enemy) {
+
+        if (this.resolved)
+            return;
+
+        this.resolved = true;
+
+        this.onResolve?.(x, y, enemy);
 
     }
 
@@ -48,7 +68,7 @@ class Projectile {
 
     isDead() {
 
-        return (
+        const dead = (
 
             this.life <= 0 ||
 
@@ -59,6 +79,14 @@ class Projectile {
             this.y > canvas.height
 
         );
+
+        // A projectile that expires without ever landing a
+        // hit still needs to resolve (e.g. so the Thief's
+        // Heart Stealer knows where the throw ended up).
+        if (dead)
+            this.resolve(this.x, this.y, null);
+
+        return dead;
 
     }
 
@@ -117,14 +145,19 @@ class Projectile {
                     ? player.getProjectileDamageMultiplier(enemy)
                     : 1;
 
-                enemy.takeDamage(Math.ceil(this.damage * multiplier), this.crit);
+                const dealt = Math.ceil(this.damage * multiplier);
+
+                enemy.takeDamage(dealt, this.crit);
 
                 enemy.applyKnockback(px, py, 10);
 
                 // On-hit effects (Warrior charm rolls, Ranger
-                // burns/marks).
+                // burns/marks, Thief's Wit/Void Enchant). Most
+                // classes only need the enemy; `dealt` is there
+                // for hooks that care how much landed (e.g. the
+                // Thief's Void Enchant, which stores it).
                 if (player)
-                    player.onProjectileHit(enemy);
+                    player.onProjectileHit(enemy, dealt);
 
                 if (enemy.isDead())
                     onEnemyKilled(enemy);
@@ -134,6 +167,8 @@ class Projectile {
                 if (this.pierce <= 0) {
 
                     this.life = 0;
+
+                    this.resolve(px, py, enemy);
 
                     return;
 
@@ -148,6 +183,37 @@ class Projectile {
     }
 
     draw() {
+
+        if (this.isKnife) {
+
+            ctx.save();
+
+            ctx.translate(this.x, this.y);
+            ctx.rotate(this.angle);
+
+            ctx.shadowBlur = 6;
+            ctx.shadowColor = this.color || "#c0392b";
+
+            // Diamond blade
+            ctx.fillStyle = "#e8eaed";
+            ctx.beginPath();
+            ctx.moveTo(9, 0);
+            ctx.lineTo(1, -3);
+            ctx.lineTo(-3, 0);
+            ctx.lineTo(1, 3);
+            ctx.closePath();
+            ctx.fill();
+
+            // Handle
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = this.color || "#c0392b";
+            ctx.fillRect(-9, -1.5, 7, 3);
+
+            ctx.restore();
+
+            return;
+
+        }
 
         if (this.owner === "player" || this.isArrow) {
 

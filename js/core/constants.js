@@ -145,7 +145,8 @@ const CHARM = {
 
 const CLASSES = [
     { id: "warrior", name: "Warrior" },
-    { id: "ranger", name: "Ranger" }
+    { id: "ranger", name: "Ranger" },
+    { id: "thief", name: "Thief" }
 ];
 
 // =====================================
@@ -168,23 +169,18 @@ const RANGER_BOW = {
 };
 
 // =====================================
-// Ranger - Shade Cloak (staged survivability)
+// Ranger - Bracelet line (staged)
 // =====================================
 //
-// The Ranger's answer to the Warrior's shield line. Instead
-// of blocking hits, dashing "phases" the Ranger - plain
-// invulnerability frames granted off the shared dash.
-// Tattered -> Shadow -> Phantom, with Phantom gated behind
-// the Knight exactly like the Bulwark shield. Phantom also
-// damages anything the dash passes through.
+// The Ranger's dash-utility item: Iron -> Wind -> Sylph's
+// Bracelet, each stage trimming down the shared dash's
+// cooldown - 20% / 35% / 50% off, with the Sylph's Bracelet
+// gated behind the Knight exactly like the Bulwark shield.
 
-const CLOAK = {
-    // Phase duration in real ms, indexed by equipped cloak
-    // stage (index 0 = not owned/equipped).
-    PHASE_MS: [0, 350, 600, 900],
-    DASH_DAMAGE: 3,
-    DASH_HIT_WIDTH: 50,
-    GLOW_COLOR: "#9b59b6"
+const BRACELET = {
+    // Cooldown reduction, indexed by equipped bracelet stage
+    // (index 0 = not owned/equipped).
+    COOLDOWN_REDUCTION: [0, 0.2, 0.35, 0.5]
 };
 
 // =====================================
@@ -282,6 +278,127 @@ const STORMPIERCER = {
 };
 
 // =====================================
+// Thief - Cloak (staged)
+// =====================================
+//
+// Moved over from the Ranger, keeping its original effect -
+// dashing "phases" the Thief, plain invulnerability frames
+// granted off the shared dash. Tattered -> Shadow -> Phantom,
+// with Phantom gated behind the Knight exactly like the
+// Bulwark shield. Phantom also damages anything the dash
+// passes through.
+
+const CLOAK = {
+    // Phase duration in real ms, indexed by equipped cloak
+    // stage (index 0 = not owned/equipped).
+    PHASE_MS: [0, 350, 600, 900],
+    DASH_DAMAGE: 3,
+    DASH_HIT_WIDTH: 50,
+    GLOW_COLOR: "#9b59b6"
+};
+
+// =====================================
+// Thief - Dual Daggers (class weapon)
+// =====================================
+//
+// The Thief's primary attack, like the Ranger's bow - a much
+// shorter, much faster version of the Warrior's sword swing:
+// 60% of the sword's reach, but the swing itself is twice as
+// fast. Base damage mirrors the sword's own 1 dmg baseline,
+// doubled by the Serrated Blade the same way Wet Stone
+// doubles the sword's.
+
+const THIEF_DAGGER = {
+    RANGE: Math.round(SWORD.LENGTH * 0.6),
+    ARC: SWORD.ARC,
+    DAMAGE: 1,
+    SWING_DURATION: SWORD.DURATION / 2
+};
+
+// =====================================
+// Thief - Throwing Knife line (staged)
+// =====================================
+//
+// The Thief's ranged secondary on [E] - Throwing Knife (slow)
+// -> Wind Knife (fast, +1 dmg) -> Heart Stealer (same speed/
+// damage as Wind Knife, but pressing [E] again within the
+// window below - without affecting the knife's own cooldown -
+// blinks the Thief to wherever the knife ended up, with a
+// half-second of invulnerability). Range is capped well short
+// of arrow range - about half the screen - computed at throw
+// time from the current canvas width (RANGE_FRACTION) rather
+// than a fixed pixel value, so it scales with resolution.
+
+const THROWING_KNIFE = {
+    RANGE_FRACTION: 0.5,
+    DAMAGE_BASE: 2,
+    DAMAGE_UPGRADED: 3, // Wind Knife / Heart Stealer
+    SPEED_SLOW: 7,
+    SPEED_FAST: 20,
+    COOLDOWN: 1100,
+    SIZE: 5,
+    COLOR: "#c0392b",
+    TELEPORT_WINDOW_MS: 2000,
+    TELEPORT_INVULN_MS: 500
+};
+
+// =====================================
+// Thief - Thief's Wit
+// =====================================
+//
+// A passive momentum reward: landing any hit (dagger or
+// knife) grants a short burst of movement + attack speed,
+// refreshed on every subsequent hit so staying aggressive
+// keeps it topped up.
+
+const THIEFS_WIT = {
+    SPEED_BONUS: 0.3,
+    ATTACK_SPEED_BONUS: 0.2,
+    DURATION_MS: 2000
+};
+
+// =====================================
+// Thief - Void Enchant (Castle Guard tier)
+// =====================================
+//
+// Hitting an enemy marks it with a purple glow that stores
+// every subsequent hit of damage it takes over the next
+// second, then detonates - dealing the stored total as AOE
+// damage to everyone in a fire-mage-sized radius (see
+// HAZARD.FIRE_RADIUS in thief.js's use of it).
+
+const VOID_ENCHANT = {
+    STORE_DURATION_MS: 1000,
+    MARK_COLOR: "#8e44ad"
+};
+
+// =====================================
+// Thief - Master of the Blade (Castle Guard tier)
+// =====================================
+//
+// Every 3rd dagger swing unleashes a flurry in front of the
+// Thief - 4 extra hits over 0.4s (one every 0.1s), independent
+// of whether the triggering swing itself connected.
+
+const MASTER_OF_BLADE = {
+    TRIGGER_EVERY: 3,
+    TICK_DAMAGE: 2,
+    TICKS: 4,
+    TICK_MS: 100
+};
+
+// =====================================
+// Thief - Serrated Blade (Knight tier)
+// =====================================
+//
+// The Thief's wetStone-equivalent - a flat damage bump to the
+// dagger's base hit.
+
+const SERRATED_BLADE = {
+    BONUS_DAMAGE: 1
+};
+
+// =====================================
 // Coin Rewards
 // =====================================
 
@@ -304,13 +421,13 @@ const COINS = {
 // =====================================
 //
 // Every item is tagged with the class whose kit it belongs
-// to ("warrior" / "ranger"), or "shared" for the handful of
+// to (a CLASSES id), or "shared" for the handful of
 // global upgrades (crit). The Armoury only lists the
 // currently selected class's items plus the shared ones.
 
 // Items with a multi-stage purchase track (dedicated *Stage
 // fields in Save instead of a plain inventory flag).
-const STAGED_ITEM_IDS = ["shield", "bow", "cloak", "dagger"];
+const STAGED_ITEM_IDS = ["shield", "bow", "cloak", "dagger", "throwingKnife", "bracelet"];
 
 const SHOP_ITEMS = {
 
@@ -322,13 +439,13 @@ const SHOP_ITEMS = {
             return 0;
         },
         get name() {
-            if (Save.shieldStage >= 3) return "Bulwark Shield";
-            if (Save.shieldStage >= 1) return "Onyx Shield";
+            if (Save.equippedShieldStage >= 3) return "Bulwark Shield";
+            if (Save.equippedShieldStage >= 1) return "Onyx Shield";
             return "Wooden Shield";
         },
         get desc() {
-            if (Save.shieldStage >= 3) return "Blocks 2 hits, 1s invuln + AOE Nuke (5 dmg) each";
-            if (Save.shieldStage >= 1) return "Blocks 1 hit, 1s invuln + AOE Nuke (5 dmg)";
+            if (Save.equippedShieldStage >= 3) return "Blocks 2 hits, 1s invuln + AOE Nuke (5 dmg) each";
+            if (Save.equippedShieldStage >= 1) return "Blocks 1 hit, 1s invuln + AOE Nuke (5 dmg)";
             return "Blocks 1 hit + 1s invuln";
         },
         equippable: true
@@ -343,13 +460,13 @@ const SHOP_ITEMS = {
             return 0;
         },
         get name() {
-            if (Save.bowStage === 1) return "Multishot I";
-            if (Save.bowStage === 2) return "Multishot II";
+            if (Save.equippedBowStage === 1) return "Multishot I";
+            if (Save.equippedBowStage === 2) return "Multishot II";
             return "Shortbow";
         },
         get desc() {
-            if (Save.bowStage === 1) return "Bow fires 2 arrows in a fan";
-            if (Save.bowStage === 2) return "Bow fires 3 arrows in a fan";
+            if (Save.equippedBowStage === 1) return "Bow fires 2 arrows in a fan";
+            if (Save.equippedBowStage === 2) return "Bow fires 3 arrows in a fan";
             return "Press E — 2 dmg arrow (2s cd)";
         }
     },
@@ -413,20 +530,20 @@ const SHOP_ITEMS = {
 
     // ----- Ranger -----
 
-    cloak: {
+    bracelet: {
         classId: "ranger",
         get price() {
             return 0;
         },
         get name() {
-            if (Save.cloakStage >= 3) return "Phantom Cloak";
-            if (Save.cloakStage >= 1) return "Shadow Cloak";
-            return "Tattered Cloak";
+            if (Save.equippedBraceletStage >= 3) return "Sylph's Bracelet";
+            if (Save.equippedBraceletStage >= 1) return "Wind Bracelet";
+            return "Iron Bracelet";
         },
         get desc() {
-            if (Save.cloakStage >= 3) return "Dash phases 0.9s + deals 3 dmg to enemies dashed through";
-            if (Save.cloakStage >= 1) return "Dash phases 0.6s (untouchable while phasing)";
-            return "Dash phases 0.35s (untouchable while phasing)";
+            if (Save.equippedBraceletStage >= 3) return "-50% dash cooldown";
+            if (Save.equippedBraceletStage === 2) return "-35% dash cooldown";
+            return "-20% dash cooldown";
         },
         equippable: true
     },
@@ -438,13 +555,13 @@ const SHOP_ITEMS = {
             return 0;
         },
         get name() {
-            if (Save.daggerStage === 1) return "Shortsword";
-            if (Save.daggerStage === 2) return "Venom Blade";
+            if (Save.equippedDaggerStage === 1) return "Shortsword";
+            if (Save.equippedDaggerStage === 2) return "Venom Blade";
             return "Talon Dagger";
         },
         get desc() {
-            if (Save.daggerStage === 1) return "Much longer reach on the stab";
-            if (Save.daggerStage === 2) return "Stabs inject venom — 2 dmg every 0.3s (6 total)";
+            if (Save.equippedDaggerStage === 1) return "Much longer reach on the stab";
+            if (Save.equippedDaggerStage === 2) return "Stabs inject venom — 2 dmg every 0.3s (6 total)";
             return "Press E — 2 dmg close-range stab (1.5s cd)";
         }
     },
@@ -499,6 +616,79 @@ const SHOP_ITEMS = {
         name: "Stormpiercer",
         desc: "2 dmg arrows + right-click storm lance (5 dmg, 4s cd)",
         requiresKingKilled: true,
+        equippable: true
+    },
+
+    // ----- Thief -----
+
+    cloak: {
+        classId: "thief",
+        get price() {
+            return 0;
+        },
+        get name() {
+            if (Save.equippedCloakStage >= 3) return "Phantom Cloak";
+            if (Save.equippedCloakStage >= 1) return "Shadow Cloak";
+            return "Tattered Cloak";
+        },
+        get desc() {
+            if (Save.equippedCloakStage >= 3) return "Dash phases 0.9s + deals 3 dmg to enemies dashed through";
+            if (Save.equippedCloakStage === 2) return "Dash phases 0.6s (untouchable while phasing)";
+            return "Dash phases 0.35s (untouchable while phasing)";
+        },
+        equippable: true
+    },
+
+    throwingKnife: {
+        classId: "thief",
+        equippable: true,
+        get price() {
+            return 0;
+        },
+        get name() {
+            if (Save.equippedThrowingKnifeStage === 1) return "Wind Knife";
+            if (Save.equippedThrowingKnifeStage === 2) return "Heart Stealer";
+            return "Throwing Knife";
+        },
+        get desc() {
+            if (Save.equippedThrowingKnifeStage === 1) return "3 dmg, much faster throw";
+            if (Save.equippedThrowingKnifeStage === 2) return "Press E again within 2s to blink to the knife";
+            return "Press E — 2 dmg slow knife toss";
+        }
+    },
+
+    thiefsWit: {
+        classId: "thief",
+        price: 0,
+        name: "Thief's Wit",
+        desc: "Hits grant +30% move speed, +20% attack speed for 2s",
+        equippable: true
+    },
+
+    voidEnchant: {
+        classId: "thief",
+        price: 0,
+        name: "Void Enchant",
+        desc: "Hits mark enemies - stored damage explodes in an AOE after 1s",
+        requiresFirstBoss: true,
+        equippable: true
+    },
+
+    masterOfBlade: {
+        classId: "thief",
+        price: 0,
+        name: "Master of the Blade",
+        desc: "Every 3rd dagger swing unleashes 4 cuts (2 dmg each) in 0.4s",
+        requiresFirstBoss: true,
+        equippable: true
+    },
+
+    serratedBlade: {
+        classId: "thief",
+        price: 0,
+        name: "Serrated Blade",
+        desc: "Dagger deals 1 more base damage",
+        requiresKnightKilled: true,
         equippable: true
     },
 

@@ -6,10 +6,10 @@
 // hold attack to fire arrows on cooldown, no purchase
 // needed. Kit (see the Ranger section of SHOP_ITEMS):
 //
-//   - Shade Cloak line: dashing grants phase i-frames;
-//     Phantom stage also damages enemies dashed through
-//   - Talon Dagger line: close-range [E] stab (Twin Talons
-//     strikes twice, Serpent Fang injects venom)
+//   - Bracelet line: -20%/-35%/-50% dash cooldown (Sylph's
+//     Bracelet stage Knight-gated like the Bulwark shield)
+//   - Talon Dagger line: close-range [E] stab (Shortsword
+//     extends reach, Venom Blade injects venom)
 //   - Emberweave Arrows: burn DoT on arrow hits
 //   - Falcon Quiver / Swiftdraw Gloves (first-boss tier):
 //     piercing arrows / faster fire rate
@@ -88,6 +88,17 @@ class Ranger extends Player {
 
     }
 
+    getDashCooldown() {
+
+        if (!Save.isEquipped("bracelet"))
+            return DASH.COOLDOWN;
+
+        const stage = Math.min(3, Save.equippedBraceletStage);
+
+        return DASH.COOLDOWN * (1 - BRACELET.COOLDOWN_REDUCTION[stage]);
+
+    }
+
     onAbilityKey() {
 
         this.daggerStrike();
@@ -121,15 +132,6 @@ class Ranger extends Player {
         return this.isMarked(enemy)
             ? HUNTERS_MARK.DAMAGE_MULTIPLIER
             : 1;
-
-    }
-
-    getBodyGlowColor() {
-
-        // Phase glow while the cloak's dash i-frames are live.
-        return this.invulnTimer > 0 && Save.isEquipped("cloak")
-            ? CLOAK.GLOW_COLOR
-            : null;
 
     }
 
@@ -173,79 +175,6 @@ class Ranger extends Player {
         }
 
         return lines;
-
-    }
-
-    // =====================================
-    // Shade Cloak
-    // =====================================
-    //
-    // The dash itself is the survivability tool - phasing is
-    // just invuln frames granted on dash, so the base class's
-    // existing invuln handling (timer, hit immunity, sprite
-    // flicker) does all the heavy lifting.
-
-    onDash(dx, dy, startX, startY) {
-
-        if (!Save.isEquipped("cloak"))
-            return;
-
-        const stage = Math.min(3, Save.equippedCloakStage);
-
-        if (stage < 1)
-            return;
-
-        this.invulnTimer = Math.max(this.invulnTimer, CLOAK.PHASE_MS[stage]);
-
-        if (stage >= 3)
-            this.phantomStrike(dx, dy, startX, startY);
-
-    }
-
-    // Phantom Cloak - anything the dash passed through takes
-    // damage. Same local-space line test as the storm lance,
-    // just capped at the dash segment's actual length.
-    phantomStrike(dx, dy, startX, startY) {
-
-        const cx = startX + this.size / 2;
-        const cy = startY + this.size / 2;
-
-        const length = Math.hypot(this.x - startX, this.y - startY);
-        const halfWidth = CLOAK.DASH_HIT_WIDTH / 2;
-
-        const angle = Math.atan2(dy, dx);
-        const cos = Math.cos(-angle);
-        const sin = Math.sin(-angle);
-
-        Game.enemies.forEach(enemy => {
-
-            const ex = enemy.x + enemy.size / 2;
-            const ey = enemy.y + enemy.size / 2;
-
-            const relX = ex - cx;
-            const relY = ey - cy;
-
-            const localX = relX * cos - relY * sin;
-            const localY = relX * sin + relY * cos;
-
-            const pad = enemy.size / 2;
-
-            if (
-
-                localX >= -pad &&
-                localX <= length + pad &&
-                Math.abs(localY) <= halfWidth + pad
-
-            ) {
-
-                enemy.takeDamage(this.applyMark(CLOAK.DASH_DAMAGE, enemy));
-
-                if (enemy.isDead())
-                    onEnemyKilled(enemy);
-
-            }
-
-        });
 
     }
 
@@ -346,7 +275,7 @@ class Ranger extends Player {
 
     getDaggerRange() {
 
-        return Save.equippedDaggerStage >= 2
+        return Save.equippedDaggerStage >= 1
             ? DAGGER.SHORTSWORD_RANGE
             : DAGGER.RANGE;
 
@@ -366,11 +295,11 @@ class Ranger extends Player {
         this.daggerTimer = DAGGER.SWING_MS;
         this.daggerAngle = aimAngle;
 
-        // Stage 2 (Shortsword) trades the second strike idea
-        // for much longer reach; stage 3 (Venom Blade) keeps
-        // the reach and injects venom on top.
+        // Stage 1 (Shortsword) extends the reach; stage 2
+        // (Venom Blade) keeps that reach and injects venom
+        // on top.
         const range = this.getDaggerRange();
-        const venom = Save.equippedDaggerStage >= 3;
+        const venom = Save.equippedDaggerStage >= 2;
 
         const px = this.x + this.size / 2;
         const py = this.y + this.size / 2;
@@ -629,11 +558,11 @@ class Ranger extends Player {
         const arc = DAGGER.ARC;
         const angle = this.daggerAngle - arc / 2 + arc * progress;
 
-        const venom = Save.equippedDaggerStage >= 3;
+        const venom = Save.equippedDaggerStage >= 2;
 
         // Shortsword/Venom Blade stages read visually longer,
         // roughly tracking the upgraded reach.
-        const bladeTip = Save.equippedDaggerStage >= 2 ? 90 : 48;
+        const bladeTip = Save.equippedDaggerStage >= 1 ? 90 : 48;
 
         ctx.save();
 

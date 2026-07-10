@@ -123,9 +123,14 @@ const SHOP_ITEM_IDS = [
     "knightLocket", "windrunnerAnklet",
 
     // Ranger
-    "cloak", "dagger", "emberArrows",
+    "bracelet", "dagger", "emberArrows",
     "falconQuiver", "swiftdrawGloves",
     "huntersMark", "galeRecurve", "stormpiercer",
+
+    // Thief
+    "cloak", "throwingKnife", "thiefsWit",
+    "voidEnchant", "masterOfBlade",
+    "serratedBlade",
 
     // Shared
     "critRate"
@@ -432,7 +437,9 @@ const STAGE_SLIDER_STYLE = {
     bow: { labels: ["1", "2", "3"], activeColor: "#c9a227" },
     shield: { labels: ["W", "O", "B"], activeColor: "#4da6ff" },
     cloak: { labels: ["T", "S", "P"], activeColor: "#9b59b6" },
-    dagger: { labels: ["1", "2", "3"], activeColor: "#95a5a6" }
+    dagger: { labels: ["1", "2", "3"], activeColor: "#95a5a6" },
+    throwingKnife: { labels: ["1", "2", "3"], activeColor: "#c0392b" },
+    bracelet: { labels: ["I", "W", "S"], activeColor: "#1abc9c" }
 
 };
 
@@ -675,7 +682,7 @@ function drawShop() {
         const staged = STAGED_ITEM_IDS.includes(id);
 
         const owned = staged
-            ? Save.getStage(id) >= 3
+            ? Save.getStage(id) >= Save.getMaxStage(id)
             : (!item.repeatable && Save.owns(id));
 
         const blockReason = Save.getPurchaseBlockReason(id);
@@ -695,20 +702,21 @@ function drawShop() {
 
         ctx.fillStyle = "gold";
         ctx.font = `${ph(0.018)}px Arial`;
-        if (staged && Save.getStage(id) >= 3) {
+        if (staged && Save.getStage(id) >= Save.getMaxStage(id)) {
             ctx.fillText("Max level reached", marginX + pw(0.015), rowY + ph(0.065));
         } else {
             ctx.fillText(`${item.price} coins`, marginX + pw(0.015), rowY + ph(0.065));
         }
 
-        // Staged items get the 3-segment stage picker. Bow and
-        // dagger always show theirs; shield and cloak only once
-        // the first stage is owned (matching the old behavior).
-        if (id === "bow" || id === "dagger") {
+        // Staged items get the 3-segment stage picker. Bow,
+        // dagger, and throwing knife always show theirs; shield,
+        // cloak, and bracelet only once the first stage is owned
+        // (matching the old behavior).
+        if (id === "bow" || id === "dagger" || id === "throwingKnife") {
             drawStageIndicator(getShopStageSlider(i), Save.getEquippedStage(id), id);
         }
 
-        if ((id === "shield" || id === "cloak") && Save.getStage(id) >= 1) {
+        if ((id === "shield" || id === "cloak" || id === "bracelet") && Save.getStage(id) >= 1) {
             drawStageIndicator(getShopStageSlider(i), Save.getEquippedStage(id), id);
         }
 
@@ -743,7 +751,7 @@ function drawShop() {
         const maxed =
             (item.repeatable && id === "critRate" && Save.getCritChance() >= CRIT.MAX) ||
             (item.repeatable && id === "knightLocket" && Save.getCharmChance() >= CHARM.MAX) ||
-            (staged && Save.getStage(id) >= 3);
+            (staged && Save.getStage(id) >= Save.getMaxStage(id));
 
         if (owned) {
 

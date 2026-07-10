@@ -50,9 +50,20 @@ class Player {
     // (e.g. the Warrior's Windrunner Anklet).
     getSpeedMultiplier() { return 1; }
 
+    // Live movement speed, recomputed every frame - lets a
+    // class layer a temporary buff on top of the base `speed`
+    // set at spawn (e.g. Thief's Wit). Defaults to the static
+    // spawn-time value so classes without a dynamic buff pay
+    // nothing extra.
+    getCurrentSpeed() { return this.speed; }
+
     // How many dash charges are available (e.g. 2 with the
     // Warrior's Hermes Shoes).
     getDashSlotCount() { return 1; }
+
+    // Cooldown applied to a dash charge after it's used (e.g.
+    // reduced by the Thief's Cloak).
+    getDashCooldown() { return DASH.COOLDOWN; }
 
     // Per-frame kit updates (weapon cooldowns, DoTs, etc.) -
     // runs between updateDash() and updateInvuln().
@@ -74,8 +85,11 @@ class Player {
     absorbHit() { return false; }
 
     // A player-owned projectile landed on an enemy (see
-    // projectile.js) - on-hit effects go here.
-    onProjectileHit(enemy) {}
+    // projectile.js) - on-hit effects go here. `damage` is how
+    // much was actually dealt by that hit (post-crit/marks),
+    // for hooks that need to track it (e.g. the Thief's Void
+    // Enchant).
+    onProjectileHit(enemy, damage) {}
 
     // Damage multiplier applied to player-owned projectiles
     // against this specific enemy (e.g. Hunter's Mark).
@@ -148,17 +162,19 @@ class Player {
 
     updateMovement() {
 
+        const speed = this.getCurrentSpeed();
+
         if (keys["w"])
-            this.y -= this.speed * Game.timeScale;
+            this.y -= speed * Game.timeScale;
 
         if (keys["s"])
-            this.y += this.speed * Game.timeScale;
+            this.y += speed * Game.timeScale;
 
         if (keys["a"])
-            this.x -= this.speed * Game.timeScale;
+            this.x -= speed * Game.timeScale;
 
         if (keys["d"])
-            this.x += this.speed * Game.timeScale;
+            this.x += speed * Game.timeScale;
 
         // Mobile joystick input - purely additive on top of
         // the WASD checks above. MobileInput.active is only
@@ -167,8 +183,8 @@ class Player {
         // no-op on desktop and doesn't change PC movement feel.
         if (typeof MobileInput !== "undefined" && MobileInput.active) {
 
-            this.x += MobileInput.moveX * this.speed * Game.timeScale;
-            this.y += MobileInput.moveY * this.speed * Game.timeScale;
+            this.x += MobileInput.moveX * speed * Game.timeScale;
+            this.y += MobileInput.moveY * speed * Game.timeScale;
 
         }
 
@@ -306,7 +322,7 @@ class Player {
             this.x += dx * dashDistance;
             this.y += dy * dashDistance;
 
-            this.dashCooldowns[i] = DASH.COOLDOWN;
+            this.dashCooldowns[i] = this.getDashCooldown();
 
             this.onDash(dx, dy, startX, startY);
 
