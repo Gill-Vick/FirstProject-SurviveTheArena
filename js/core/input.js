@@ -138,6 +138,68 @@ window.addEventListener("blur", () => {
 
 });
 
+// =====================================
+// Armoury Scrolling
+// =====================================
+//
+// Desktop: mouse wheel. Mobile: dragging a finger over the
+// list. Taps still register as clicks - the touchstart isn't
+// prevented, we only hijack the gesture once the finger
+// actually moves.
+
+canvas.addEventListener("wheel", (e) => {
+
+    if (Game.state === "menu" && Game.menuView === "shop") {
+
+        e.preventDefault();
+
+        scrollArmoury(e.deltaY);
+
+    }
+
+}, { passive: false });
+
+let armouryTouchY = null;
+
+canvas.addEventListener("touchstart", (e) => {
+
+    if (Game.state === "menu" && Game.menuView === "shop")
+        armouryTouchY = e.touches[0].clientY;
+
+});
+
+canvas.addEventListener("touchmove", (e) => {
+
+    if (armouryTouchY === null)
+        return;
+
+    if (Game.state !== "menu" || Game.menuView !== "shop") {
+        armouryTouchY = null;
+        return;
+    }
+
+    e.preventDefault();
+
+    // Touch positions are CSS px - convert the drag distance
+    // into the canvas's logical coordinate space (they differ
+    // on mobile, see getCanvasCoords()).
+    const rect = canvas.getBoundingClientRect();
+    const scaleY = canvas.height / rect.height;
+
+    const touchY = e.touches[0].clientY;
+
+    scrollArmoury((armouryTouchY - touchY) * scaleY);
+
+    armouryTouchY = touchY;
+
+}, { passive: false });
+
+window.addEventListener("touchend", () => {
+
+    armouryTouchY = null;
+
+});
+
 // Right-click fires the class's secondary ability. Prevent
 // the browser's context menu from popping up over the canvas
 // so right-click is free to use as a game input.

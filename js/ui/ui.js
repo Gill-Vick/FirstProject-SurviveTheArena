@@ -159,6 +159,9 @@ function cycleArmouryClass(step) {
 
     Save.setSelectedClass(CLASSES[next].id);
 
+    // Each class's list starts back at the top.
+    Game.armouryScroll = 0;
+
 }
 
 // Left (-1) / right (+1) class selector arrows, flanking the
@@ -190,16 +193,43 @@ function getArmouryClassArrowButton(direction) {
 
 function getShopRowMetrics() {
 
-    // Rows start a little lower than they used to, leaving
-    // room for the class selector under the ARMOURY title.
-    const rowStart = 0.19;
-    const available = 0.8 - rowStart;
-
+    // Fixed, comfortable row height - the list scrolls (see
+    // Game.armouryScroll) instead of squeezing rows together
+    // when a class has a lot of items. rowStart is already
+    // shifted by the scroll offset, so every button/slider
+    // getter below moves with the list automatically.
+    // viewTop/viewBottom bound the visible list area (below
+    // the class selector, above the screen edge).
     return {
-        rowHeight: ph(Math.min(0.095, available / getArmouryItemIds().length)),
-        rowStart: ph(rowStart),
+        rowHeight: ph(0.115),
+        rowStart: ph(0.19) - Game.armouryScroll,
+        viewTop: ph(0.19),
+        viewBottom: ph(0.97),
         marginX: pw(0.04)
     };
+
+}
+
+function getArmouryMaxScroll() {
+
+    const { rowHeight, viewTop, viewBottom } = getShopRowMetrics();
+
+    const contentHeight = getArmouryItemIds().length * rowHeight;
+
+    return Math.max(0, contentHeight - (viewBottom - viewTop));
+
+}
+
+// Scrolls the Armoury list by deltaY logical px, clamped to
+// the content. Called from the wheel/touch handlers in
+// input.js and re-clamped (delta 0) whenever the list or
+// canvas size changes.
+function scrollArmoury(deltaY) {
+
+    Game.armouryScroll = Math.max(
+        0,
+        Math.min(getArmouryMaxScroll(), Game.armouryScroll + deltaY)
+    );
 
 }
 
@@ -301,19 +331,21 @@ function getBestiaryPanelRect() {
 
 function getBestiaryGridMetrics() {
 
-    const cols = 5;
-    const rows = Math.ceil(BESTIARY_ORDER.length / cols);
+    // Page 0 only holds the normal enemies now (bosses live
+    // on their own pages), so 4 columns × 2 rows gives every
+    // cell plenty of room.
+    const cols = 4;
+    const rows = Math.ceil(BESTIARY_NORMAL_ORDER.length / cols);
 
     const panel = getBestiaryPanelRect();
 
-    // Gaps are a meaningfully bigger chunk of the available
-    // space than before, so cells read as clearly separate
-    // instead of packed edge-to-edge.
-    const gapX = pw(0.02);
-    const gapY = ph(0.045);
+    // Generous gaps so cells (and their name labels) read as
+    // clearly separate instead of packed edge-to-edge.
+    const gapX = pw(0.03);
+    const gapY = ph(0.085);
 
-    const gridTop = ph(0.30);
-    const gridBottom = panel.y + panel.height - ph(0.03);
+    const gridTop = ph(0.34);
+    const gridBottom = panel.y + panel.height - ph(0.045);
 
     const availableWidth = panel.width - pw(0.04);
     const availableHeight = gridBottom - gridTop;
@@ -615,12 +647,28 @@ function drawShop() {
     ctx.textAlign = "center";
     ctx.fillText(selectedClass.name, canvas.width / 2, ph(0.152));
 
-    const { rowHeight, rowStart, marginX } = getShopRowMetrics();
+    // Re-clamp the scroll in case the canvas resized or the
+    // class list changed since the last scroll input.
+    scrollArmoury(0);
+
+    const { rowHeight, rowStart, viewTop, viewBottom, marginX } = getShopRowMetrics();
+
+    // Rows only render inside the list viewport, so a
+    // scrolled row can't draw over the header.
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, viewTop, canvas.width, viewBottom - viewTop);
+    ctx.clip();
 
     getArmouryItemIds().forEach((id, i) => {
 
         const item = SHOP_ITEMS[id];
         const rowY = rowStart + i * rowHeight;
+
+        // Fully off-screen rows can be skipped outright.
+        if (rowY + rowHeight < viewTop || rowY > viewBottom)
+            return;
+
         const buyBtn = getShopBuyButton(i);
         const equipBtn = getShopEquipButton(i);
 
@@ -721,6 +769,34 @@ function drawShop() {
 
     });
 
+    ctx.restore();
+
+    drawArmouryScrollbar(viewTop, viewBottom);
+
+}
+
+// Thin scroll indicator on the right edge - only shown when
+// the list actually overflows the viewport.
+function drawArmouryScrollbar(viewTop, viewBottom) {
+
+    const maxScroll = getArmouryMaxScroll();
+
+    if (maxScroll <= 0)
+        return;
+
+    const trackX = canvas.width - pw(0.012);
+    const trackWidth = pw(0.006);
+    const trackHeight = viewBottom - viewTop;
+
+    const thumbHeight = trackHeight * (trackHeight / (trackHeight + maxScroll));
+    const thumbY = viewTop + (trackHeight - thumbHeight) * (Game.armouryScroll / maxScroll);
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
+    ctx.fillRect(trackX, viewTop, trackWidth, trackHeight);
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
+    ctx.fillRect(trackX, thumbY, trackWidth, thumbHeight);
+
 }
 
 function drawEnemyPreview(type, x, y, w, h, unlocked) {
@@ -784,6 +860,82 @@ function drawEnemyPreview(type, x, y, w, h, unlocked) {
 
 }
 
+// =====================================
+// Bestiary Pages
+// =====================================
+//
+// Page 0: the creatures grid. Pages 1..N: one dedicated page
+// per boss (BESTIARY_BOSS_ORDER), with lore - flipped through
+// with arrows like the Armoury's class selector.
+
+function getBestiaryPageCount() {
+
+    return 1 + BESTIARY_BOSS_ORDER.length;
+
+}
+
+function cycleBestiaryPage(step) {
+
+    const count = getBestiaryPageCount();
+
+    Game.bestiaryPage = (Game.bestiaryPage + step + count) % count;
+
+}
+
+// Left (-1) / right (+1) page arrows, flanking the page title.
+function getBestiaryPageArrowButton(direction) {
+
+    const width = pw(0.045);
+    const height = ph(0.055);
+    const offset = pw(0.19);
+
+    return {
+        x: canvas.width / 2 + direction * offset - width / 2,
+        y: ph(0.145),
+        width,
+        height
+    };
+
+}
+
+// Word-wraps text at maxWidth, returning the y of the line
+// AFTER the last one drawn (uses the current ctx font).
+function wrapText(text, x, y, maxWidth, lineHeight) {
+
+    const words = text.split(" ");
+
+    let line = "";
+
+    words.forEach(word => {
+
+        const test = line ? `${line} ${word}` : word;
+
+        if (line && ctx.measureText(test).width > maxWidth) {
+
+            ctx.fillText(line, x, y);
+
+            line = word;
+            y += lineHeight;
+
+        } else {
+
+            line = test;
+
+        }
+
+    });
+
+    if (line) {
+
+        ctx.fillText(line, x, y);
+        y += lineHeight;
+
+    }
+
+    return y;
+
+}
+
 function drawBestiary() {
 
     const panel = getBestiaryPanelRect();
@@ -794,14 +946,45 @@ function drawBestiary() {
     ctx.lineWidth = Math.max(3, ph(0.006));
     ctx.strokeRect(panel.x, panel.y, panel.width, panel.height);
 
-    ctx.fillStyle = "white";
-    ctx.font = `${ph(0.055)}px Arial`;
-    ctx.textAlign = "center";
-    ctx.fillText("BESTIARY", canvas.width / 2, ph(0.185));
-
     drawButton(getBestiaryBackButton(), "BACK", "#555", "white", ph(0.024));
 
-    BESTIARY_ORDER.forEach((type, i) => {
+    const page = Game.bestiaryPage;
+
+    const bossType = page > 0 ? BESTIARY_BOSS_ORDER[page - 1] : null;
+    const bossUnlocked = bossType ? Save.isBestiaryUnlocked(bossType) : false;
+
+    // Page title + arrows (the boss's name once discovered)
+    const title = page === 0
+        ? "BESTIARY"
+        : (bossUnlocked ? BESTIARY[bossType].name.toUpperCase() : "???");
+
+    ctx.fillStyle = page === 0 ? "white" : "gold";
+    ctx.font = `${ph(0.05)}px Arial`;
+    ctx.textAlign = "center";
+    ctx.fillText(title, canvas.width / 2, ph(0.185));
+
+    drawButton(getBestiaryPageArrowButton(-1), "◀", "#3a2a20", "white", ph(0.026));
+    drawButton(getBestiaryPageArrowButton(1), "▶", "#3a2a20", "white", ph(0.026));
+
+    ctx.fillStyle = "#d0b58a";
+    ctx.font = `${ph(0.02)}px Arial`;
+    ctx.fillText(
+        page === 0
+            ? `Creatures — page 1 / ${getBestiaryPageCount()}`
+            : `Boss — page ${page + 1} / ${getBestiaryPageCount()}`,
+        canvas.width / 2,
+        ph(0.235)
+    );
+
+    if (page > 0) {
+
+        drawBestiaryBossPage(bossType);
+
+        return;
+
+    }
+
+    BESTIARY_NORMAL_ORDER.forEach((type, i) => {
 
         const cell = getBestiaryCell(i);
         const entry = BESTIARY[type];
@@ -812,7 +995,7 @@ function drawBestiary() {
             cell.x - cell.width * 0.04,
             cell.y - cell.width * 0.04,
             cell.width * 1.08,
-            cell.height + ph(0.04)
+            cell.height + ph(0.05)
         );
 
         drawEnemyPreview(type, cell.x, cell.y, cell.width, cell.height, unlocked);
@@ -823,10 +1006,75 @@ function drawBestiary() {
         ctx.fillText(
             unlocked ? entry.name : "???",
             cell.x + cell.width / 2,
-            cell.y + cell.height + cell.width * 0.16
+            cell.y + cell.height + cell.width * 0.14
         );
 
     });
+
+}
+
+// A boss's dedicated page: big portrait, lore, and stats.
+// Locked bosses only show their silhouette.
+function drawBestiaryBossPage(type) {
+
+    const entry = BESTIARY[type];
+    const panel = getBestiaryPanelRect();
+
+    const unlocked = Save.isBestiaryUnlocked(type);
+
+    const previewSize = Math.min(pw(0.17), panel.height * 0.38);
+    const previewX = panel.x + pw(0.05);
+    const previewY = ph(0.30);
+
+    drawEnemyPreview(type, previewX, previewY, previewSize, previewSize, unlocked);
+
+    const textX = previewX + previewSize + pw(0.04);
+    const textWidth = panel.x + panel.width - pw(0.04) - textX;
+
+    if (!unlocked) {
+
+        ctx.fillStyle = "#a08560";
+        ctx.font = `${ph(0.028)}px Arial`;
+        ctx.textAlign = "left";
+        ctx.fillText("Defeat this foe to unlock its page.", textX, previewY + ph(0.06));
+
+        return;
+
+    }
+
+    ctx.textAlign = "left";
+
+    ctx.fillStyle = "#eee";
+    ctx.font = `${ph(0.024)}px Arial`;
+    ctx.fillText(entry.desc, textX, previewY + ph(0.035));
+
+    ctx.fillStyle = "#c9a227";
+    ctx.font = `bold ${ph(0.02)}px Arial`;
+    ctx.fillText(`Behavior: ${entry.behavior}`, textX, previewY + ph(0.085));
+
+    // Lore, wrapped, in italics under a thin divider
+    ctx.strokeStyle = "rgba(201, 162, 39, 0.5)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(textX, previewY + ph(0.115));
+    ctx.lineTo(textX + textWidth, previewY + ph(0.115));
+    ctx.stroke();
+
+    ctx.fillStyle = "#e8d9b8";
+    ctx.font = `italic ${ph(0.022)}px Georgia, serif`;
+    wrapText(entry.lore, textX, previewY + ph(0.16), textWidth, ph(0.037));
+
+    // Stats block along the bottom of the panel
+    const statsY = panel.y + panel.height - ph(0.19);
+
+    ctx.fillStyle = "white";
+    ctx.font = `bold ${ph(0.026)}px Arial`;
+    ctx.fillText("Stats", panel.x + pw(0.05), statsY);
+
+    ctx.fillStyle = "#ddd";
+    ctx.font = `${ph(0.021)}px Arial`;
+    ctx.fillText(`HP scaling: ${entry.hpScale}`, panel.x + pw(0.05), statsY + ph(0.045));
+    ctx.fillText(`Base speed: ${entry.baseSpeed}`, panel.x + pw(0.05), statsY + ph(0.085));
 
 }
 
@@ -910,9 +1158,18 @@ function handleMenuClick(x, y) {
             return;
         }
 
+        const { rowHeight, rowStart, viewTop, viewBottom } = getShopRowMetrics();
+
         getArmouryItemIds().forEach((id, i) => {
 
             const item = SHOP_ITEMS[id];
+
+            // Rows scrolled out of the viewport aren't
+            // clickable (mirrors the draw-side skip).
+            const rowY = rowStart + i * rowHeight;
+
+            if (rowY + rowHeight < viewTop || rowY > viewBottom)
+                return;
 
             if (item.equippable && Save.owns(id) && hitRect(getShopEquipButton(i), x, y))
                 Save.toggleEquip(id);
@@ -955,7 +1212,22 @@ function handleMenuClick(x, y) {
             return;
         }
 
-        BESTIARY_ORDER.forEach((type, i) => {
+        if (hitRect(getBestiaryPageArrowButton(-1), x, y)) {
+            cycleBestiaryPage(-1);
+            return;
+        }
+
+        if (hitRect(getBestiaryPageArrowButton(1), x, y)) {
+            cycleBestiaryPage(1);
+            return;
+        }
+
+        // Only the creatures grid (page 0) has clickable
+        // cells - boss pages already show everything.
+        if (Game.bestiaryPage !== 0)
+            return;
+
+        BESTIARY_NORMAL_ORDER.forEach((type, i) => {
 
             if (!Save.isBestiaryUnlocked(type))
                 return;
@@ -974,11 +1246,15 @@ function handleMenuClick(x, y) {
     if (hitRect(getStartButton(), x, y))
         startGame();
 
-    if (hitRect(getShopButton(), x, y))
+    if (hitRect(getShopButton(), x, y)) {
         Game.menuView = "shop";
+        Game.armouryScroll = 0;
+    }
 
-    if (hitRect(getBestiaryButton(), x, y))
+    if (hitRect(getBestiaryButton(), x, y)) {
         Game.menuView = "bestiary";
+        Game.bestiaryPage = 0;
+    }
 
 }
 

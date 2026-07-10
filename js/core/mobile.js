@@ -298,13 +298,11 @@ function bindTapButton(el, onTap) {
 // window.innerWidth as a wide desktop-emulated layout width
 // (~980px) instead of the phone's real width.
 //
-// canvas.width/height are set to the real device pixel
-// dimensions here - every menu, HUD, shop, and bestiary
-// layout in ui.js is computed as a percentage of whatever
-// canvas.width/height actually are (see the pw()/ph() helpers
-// there), so there's no need for the canvas itself to fake a
-// fixed "desktop-sized" resolution anymore. Whatever real size
-// the canvas ends up being, the UI scales itself to fit it.
+// Actual canvas sizing lives in syncCanvasResolution()
+// (game.js) - on touch devices it renders at a fixed logical
+// height and CSS-stretches to the screen, so entities keep
+// sane proportions. resyncCanvasSize() below just re-runs it
+// once the viewport has settled after a rotation.
 
 function ensureViewportMeta() {
 
@@ -333,8 +331,7 @@ function ensureViewportMeta() {
 
 function resyncCanvasSize() {
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    syncCanvasResolution();
 
 }
 

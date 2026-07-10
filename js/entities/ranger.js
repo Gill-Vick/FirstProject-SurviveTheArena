@@ -344,6 +344,14 @@ class Ranger extends Player {
     // Talon Dagger ([E] ability)
     // =====================================
 
+    getDaggerRange() {
+
+        return Save.equippedDaggerStage >= 2
+            ? DAGGER.SHORTSWORD_RANGE
+            : DAGGER.RANGE;
+
+    }
+
     daggerStrike() {
 
         if (!Save.isEquipped("dagger"))
@@ -358,7 +366,10 @@ class Ranger extends Player {
         this.daggerTimer = DAGGER.SWING_MS;
         this.daggerAngle = aimAngle;
 
-        const strikes = Save.equippedDaggerStage >= 2 ? 2 : 1;
+        // Stage 2 (Shortsword) trades the second strike idea
+        // for much longer reach; stage 3 (Venom Blade) keeps
+        // the reach and injects venom on top.
+        const range = this.getDaggerRange();
         const venom = Save.equippedDaggerStage >= 3;
 
         const px = this.x + this.size / 2;
@@ -375,7 +386,7 @@ class Ranger extends Player {
             const dy = closestY - py;
             const distance = Math.sqrt(dx * dx + dy * dy);
 
-            if (distance > DAGGER.RANGE)
+            if (distance > range)
                 return;
 
             const angleToEnemy = Math.atan2(dy, dx);
@@ -388,14 +399,10 @@ class Ranger extends Player {
             if (angleDifference > DAGGER.ARC / 2)
                 return;
 
-            for (let s = 0; s < strikes; s++) {
+            const critical = Math.random() < Save.getEquippedCritChance();
+            const damage = critical ? DAGGER.DAMAGE * 2 : DAGGER.DAMAGE;
 
-                const critical = Math.random() < Save.getEquippedCritChance();
-                const damage = critical ? DAGGER.DAMAGE * 2 : DAGGER.DAMAGE;
-
-                enemy.takeDamage(this.applyMark(damage, enemy), critical);
-
-            }
+            enemy.takeDamage(this.applyMark(damage, enemy), critical);
 
             enemy.applyKnockback(px, py, 14);
 
@@ -624,6 +631,10 @@ class Ranger extends Player {
 
         const venom = Save.equippedDaggerStage >= 3;
 
+        // Shortsword/Venom Blade stages read visually longer,
+        // roughly tracking the upgraded reach.
+        const bladeTip = Save.equippedDaggerStage >= 2 ? 90 : 48;
+
         ctx.save();
 
         ctx.translate(
@@ -636,11 +647,11 @@ class Ranger extends Player {
         ctx.shadowBlur = 10;
         ctx.shadowColor = venom ? "#2ecc71" : "#dfe6e9";
 
-        // Short tapered blade
+        // Tapered blade
         ctx.fillStyle = venom ? "#a9dfbf" : "#bdc3c7";
         ctx.beginPath();
         ctx.moveTo(18, -3);
-        ctx.lineTo(48, 0);
+        ctx.lineTo(bladeTip, 0);
         ctx.lineTo(18, 3);
         ctx.closePath();
         ctx.fill();

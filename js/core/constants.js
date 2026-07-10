@@ -188,23 +188,25 @@ const CLOAK = {
 };
 
 // =====================================
-// Ranger - Talon Dagger (staged)
+// Ranger - Dagger line (staged)
 // =====================================
 //
 // Close-range panic button on [E] - the Ranger's version of
 // the Warrior's purchasable bow (the second attack option
-// outside the class weapon). Stage 2 strikes twice per stab,
-// stage 3 injects a venom DoT.
+// outside the class weapon). Talon Dagger -> Shortsword
+// (much longer reach) -> Venom Blade (stabs inject venom:
+// 2 dmg every 0.3s, 6 total).
 
 const DAGGER = {
     RANGE: 95,
+    SHORTSWORD_RANGE: 180, // stage 2+
     ARC: Math.PI * 1.1,
     DAMAGE: 2,
     COOLDOWN: 1500,
     SWING_MS: 150,
-    VENOM_DAMAGE_PER_TICK: 1,
+    VENOM_DAMAGE_PER_TICK: 2,
     VENOM_TICKS: 3,
-    VENOM_TICK_MS: 1000
+    VENOM_TICK_MS: 300
 };
 
 // =====================================
@@ -231,7 +233,9 @@ const EMBER_ARROWS = {
 // fire-rate boost.
 
 const FALCON_QUIVER = {
-    PIERCE: 3
+    // Total enemies one arrow can hit: pierces through the
+    // first target into one more. (Was 3 - too much AOE.)
+    PIERCE: 2
 };
 
 const SWIFTDRAW = {
@@ -434,13 +438,13 @@ const SHOP_ITEMS = {
             return 0;
         },
         get name() {
-            if (Save.daggerStage === 1) return "Twin Talons";
-            if (Save.daggerStage === 2) return "Serpent Fang";
+            if (Save.daggerStage === 1) return "Shortsword";
+            if (Save.daggerStage === 2) return "Venom Blade";
             return "Talon Dagger";
         },
         get desc() {
-            if (Save.daggerStage === 1) return "Dagger strikes twice per stab";
-            if (Save.daggerStage === 2) return "Stabs inject venom — 3 dmg over 3s";
+            if (Save.daggerStage === 1) return "Much longer reach on the stab";
+            if (Save.daggerStage === 2) return "Stabs inject venom — 2 dmg every 0.3s (6 total)";
             return "Press E — 2 dmg close-range stab (1.5s cd)";
         }
     },
@@ -457,7 +461,7 @@ const SHOP_ITEMS = {
         classId: "ranger",
         price: 0,
         name: "Falcon Quiver",
-        desc: "Arrows pierce through up to 3 enemies",
+        desc: "Arrows pierce through 1 enemy",
         requiresFirstBoss: true,
         equippable: true
     },
@@ -887,11 +891,18 @@ const EFFECTS = {
 // =====================================
 // Bestiary
 // =====================================
+//
+// Page 0 of the bestiary is a grid of the normal enemies;
+// every boss then gets its own dedicated page (with lore),
+// flipped through with arrows like the Armoury's class
+// selector.
 
-const BESTIARY_ORDER = [
-    "grunt", "tank", "archer", "runner", "boss", "knight",
-    "fireMage", "necromancer", "skeleton", "lancer", "king"
+const BESTIARY_NORMAL_ORDER = [
+    "grunt", "tank", "archer", "runner",
+    "fireMage", "necromancer", "skeleton", "lancer"
 ];
+
+const BESTIARY_BOSS_ORDER = ["boss", "knight", "king"];
 
 const BESTIARY = {
 
@@ -950,6 +961,7 @@ const BESTIARY = {
         isBoss: true,
         desc: "The wave 5 gatekeeper. Fights up close and at range.",
         behavior: "Fires a radial burst, then dashes at the player.",
+        lore: "Sworn to hold the arena gate long after the kingdom that built it crumbled to dust. He no longer remembers what he is guarding — only that no one may pass. The rusted weapons of a hundred fallen challengers litter the ground before his post.",
         hpAtWave(w) { return BOSS.BASE_HP + w * BOSS.HP_PER_WAVE; },
         hpScale: `${BOSS.BASE_HP} + wave × ${BOSS.HP_PER_WAVE}`,
         baseSpeed: 1.2
@@ -962,6 +974,7 @@ const BESTIARY = {
         isBoss: true,
         desc: "The wave 10 gatekeeper - a boss-tier mirror of yourself.",
         behavior: "Dashes to close distance, then swings a heavy sword.",
+        lore: "The arena's first champion, knighted by the King himself for surviving every wave. When he knelt and begged leave to rest, the King refused. Now he fights on without end — a mirror held up to every challenger who dreams the same dream he once did.",
         hpAtWave(w) { return KNIGHT.BASE_HP + w * KNIGHT.HP_PER_WAVE; },
         hpScale: `${KNIGHT.BASE_HP} + wave × ${KNIGHT.HP_PER_WAVE}`,
         baseSpeed: 3
@@ -1025,6 +1038,7 @@ const BESTIARY = {
         isBoss: true,
         desc: "The arena's ruler. A multi-phase nightmare.",
         behavior: "Laser bursts, greatsword slashes, and elite summons at half HP.",
+        lore: "The mad monarch who turned his own throne room into an arena for his amusement. Wave after wave he watches from above, bored of victories bought with other men's blood. Those his soldiers cannot break, he descends to break himself — greatsword in hand, crown ablaze.",
         hpAtWave(w) { return KING.HP; },
         hpScale: `${KING.HP} (fixed)`,
         baseSpeed: 0.8
