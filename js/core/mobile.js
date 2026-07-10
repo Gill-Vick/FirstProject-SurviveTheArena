@@ -106,14 +106,14 @@ function initMobileControls() {
     bindTapButton(bowBtn, () => {
 
         if (Game.state === "playing")
-            player.fireBow();
+            player.onAbilityKey();
 
     });
 
     bindTapButton(laserBtn, () => {
 
         if (Game.state === "playing")
-            player.fireKingsBladeLaser();
+            player.onSecondaryFire();
 
     });
 
@@ -138,15 +138,33 @@ function updateMobileUIVisibility() {
     if (root)
         root.style.display = Game.state === "playing" ? "block" : "none";
 
+    // Ability buttons defer to the current class instance -
+    // which button exists (and what it's called) depends on
+    // the class's kit. player only exists mid-run, but that's
+    // exactly when the buttons are visible anyway.
+    const inRun = Game.state === "playing" && typeof player !== "undefined" && player;
+
     const bowBtn = document.getElementById("bowBtn");
 
-    if (bowBtn)
-        bowBtn.style.display = Save.isEquipped("bow") ? "flex" : "none";
+    if (bowBtn) {
+
+        bowBtn.style.display = inRun && player.hasAbilityButton() ? "flex" : "none";
+
+        if (inRun)
+            bowBtn.textContent = player.getAbilityButtonLabel();
+
+    }
 
     const laserBtn = document.getElementById("laserBtn");
 
-    if (laserBtn)
-        laserBtn.style.display = Save.isEquipped("kingsBlade") ? "flex" : "none";
+    if (laserBtn) {
+
+        laserBtn.style.display = inRun && player.hasSecondaryButton() ? "flex" : "none";
+
+        if (inRun)
+            laserBtn.textContent = player.getSecondaryButtonLabel();
+
+    }
 
     requestAnimationFrame(updateMobileUIVisibility);
 
@@ -280,13 +298,11 @@ function bindTapButton(el, onTap) {
 // window.innerWidth as a wide desktop-emulated layout width
 // (~980px) instead of the phone's real width.
 //
-// canvas.width/height are set to the real device pixel
-// dimensions here - every menu, HUD, shop, and bestiary
-// layout in ui.js is computed as a percentage of whatever
-// canvas.width/height actually are (see the pw()/ph() helpers
-// there), so there's no need for the canvas itself to fake a
-// fixed "desktop-sized" resolution anymore. Whatever real size
-// the canvas ends up being, the UI scales itself to fit it.
+// Actual canvas sizing lives in syncCanvasResolution()
+// (game.js) - on touch devices it renders at a fixed logical
+// height and CSS-stretches to the screen, so entities keep
+// sane proportions. resyncCanvasSize() below just re-runs it
+// once the viewport has settled after a rotation.
 
 function ensureViewportMeta() {
 
@@ -315,8 +331,7 @@ function ensureViewportMeta() {
 
 function resyncCanvasSize() {
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    syncCanvasResolution();
 
 }
 

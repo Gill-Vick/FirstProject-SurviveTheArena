@@ -11,10 +11,62 @@ menuBackground.src = "MainMenu.png";
 const playerSprite = new Image();
 playerSprite.src = "Player_Knight.png";
 
-ctx.imageSmoothingEnabled = false;
+// =====================================
+// Canvas Resolution
+// =====================================
+//
+// Desktop: the canvas's logical resolution simply matches the
+// window, 1:1.
+//
+// Touch devices: every entity (player, enemies, projectiles,
+// hazards) is sized/moved in absolute logical pixels, so if
+// the canvas resolution matched a phone's small viewport the
+// entities would tower over the screen (a 40px player is ~4%
+// of a desktop window's height but ~10% of a phone's). Fix:
+// render at a fixed logical HEIGHT (with the width derived
+// from the screen's real aspect ratio so nothing distorts)
+// and stretch the canvas to the screen with CSS. Entities
+// then occupy the same fraction of the screen as on a 720px
+// desktop window, and getCanvasCoords() in input.js already
+// maps clicks/taps between CSS size and logical resolution.
+// The UI never notices - all of ui.js is laid out in
+// percentages of canvas.width/height.
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+const MOBILE_LOGICAL_HEIGHT = 720;
+
+function syncCanvasResolution() {
+
+    const touch =
+        ("ontouchstart" in window) || navigator.maxTouchPoints > 0;
+
+    if (touch) {
+
+        const aspect = window.innerWidth / window.innerHeight;
+
+        canvas.height = MOBILE_LOGICAL_HEIGHT;
+        canvas.width = Math.round(MOBILE_LOGICAL_HEIGHT * aspect);
+
+        canvas.style.width = window.innerWidth + "px";
+        canvas.style.height = window.innerHeight + "px";
+
+    } else {
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        canvas.style.width = "";
+        canvas.style.height = "";
+
+    }
+
+    // Assigning canvas.width/height resets the 2d context's
+    // state, including imageSmoothingEnabled - re-disable it
+    // here (after sizing) so the pixel-art sprites stay crisp.
+    ctx.imageSmoothingEnabled = false;
+
+}
+
+syncCanvasResolution();
 
 // =====================================
 // Main Game Object
@@ -41,6 +93,18 @@ const Game = {
     shopCritDragging: false,
 
     shopLocketDragging: false,
+
+    // Which staged item's stage picker is being dragged
+    // (item id string), or null. See handleMenuMouseDown.
+    shopStageDragging: null,
+
+    // Armoury list scroll offset in logical px (0 = top).
+    // Driven by the mouse wheel / touch drag in input.js.
+    armouryScroll: 0,
+
+    // Bestiary page: 0 = the creatures grid, 1..N = one
+    // dedicated page per boss (see BESTIARY_BOSS_ORDER).
+    bestiaryPage: 0,
 
     // Who/what killed the player, shown on the game over
     // screen (e.g. "a Grunt", "the King").
@@ -164,6 +228,13 @@ class SpawnWarning {
 
 let player;
 
+// Constructor registry for playable classes, keyed by the
+// ids in CLASSES (constants.js). Each class file
+// (entities/warrior.js, entities/ranger.js) registers
+// itself here when it loads.
+
+const PLAYER_CLASSES = {};
+
 // =====================================
 // Game Functions
 // =====================================
@@ -200,7 +271,12 @@ function startGame() {
 
     Game.spawnTelegraphs = [];
 
-    player = new Player();
+    // Whichever class the Armoury last showed is the class
+    // this run plays as (see Save.selectedClass).
+    const PlayerClass =
+        PLAYER_CLASSES[Save.selectedClass] ?? PLAYER_CLASSES.warrior;
+
+    player = new PlayerClass();
 
     generateArena();
 
@@ -238,6 +314,10 @@ function resetGame() {
     Game.menuView = "main";
 
     Game.bestiarySelected = null;
+
+    Game.bestiaryPage = 0;
+
+    Game.armouryScroll = 0;
 
     Game.shopCritDragging = false;
 
