@@ -73,7 +73,9 @@ const Save = {
         thiefsWit: false,
         voidEnchant: false,
         masterOfBlade: false,
-        serratedBlade: false
+        serratedBlade: false,
+        pocketWatch: false,
+        moonlightDaggers: false
     },
 
     equipped: {
@@ -97,7 +99,9 @@ const Save = {
         thiefsWit: false,
         voidEnchant: false,
         masterOfBlade: false,
-        serratedBlade: false
+        serratedBlade: false,
+        pocketWatch: false,
+        moonlightDaggers: false
     },
 
     bestiaryUnlocked: {},
@@ -256,15 +260,9 @@ const Save = {
 
     },
 
-    // How many purchasable stages an item actually has. Bow/
-    // shield/cloak/bracelet have a real 3rd stage; dagger and
-    // throwing knife only have 2 named upgrades (their 3rd
-    // slider segment is unreachable - equipping is clamped to
-    // the owned stage, same as any other partially-owned item).
+    // How many purchasable stages an item actually has. Every
+    // staged item currently follows the same 3-stage shape.
     getMaxStage(itemId) {
-
-        if (itemId === "dagger" || itemId === "throwingKnife")
-            return 2;
 
         return 3;
 

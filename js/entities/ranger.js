@@ -275,7 +275,7 @@ class Ranger extends Player {
 
     getDaggerRange() {
 
-        return Save.equippedDaggerStage >= 1
+        return Save.equippedDaggerStage >= 2
             ? DAGGER.SHORTSWORD_RANGE
             : DAGGER.RANGE;
 
@@ -295,11 +295,11 @@ class Ranger extends Player {
         this.daggerTimer = DAGGER.SWING_MS;
         this.daggerAngle = aimAngle;
 
-        // Stage 1 (Shortsword) extends the reach; stage 2
-        // (Venom Blade) keeps that reach and injects venom
-        // on top.
+        // Stage 1 (Talon Dagger) is the base stab; stage 2
+        // (Shortsword) extends the reach; stage 3 (Venom
+        // Blade) keeps that reach and injects venom on top.
         const range = this.getDaggerRange();
-        const venom = Save.equippedDaggerStage >= 2;
+        const venom = Save.equippedDaggerStage >= 3;
 
         const px = this.x + this.size / 2;
         const py = this.y + this.size / 2;
@@ -558,11 +558,11 @@ class Ranger extends Player {
         const arc = DAGGER.ARC;
         const angle = this.daggerAngle - arc / 2 + arc * progress;
 
-        const venom = Save.equippedDaggerStage >= 2;
+        const venom = Save.equippedDaggerStage >= 3;
 
         // Shortsword/Venom Blade stages read visually longer,
         // roughly tracking the upgraded reach.
-        const bladeTip = Save.equippedDaggerStage >= 1 ? 90 : 48;
+        const bladeTip = Save.equippedDaggerStage >= 2 ? 90 : 48;
 
         ctx.save();
 

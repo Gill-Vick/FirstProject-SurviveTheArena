@@ -303,16 +303,21 @@ const CLOAK = {
 //
 // The Thief's primary attack, like the Ranger's bow - a much
 // shorter, much faster version of the Warrior's sword swing:
-// 60% of the sword's reach, but the swing itself is twice as
-// fast. Base damage mirrors the sword's own 1 dmg baseline,
-// doubled by the Serrated Blade the same way Wet Stone
-// doubles the sword's.
+// 60% of the sword's reach, and noticeably faster to swing
+// (though eased back a smidge from a flat 2x). Base damage
+// mirrors the sword's own 1 dmg baseline, doubled by the
+// Serrated Blade the same way Wet Stone doubles the sword's.
+//
+// Visually the Thief wields two daggers, alternating sides
+// each swing (left, then right) - SIDE_OFFSET is how far off
+// the aim angle each blade is drawn.
 
 const THIEF_DAGGER = {
     RANGE: Math.round(SWORD.LENGTH * 0.6),
     ARC: SWORD.ARC,
     DAMAGE: 1,
-    SWING_DURATION: SWORD.DURATION / 2
+    SWING_DURATION: SWORD.DURATION * 0.6,
+    SIDE_OFFSET: 0.18
 };
 
 // =====================================
@@ -399,6 +404,37 @@ const SERRATED_BLADE = {
 };
 
 // =====================================
+// Thief - Thief's Pocket Watch (Knight tier)
+// =====================================
+//
+// Every landed hit (dagger, storm burst, knife, dash-through)
+// shaves a little off whichever of the Thief's cooldowns are
+// currently ticking - the knife's and the shared dash's.
+
+const POCKET_WATCH = {
+    COOLDOWN_REDUCTION_MS: 50
+};
+
+// =====================================
+// Thief - Moonlight Daggers (King tier)
+// =====================================
+//
+// The Thief's ultimate: +1 dagger damage (stacks with Serrated
+// Blade), a second dash charge, and every dagger swing leaves
+// a lingering purple flame patch at the point of attack -
+// anyone standing in it takes a tick of damage once a second
+// for as long as it lingers.
+
+const MOONLIGHT_DAGGERS = {
+    BONUS_DAMAGE: 1,
+    TRAIL_RADIUS: 45,
+    TRAIL_DURATION_MS: 3000,
+    TRAIL_TICK_MS: 1000,
+    TRAIL_TICK_DAMAGE: 1,
+    TRAIL_COLOR: "#b967ff"
+};
+
+// =====================================
 // Coin Rewards
 // =====================================
 
@@ -440,7 +476,7 @@ const SHOP_ITEMS = {
         },
         get name() {
             if (Save.equippedShieldStage >= 3) return "Bulwark Shield";
-            if (Save.equippedShieldStage >= 1) return "Onyx Shield";
+            if (Save.equippedShieldStage === 2) return "Onyx Shield";
             return "Wooden Shield";
         },
         get desc() {
@@ -460,13 +496,13 @@ const SHOP_ITEMS = {
             return 0;
         },
         get name() {
-            if (Save.equippedBowStage === 1) return "Multishot I";
-            if (Save.equippedBowStage === 2) return "Multishot II";
+            if (Save.equippedBowStage >= 3) return "Multishot II";
+            if (Save.equippedBowStage === 2) return "Multishot I";
             return "Shortbow";
         },
         get desc() {
-            if (Save.equippedBowStage === 1) return "Bow fires 2 arrows in a fan";
-            if (Save.equippedBowStage === 2) return "Bow fires 3 arrows in a fan";
+            if (Save.equippedBowStage >= 3) return "Bow fires 3 arrows in a fan";
+            if (Save.equippedBowStage === 2) return "Bow fires 2 arrows in a fan";
             return "Press E — 2 dmg arrow (2s cd)";
         }
     },
@@ -537,7 +573,7 @@ const SHOP_ITEMS = {
         },
         get name() {
             if (Save.equippedBraceletStage >= 3) return "Sylph's Bracelet";
-            if (Save.equippedBraceletStage >= 1) return "Wind Bracelet";
+            if (Save.equippedBraceletStage === 2) return "Wind Bracelet";
             return "Iron Bracelet";
         },
         get desc() {
@@ -555,13 +591,13 @@ const SHOP_ITEMS = {
             return 0;
         },
         get name() {
-            if (Save.equippedDaggerStage === 1) return "Shortsword";
-            if (Save.equippedDaggerStage === 2) return "Venom Blade";
+            if (Save.equippedDaggerStage >= 3) return "Venom Blade";
+            if (Save.equippedDaggerStage === 2) return "Shortsword";
             return "Talon Dagger";
         },
         get desc() {
-            if (Save.equippedDaggerStage === 1) return "Much longer reach on the stab";
-            if (Save.equippedDaggerStage === 2) return "Stabs inject venom — 2 dmg every 0.3s (6 total)";
+            if (Save.equippedDaggerStage >= 3) return "Stabs inject venom — 2 dmg every 0.3s (6 total)";
+            if (Save.equippedDaggerStage === 2) return "Much longer reach on the stab";
             return "Press E — 2 dmg close-range stab (1.5s cd)";
         }
     },
@@ -628,7 +664,7 @@ const SHOP_ITEMS = {
         },
         get name() {
             if (Save.equippedCloakStage >= 3) return "Phantom Cloak";
-            if (Save.equippedCloakStage >= 1) return "Shadow Cloak";
+            if (Save.equippedCloakStage === 2) return "Shadow Cloak";
             return "Tattered Cloak";
         },
         get desc() {
@@ -646,13 +682,13 @@ const SHOP_ITEMS = {
             return 0;
         },
         get name() {
-            if (Save.equippedThrowingKnifeStage === 1) return "Wind Knife";
-            if (Save.equippedThrowingKnifeStage === 2) return "Heart Stealer";
+            if (Save.equippedThrowingKnifeStage >= 3) return "Heart Stealer";
+            if (Save.equippedThrowingKnifeStage === 2) return "Wind Knife";
             return "Throwing Knife";
         },
         get desc() {
-            if (Save.equippedThrowingKnifeStage === 1) return "3 dmg, much faster throw";
-            if (Save.equippedThrowingKnifeStage === 2) return "Press E again within 2s to blink to the knife";
+            if (Save.equippedThrowingKnifeStage >= 3) return "Press E again within 2s to blink to the knife";
+            if (Save.equippedThrowingKnifeStage === 2) return "3 dmg, much faster throw";
             return "Press E — 2 dmg slow knife toss";
         }
     },
@@ -689,6 +725,24 @@ const SHOP_ITEMS = {
         name: "Serrated Blade",
         desc: "Dagger deals 1 more base damage",
         requiresKnightKilled: true,
+        equippable: true
+    },
+
+    pocketWatch: {
+        classId: "thief",
+        price: 0,
+        name: "Thief's Pocket Watch",
+        desc: "Landing a hit shaves 0.05s off your active cooldowns",
+        requiresKnightKilled: true,
+        equippable: true
+    },
+
+    moonlightDaggers: {
+        classId: "thief",
+        price: 0,
+        name: "Moonlight Daggers",
+        desc: "+1 dagger dmg, a 2nd dash charge, and swings leave a flame trail (1 dmg/s)",
+        requiresKingKilled: true,
         equippable: true
     },
 

@@ -18,9 +18,10 @@
 //     window blinks the Thief to where it landed)
 //   - Thief's Wit: hits grant a short move/attack speed buff
 //   - Void Enchant / Master of the Blade (Castle Guard tier)
-//   - Serrated Blade (Knight tier): +1 dagger damage
-//
-// No King-tier ultimate exists for this class yet.
+//   - Serrated Blade / Thief's Pocket Watch (Knight tier):
+//     +1 dagger damage / hits shave time off active cooldowns
+//   - Moonlight Daggers (King tier): +1 dagger damage, a 2nd
+//     dash charge, and a lingering flame trail on every swing
 
 class Thief extends Player {
 
@@ -38,6 +39,10 @@ class Thief extends Player {
         // Every completed swing increments this - Master of
         // the Blade triggers on every 3rd one.
         this.daggerSwingCount = 0;
+
+        // Which side the next swing draws its blade from -
+        // alternates -1 (left) / 1 (right) each swing.
+        this.daggerSide = -1;
 
         // Throwing Knife ([E] ability)
 
@@ -58,6 +63,10 @@ class Thief extends Player {
         // Master of the Blade flurries currently ticking.
         this.stormBursts = [];
 
+        // Moonlight Daggers' flame trail patches, one per
+        // swing while equipped.
+        this.flameTrails = [];
+
     }
 
     // =====================================
@@ -67,6 +76,12 @@ class Thief extends Player {
     getCurrentSpeed() {
 
         return this.speed * this.getWitSpeedMultiplier();
+
+    }
+
+    getDashSlotCount() {
+
+        return Save.isEquipped("moonlightDaggers") ? 2 : 1;
 
     }
 
@@ -111,6 +126,8 @@ class Thief extends Player {
         this.updateVoidMarks();
 
         this.updateStormBursts();
+
+        this.updateFlameTrails();
 
     }
 
@@ -268,9 +285,15 @@ class Thief extends Player {
 
     getDaggerDamage() {
 
-        return THIEF_DAGGER.DAMAGE + (
-            Save.isEquipped("serratedBlade") ? SERRATED_BLADE.BONUS_DAMAGE : 0
-        );
+        let damage = THIEF_DAGGER.DAMAGE;
+
+        if (Save.isEquipped("serratedBlade"))
+            damage += SERRATED_BLADE.BONUS_DAMAGE;
+
+        if (Save.isEquipped("moonlightDaggers"))
+            damage += MOONLIGHT_DAGGERS.BONUS_DAMAGE;
+
+        return damage;
 
     }
 
@@ -286,8 +309,15 @@ class Thief extends Player {
 
         this.daggerSwingCount++;
 
+        // Two daggers, alternating sides - left on odd swings,
+        // right on even ones.
+        this.daggerSide = -this.daggerSide;
+
         const px = this.x + this.size / 2;
         const py = this.y + this.size / 2;
+
+        if (Save.isEquipped("moonlightDaggers"))
+            this.spawnFlameTrail(px, py);
 
         let landedHit = false;
 
@@ -356,8 +386,8 @@ class Thief extends Player {
         if (this.knifeCooldown > 0)
             return;
 
-        const upgraded = Save.equippedThrowingKnifeStage >= 1;
-        const heartStealer = Save.equippedThrowingKnifeStage >= 2;
+        const upgraded = Save.equippedThrowingKnifeStage >= 2;
+        const heartStealer = Save.equippedThrowingKnifeStage >= 3;
 
         const damage = upgraded
             ? THROWING_KNIFE.DAMAGE_UPGRADED
@@ -513,6 +543,26 @@ class Thief extends Player {
         if (Save.isEquipped("voidEnchant"))
             this.addVoidDamage(enemy, damage);
 
+        if (Save.isEquipped("pocketWatch"))
+            this.reduceCooldowns(POCKET_WATCH.COOLDOWN_REDUCTION_MS);
+
+    }
+
+    // Thief's Pocket Watch - shaves time off whichever of the
+    // Thief's cooldowns are currently ticking (the knife's and
+    // the shared dash's charges).
+    reduceCooldowns(amountMs) {
+
+        if (this.knifeCooldown > 0)
+            this.knifeCooldown = Math.max(0, this.knifeCooldown - amountMs);
+
+        for (let i = 0; i < this.dashCooldowns.length; i++) {
+
+            if (this.dashCooldowns[i] > 0)
+                this.dashCooldowns[i] = Math.max(0, this.dashCooldowns[i] - amountMs);
+
+        }
+
     }
 
     // =====================================
@@ -666,10 +716,74 @@ class Thief extends Player {
     }
 
     // =====================================
+    // Moonlight Daggers - Flame Trail
+    // =====================================
+    //
+    // Every dagger swing drops a lingering patch at the point
+    // of attack (the player's position at swing time) -
+    // anyone standing inside it takes a tick of damage once a
+    // second for as long as it lasts.
+
+    spawnFlameTrail(x, y) {
+
+        this.flameTrails.push({
+            x,
+            y,
+            timer: MOONLIGHT_DAGGERS.TRAIL_DURATION_MS,
+            tickTimer: MOONLIGHT_DAGGERS.TRAIL_TICK_MS
+        });
+
+    }
+
+    updateFlameTrails() {
+
+        this.flameTrails = this.flameTrails.filter(trail => {
+
+            trail.timer -= Game.dt;
+
+            if (trail.timer <= 0)
+                return false;
+
+            trail.tickTimer -= Game.dt;
+
+            if (trail.tickTimer <= 0) {
+
+                trail.tickTimer += MOONLIGHT_DAGGERS.TRAIL_TICK_MS;
+
+                Game.enemies.forEach(enemy => {
+
+                    const ex = enemy.x + enemy.size / 2;
+                    const ey = enemy.y + enemy.size / 2;
+
+                    const distance = Math.hypot(ex - trail.x, ey - trail.y);
+
+                    if (distance > MOONLIGHT_DAGGERS.TRAIL_RADIUS + enemy.size / 2)
+                        return;
+
+                    enemy.takeDamage(MOONLIGHT_DAGGERS.TRAIL_TICK_DAMAGE);
+
+                    this.onHitLanded(enemy, MOONLIGHT_DAGGERS.TRAIL_TICK_DAMAGE);
+
+                    if (enemy.isDead())
+                        onEnemyKilled(enemy);
+
+                });
+
+            }
+
+            return true;
+
+        });
+
+    }
+
+    // =====================================
     // Drawing
     // =====================================
 
     draw() {
+
+        this.drawFlameTrails();
 
         this.drawBody();
 
@@ -694,33 +808,53 @@ class Thief extends Player {
             this.y + this.size / 2
         );
 
-        // Two short blades, offset slightly to either side of
-        // the swing angle so both daggers read clearly.
-        [-0.18, 0.18].forEach(offset => {
+        // Only the blade on the swing's current side is drawn -
+        // dual daggers strike one at a time, alternating left
+        // and right each swing (see this.daggerSide).
+        ctx.save();
+        ctx.rotate(currentAngle + this.daggerSide * THIEF_DAGGER.SIDE_OFFSET);
+
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = "#dfe6e9";
+
+        ctx.fillStyle = "#bdc3c7";
+        ctx.beginPath();
+        ctx.moveTo(10, -2.5);
+        ctx.lineTo(bladeLength, 0);
+        ctx.lineTo(10, 2.5);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "#3a2a20";
+        ctx.fillRect(0, -2.5, 10, 5);
+
+        ctx.restore();
+
+        ctx.restore();
+
+    }
+
+    drawFlameTrails() {
+
+        this.flameTrails.forEach(trail => {
+
+            const fade = Math.min(1, trail.timer / MOONLIGHT_DAGGERS.TRAIL_DURATION_MS);
 
             ctx.save();
-            ctx.rotate(currentAngle + offset);
 
-            ctx.shadowBlur = 8;
-            ctx.shadowColor = "#dfe6e9";
+            ctx.globalAlpha = 0.5 * fade;
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = MOONLIGHT_DAGGERS.TRAIL_COLOR;
+            ctx.fillStyle = MOONLIGHT_DAGGERS.TRAIL_COLOR;
 
-            ctx.fillStyle = "#bdc3c7";
             ctx.beginPath();
-            ctx.moveTo(10, -2.5);
-            ctx.lineTo(bladeLength, 0);
-            ctx.lineTo(10, 2.5);
-            ctx.closePath();
+            ctx.arc(trail.x, trail.y, MOONLIGHT_DAGGERS.TRAIL_RADIUS, 0, Math.PI * 2);
             ctx.fill();
-
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = "#3a2a20";
-            ctx.fillRect(0, -2.5, 10, 5);
 
             ctx.restore();
 
         });
-
-        ctx.restore();
 
     }
 

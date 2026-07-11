@@ -130,7 +130,7 @@ const SHOP_ITEM_IDS = [
     // Thief
     "cloak", "throwingKnife", "thiefsWit",
     "voidEnchant", "masterOfBlade",
-    "serratedBlade",
+    "serratedBlade", "pocketWatch", "moonlightDaggers",
 
     // Shared
     "critRate"
