@@ -41,10 +41,10 @@ const PLAYER = {
 // =====================================
 
 const SWORD = {
-    LENGTH: 110,
+    LENGTH: 130,
     DURATION: 15,
     ARC: Math.PI * 1.2,
-    DAMAGE: 1,
+    DAMAGE: 2,
     WETSTONE_BONUS: 1
 };
 
@@ -60,12 +60,12 @@ const SWORD = {
 
 const KINGS_BLADE = {
 
-    BASE_DAMAGE: 2,
+    BASE_DAMAGE: 3,
     WETSTONE_BONUS: 1,
 
     // A bit longer than the base sword's 110px, nowhere near
     // the King's own 320px greatsword.
-    LENGTH: 140,
+    LENGTH: 150,
 
     // Right-click laser ability
     LASER_COOLDOWN: 4000,
