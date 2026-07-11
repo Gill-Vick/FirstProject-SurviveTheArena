@@ -112,6 +112,13 @@ const Game = {
 
     wave: 1,
 
+    // True when the current/next run is Boss Rush mode -
+    // waves jump straight from one boss fight to the next
+    // (5, 10, 15, 20, ...) instead of playing the filler
+    // waves in between. See startWave()/updateWave() in
+    // wave.js.
+    bossRush: false,
+
     // Real elapsed ms since the current run started (startGame()),
     // ticked up in update() using Game.dt so it respects
     // GAME_SPEED/timeScale like everything else.
@@ -239,13 +246,15 @@ const PLAYER_CLASSES = {};
 // Game Functions
 // =====================================
 
-function startGame() {
+function startGame(mode = "campaign") {
 
     Game.state = "playing";
 
+    Game.bossRush = mode === "bossRush";
+
     Game.killedBy = null;
 
-    Game.wave = 1;
+    Game.wave = Game.bossRush ? WAVES.BOSS_WAVE : 1;
 
     Game.elapsedTime = 0;
 
@@ -320,6 +329,8 @@ function resetGame() {
     Game.armouryScroll = 0;
 
     Game.shopCritDragging = false;
+
+    Game.bossRush = false;
 
     Game.wave = 1;
 

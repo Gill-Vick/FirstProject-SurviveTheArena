@@ -70,7 +70,16 @@ function startWave() {
 
     updateArenaForWave();
 
-    if (Game.wave === WAVES.BOSS_WAVE) {
+    // Boss Rush skips straight from one boss fight to the
+    // next (Game.wave goes 5, 10, 15, 20, ...) - fold it back
+    // onto the same 1-15 cycle Campaign uses so it keeps
+    // landing on BOSS_WAVE/KNIGHT_WAVE/KING_WAVE and just
+    // repeats (with HP still scaling off the real Game.wave).
+    const cycleWave = Game.bossRush
+        ? ((Game.wave - 1) % WAVES.KING_WAVE) + 1
+        : Game.wave;
+
+    if (cycleWave === WAVES.BOSS_WAVE) {
 
         startBossWave();
 
@@ -78,7 +87,7 @@ function startWave() {
 
     }
 
-    if (Game.wave === WAVES.KNIGHT_WAVE) {
+    if (cycleWave === WAVES.KNIGHT_WAVE) {
 
         startKnightWave();
 
@@ -86,7 +95,7 @@ function startWave() {
 
     }
 
-    if (Game.wave === WAVES.KING_WAVE) {
+    if (cycleWave === WAVES.KING_WAVE) {
 
         startKingWave();
 
@@ -417,7 +426,10 @@ function updateWave() {
         if (Game.state !== "playing")
             return;
 
-        Game.wave++;
+        // Boss Rush jumps a full 5-wave cycle at a time so the
+        // next wave lands on the next boss instead of a filler
+        // wave.
+        Game.wave += Game.bossRush ? WAVES.BOSS_WAVE : 1;
 
         startWave();
 

@@ -95,6 +95,57 @@ function getShopBackButton() {
 
 }
 
+// =====================================
+// Mode Select
+// =====================================
+//
+// Shown after clicking START - two lore cards side by side,
+// Campaign and Boss Rush, sized/positioned as percentages so
+// they reflow with the rest of the menu.
+
+function getModeSelectCardMetrics() {
+
+    return {
+        width: pw(0.3),
+        height: ph(0.5),
+        gap: pw(0.04),
+        y: ph(0.28)
+    };
+
+}
+
+function getCampaignCardButton() {
+
+    const m = getModeSelectCardMetrics();
+
+    return {
+        x: canvas.width / 2 - m.gap / 2 - m.width,
+        y: m.y,
+        width: m.width,
+        height: m.height
+    };
+
+}
+
+function getBossRushCardButton() {
+
+    const m = getModeSelectCardMetrics();
+
+    return {
+        x: canvas.width / 2 + m.gap / 2,
+        y: m.y,
+        width: m.width,
+        height: m.height
+    };
+
+}
+
+function getModeSelectBackButton() {
+
+    return getShopBackButton();
+
+}
+
 function getBestiaryBackButton() {
 
     return getShopBackButton();
@@ -609,6 +660,11 @@ function drawMenu() {
 
     drawCoinDisplay(canvas.width - pw(0.17), ph(0.09), ph(0.032));
 
+    if (Game.menuView === "modeSelect") {
+        drawModeSelect();
+        return;
+    }
+
     if (Game.menuView === "shop") {
         drawShop();
         return;
@@ -629,6 +685,71 @@ function drawMenu() {
     drawButton(getStartButton(), "START", "lime", "black", btnFont);
     drawButton(getShopButton(), "ARMOURY", "#c9a227", "black", btnFont);
     drawButton(getBestiaryButton(), "BESTIARY", "#8B4513", "white", btnFont);
+
+}
+
+function drawModeSelect() {
+
+    ctx.fillStyle = "#ccc";
+    ctx.font = `${ph(0.028)}px Arial`;
+    ctx.textAlign = "center";
+    ctx.fillText("CHOOSE YOUR TRIAL", canvas.width / 2, ph(0.24));
+
+    drawButton(getModeSelectBackButton(), "BACK", "#555", "white", ph(0.024));
+
+    drawModeCard(
+        getCampaignCardButton(),
+        "CAMPAIGN",
+        "The arena as it's always been. Survive the horde " +
+        "wave by wave, and face a boss every five - the " +
+        "Boss, the Knight, the King - as the ranks behind " +
+        "them grow deadlier still.",
+        "lime"
+    );
+
+    drawModeCard(
+        getBossRushCardButton(),
+        "BOSS RUSH",
+        "No grunts. No filler. The Boss, the Knight, and " +
+        "the King, one after another with barely a breath " +
+        "between - and when the King falls, the cycle " +
+        "begins again, harder than before.",
+        "#c0392b"
+    );
+
+}
+
+function drawModeCard(card, title, lore, accent) {
+
+    ctx.fillStyle = "rgba(15, 15, 15, 0.7)";
+    ctx.fillRect(card.x, card.y, card.width, card.height);
+
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = Math.max(3, ph(0.006));
+    ctx.strokeRect(card.x, card.y, card.width, card.height);
+
+    ctx.fillStyle = accent;
+    ctx.font = `bold ${ph(0.034)}px Arial`;
+    ctx.textAlign = "center";
+    ctx.fillText(title, card.x + card.width / 2, card.y + ph(0.075));
+
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(card.x + pw(0.02), card.y + ph(0.11));
+    ctx.lineTo(card.x + card.width - pw(0.02), card.y + ph(0.11));
+    ctx.stroke();
+
+    ctx.fillStyle = "#e8d9b8";
+    ctx.font = `italic ${ph(0.021)}px Georgia, serif`;
+    ctx.textAlign = "left";
+    wrapText(
+        lore,
+        card.x + pw(0.02),
+        card.y + ph(0.16),
+        card.width - pw(0.04),
+        ph(0.032)
+    );
 
 }
 
@@ -1149,6 +1270,27 @@ function drawBestiaryDetail() {
 
 function handleMenuClick(x, y) {
 
+    if (Game.menuView === "modeSelect") {
+
+        if (hitRect(getModeSelectBackButton(), x, y)) {
+            Game.menuView = "main";
+            return;
+        }
+
+        if (hitRect(getCampaignCardButton(), x, y)) {
+            startGame("campaign");
+            return;
+        }
+
+        if (hitRect(getBossRushCardButton(), x, y)) {
+            startGame("bossRush");
+            return;
+        }
+
+        return;
+
+    }
+
     if (Game.menuView === "shop") {
 
         if (hitRect(getShopBackButton(), x, y)) {
@@ -1251,8 +1393,10 @@ function handleMenuClick(x, y) {
 
     }
 
-    if (hitRect(getStartButton(), x, y))
-        startGame();
+    if (hitRect(getStartButton(), x, y)) {
+        Game.menuView = "modeSelect";
+        return;
+    }
 
     if (hitRect(getShopButton(), x, y)) {
         Game.menuView = "shop";
