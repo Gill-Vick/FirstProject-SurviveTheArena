@@ -613,7 +613,7 @@ function drawLightingSystem() {
         // starts near-black with a cold blue cast, and the
         // base torches carve out the only pools of light. ----
 
-        ctx.fillStyle = "rgba(6, 8, 20, 0.84)";
+        ctx.fillStyle = "rgba(4, 5, 14, 0.93)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         const pulse = Math.sin(Date.now() / 90) * 6;
@@ -647,6 +647,21 @@ function drawLightingSystem() {
             ctx.fill();
 
         });
+
+        // A small moonbeam spotlight dead center - a cool
+        // pale pool so the middle of the room isn't a total
+        // void, contrasting the warm torch pools at the edges.
+        const spot = getNightSpotlight();
+
+        let moon = ctx.createRadialGradient(spot.x, spot.y, 0, spot.x, spot.y, spot.radius);
+        moon.addColorStop(0, "rgba(190, 210, 255, 0.4)");
+        moon.addColorStop(0.6, "rgba(170, 195, 250, 0.18)");
+        moon.addColorStop(1, "rgba(160, 185, 245, 0)");
+
+        ctx.fillStyle = moon;
+        ctx.beginPath();
+        ctx.arc(spot.x, spot.y, spot.radius, 0, Math.PI * 2);
+        ctx.fill();
 
         ctx.restore();
         return;
@@ -799,6 +814,20 @@ function drawLightingSystem() {
 
 }
 
+// Single source of truth for the night arena's center
+// spotlight - the floor glow and the veil hole both read
+// from this so they can never drift apart.
+
+function getNightSpotlight() {
+
+    return {
+        x: canvas.width / 2,
+        y: canvas.height / 2,
+        radius: 150 + Math.sin(Date.now() / 400) * 5
+    };
+
+}
+
 // =====================================
 // NIGHT VEIL (entity darkness)
 // =====================================
@@ -836,7 +865,7 @@ function drawNightVeil() {
 
     vctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    vctx.fillStyle = "rgba(4, 6, 16, 0.62)";
+    vctx.fillStyle = "rgba(3, 4, 12, 0.9)";
     vctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Punch a flickering hole of visibility around each torch:
@@ -862,6 +891,19 @@ function drawNightVeil() {
         vctx.fill();
 
     });
+
+    // Matching visibility hole under the center spotlight.
+    const spot = getNightSpotlight();
+
+    let spotHole = vctx.createRadialGradient(spot.x, spot.y, 0, spot.x, spot.y, spot.radius);
+    spotHole.addColorStop(0, "rgba(0, 0, 0, 1)");
+    spotHole.addColorStop(0.5, "rgba(0, 0, 0, 0.85)");
+    spotHole.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+    vctx.fillStyle = spotHole;
+    vctx.beginPath();
+    vctx.arc(spot.x, spot.y, spot.radius, 0, Math.PI * 2);
+    vctx.fill();
 
     vctx.globalCompositeOperation = "source-over";
 
