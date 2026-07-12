@@ -368,8 +368,8 @@ const SHOP_ITEM_IDS = [
 
     // Warrior
     "shield", "bow",
-    "wetStone", "circleStrike", "hermesShoes", "kingsBlade",
-    "knightLocket", "windrunnerAnklet",
+    "wetStone", "circleStrike", "hermesShoes",
+    "knightLocket", "windrunnerAnklet", "kingsBlade",
 
     // Ranger
     "bracelet", "dagger", "emberArrows",
