@@ -64,18 +64,20 @@ const WAVE_ORDER_SET2 = [
     "tank", "necromancer", "fireMage", "lancer", "runner", "archer"
 ];
 
-// Clerics arrive right behind the tanks they want to heal;
-// kegs trickle in late, during the chaos.
-const WAVE_ORDER_SET3 = [
-    "tank", "bloodCleric", "frostWeaver", "necromancer",
-    "fireMage", "shade", "lancer", "powderKeg",
-    "runner", "archer"
+// Set 3 spawns in GROUPS, not a strict one-type-at-a-time
+// sequence: every type in a group starts spawning together
+// (each on its own cadence), and the next group begins once
+// the longest spawner in the current one has finished. Any
+// set-3 type not listed here joins the final group. See
+// spawnWaveEnemiesGrouped().
+const SET3_SPAWN_GROUPS = [
+    ["tank", "grunt"],
+    ["lancer", "powderKeg", "bloodCleric"],
+    ["necromancer", "fireMage", "frostWeaver"],
+    ["shade", "runner", "archer"]
 ];
 
 function getSpawnOrder() {
-
-    if (Game.wave >= WAVES.SET3_START)
-        return WAVE_ORDER_SET3;
 
     return Game.wave >= WAVES.SET2_START
         ? WAVE_ORDER_SET2
@@ -244,7 +246,96 @@ function startNormalWave() {
     Game.enemiesRemaining = Object.values(counts)
         .reduce((a, b) => a + b, 0);
 
-    spawnWaveEnemies(counts);
+    if (Game.wave >= WAVES.SET3_START)
+        spawnWaveEnemiesGrouped(counts);
+    else
+        spawnWaveEnemies(counts);
+
+}
+
+// Set-3 spawner: walks SET3_SPAWN_GROUPS in order. All types
+// in a group spawn concurrently (interleaved on their own
+// SPAWN_GAP cadences); the next group starts after the
+// current group's slowest spawner finishes, plus the usual
+// transition beat. Unlisted types are folded into the last
+// group.
+
+function spawnWaveEnemiesGrouped(counts) {
+
+    const totalCount = Object.values(counts)
+        .reduce((a, b) => a + b, 0);
+
+    if (totalCount === 0) {
+
+        Game.waveSpawning = false;
+
+        return;
+
+    }
+
+    const token = Game.runToken;
+
+    let pending = totalCount;
+
+    function finishOne() {
+
+        pending--;
+
+        if (pending <= 0)
+            Game.waveSpawning = false;
+
+    }
+
+    const listed = new Set(SET3_SPAWN_GROUPS.flat());
+
+    const extras = Object.keys(counts)
+        .filter(type => !listed.has(type) && counts[type] > 0);
+
+    const groups = SET3_SPAWN_GROUPS.map((group, i) =>
+        i === SET3_SPAWN_GROUPS.length - 1
+            ? [...group, ...extras]
+            : group
+    );
+
+    let groupStart = 0;
+
+    groups.forEach(group => {
+
+        let groupSpan = 0;
+
+        group.forEach(type => {
+
+            const count = counts[type] || 0;
+
+            if (count === 0)
+                return;
+
+            const gap = SPAWN_GAP[type] || 400;
+
+            for (let i = 0; i < count; i++) {
+
+                setTimeout(() => {
+
+                    if (Game.runToken !== token)
+                        return;
+
+                    if (isRunActive())
+                        spawnEnemy(type);
+
+                    finishOne();
+
+                }, groupStart + i * gap);
+
+            }
+
+            groupSpan = Math.max(groupSpan, count * gap);
+
+        });
+
+        if (groupSpan > 0)
+            groupStart += groupSpan + WAVES.TYPE_TRANSITION_GAP;
+
+    });
 
 }
 

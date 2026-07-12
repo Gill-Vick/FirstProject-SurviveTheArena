@@ -174,6 +174,122 @@ class FrostZone {
 }
 
 // =====================================
+// Keg Kill Zone
+// =====================================
+//
+// Left behind by every powder keg explosion: the blast
+// scorches its full radius into ground that stays lethal to
+// the player for the REST OF THE WAVE - it only dies when the
+// wave is cleared (or torn down by a custom-mode jump). Every
+// keg that goes off permanently shrinks the safe area, so
+// where you let kegs die becomes a wave-long decision.
+// Player-only: enemies walk it freely.
+
+class KegKillZone {
+
+    constructor(x, y) {
+
+        this.x = x;
+        this.y = y;
+        this.radius = ENEMY_TYPES.powderKeg.EXPLOSION_RADIUS;
+        this.tickTimer = 0;
+        this.age = 0;
+
+        // Bound to the wave it was born in.
+        this.wave = Game.wave;
+
+        // Ember positions rolled once so they smolder in
+        // place instead of teleporting every frame.
+        this.embers = [];
+
+        for (let i = 0; i < 9; i++) {
+
+            const a = Math.random() * Math.PI * 2;
+            const r = Math.sqrt(Math.random()) * this.radius * 0.8;
+
+            this.embers.push({
+                x: this.x + Math.cos(a) * r,
+                y: this.y + Math.sin(a) * r,
+                phase: Math.random() * Math.PI * 2
+            });
+
+        }
+
+    }
+
+    update() {
+
+        this.age += Game.dt;
+        this.tickTimer -= Game.dt;
+
+        if (this.tickTimer <= 0) {
+
+            this.tickTimer = ENEMY_TYPES.powderKeg.KILL_ZONE_TICK;
+
+            const px = player.x + player.size / 2;
+            const py = player.y + player.size / 2;
+
+            if (Math.hypot(px - this.x, py - this.y) < this.radius)
+                player.takeHit(ENEMY_LABELS.powderKeg);
+
+        }
+
+    }
+
+    isDead() {
+
+        // Dies with its wave: cleared, or replaced by a jump.
+        return !Game.waveActive || this.wave !== Game.wave;
+
+    }
+
+    draw() {
+
+        const grow = Math.min(1, this.age / 300);
+        const flicker = 0.85 + Math.sin(Date.now() / 110) * 0.15;
+
+        ctx.save();
+
+        // Scorched crater.
+        let scorch = ctx.createRadialGradient(
+            this.x, this.y, this.radius * 0.15,
+            this.x, this.y, this.radius * grow
+        );
+        scorch.addColorStop(0, "rgba(30, 12, 6, 0.55)");
+        scorch.addColorStop(0.65, "rgba(60, 20, 8, 0.4)");
+        scorch.addColorStop(1, "rgba(90, 30, 10, 0.12)");
+
+        ctx.fillStyle = scorch;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius * grow, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Smoldering rim so the lethal edge reads clearly.
+        ctx.strokeStyle = `rgba(255, 90, 20, ${0.4 * flicker})`;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius * grow, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Embers glowing in the ash.
+        this.embers.forEach(e => {
+
+            const glow = 0.35 + Math.sin(Date.now() / 160 + e.phase) * 0.3;
+
+            ctx.fillStyle = `rgba(255, 120, 30, ${Math.max(0, glow)})`;
+            ctx.beginPath();
+            ctx.arc(e.x, e.y, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+        });
+
+        ctx.restore();
+
+    }
+
+}
+
+// =====================================
 // Burning Ground
 // =====================================
 

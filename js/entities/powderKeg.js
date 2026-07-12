@@ -156,6 +156,10 @@ class PowderKeg extends Enemy {
 
         Game.screenShake = Math.max(Game.screenShake, 10);
 
+        // The blast scorches its radius into a kill zone that
+        // stays lethal to the player until the wave ends.
+        Game.hazards.push(new KegKillZone(cx, cy));
+
         onEnemyKilled(this);
 
     }

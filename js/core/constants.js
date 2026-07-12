@@ -999,7 +999,13 @@ const ENEMY_TYPES = {
         TRIGGER_RANGE: 90,
         FUSE_TIME: 550,
         EXPLOSION_RADIUS: 110,
-        EXPLOSION_ENEMY_DAMAGE: 3
+        EXPLOSION_ENEMY_DAMAGE: 3,
+
+        // The blast scorches the ground into a kill zone that
+        // stays lethal to the player until the wave is over -
+        // every keg that goes off permanently (for the wave)
+        // shrinks the safe area.
+        KILL_ZONE_TICK: 500
 
     },
 
@@ -1013,9 +1019,12 @@ const ENEMY_TYPES = {
         // Heal channel: picks the most-injured non-boss ally,
         // tethers to it for CHANNEL_TIME, then heals it. If
         // nobody's hurt, wards a nearby ally with a 1-hit
-        // shield instead.
-        HEAL_COOLDOWN: 3000,
-        CHANNEL_TIME: 1000,
+        // shield instead. The channel target is invincible
+        // while the tether holds (see healShieldTimer in
+        // enemy.js) - kill the cleric to break it.
+        HEAL_COOLDOWN: 800,
+        CHANNEL_TIME: 350,
+        RETRY_BEAT: 400,
         HEAL_AMOUNT: 2,
         ELITE_HEAL_AMOUNT: 3,
         WARD_RANGE: 250

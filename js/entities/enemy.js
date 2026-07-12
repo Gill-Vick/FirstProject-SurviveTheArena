@@ -29,6 +29,12 @@ class Enemy {
         // to opt out entirely, same pattern as knockbackImmune.
         this.charmTimer = 0;
 
+        // Blood Cleric heal channel - re-asserted every frame
+        // by the channeling cleric, so it expires on its own
+        // moments after the cleric dies or drops the tether.
+        // While > 0 this enemy cannot be damaged.
+        this.healShieldTimer = 0;
+
     }
 
     update() {
@@ -53,6 +59,9 @@ class Enemy {
 
         if (this.charmTimer > 0)
             this.charmTimer -= Game.dt;
+
+        if (this.healShieldTimer > 0)
+            this.healShieldTimer -= Game.dt;
 
         this.move();
 
@@ -150,11 +159,12 @@ class Enemy {
 
     takeDamage(amount, crit = false) {
 
-        // Royal Magus honor guard - untouchable while their
-        // master lives (the Magus kills them himself when he
-        // falls; see RoyalMagus.takeDamage). Hits still spark
-        // so the player can feel them bounce off.
-        if (this.damageImmune) {
+        // Royal Magus honor guard (untouchable while their
+        // master lives - see RoyalMagus.takeDamage) and Blood
+        // Cleric heal targets (invincible while the tether
+        // holds). Hits still spark so the player can feel
+        // them bounce off.
+        if (this.damageImmune || this.healShieldTimer > 0) {
 
             this.flashTimer = 3;
 

@@ -101,6 +101,11 @@ class BloodCleric extends Enemy {
 
             }
 
+            // The tether shields its target: re-asserted every
+            // frame so it collapses on its own right after the
+            // cleric dies or drops the channel.
+            this.healTarget.healShieldTimer = 250;
+
             this.channelTimer -= Game.dt;
 
             if (this.channelTimer <= 0) {
@@ -202,7 +207,7 @@ class BloodCleric extends Enemy {
 
         // Short retry beat either way so it re-evaluates soon
         // without scanning every frame.
-        this.healCooldown = 1000;
+        this.healCooldown = C.RETRY_BEAT;
 
     }
 
