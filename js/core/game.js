@@ -318,6 +318,15 @@ function startGame(mode = "campaign") {
 
 function onEnemyKilled(enemy) {
 
+    // One credit per corpse. Two damage sources can both see
+    // the same enemy dead in a single frame (e.g. an AoE that
+    // kills the Royal Magus, whose death then fells his guard
+    // mid-loop) - the second call must not double-count.
+    if (enemy.killCredited)
+        return;
+
+    enemy.killCredited = true;
+
     Game.enemiesRemaining--;
 
     const reward = COINS[enemy.type] ?? COINS.grunt;

@@ -18,6 +18,7 @@ const ENEMY_CLASSES = {
     powderKeg: PowderKeg,
     bloodCleric: BloodCleric,
     knight: Knight,
+    royalMagus: RoyalMagus,
     king: King
 
 };
@@ -37,13 +38,14 @@ const SPAWN_GAP = {
     powderKeg: 350,
     bloodCleric: 900,
     knight: 500,
+    royalMagus: 500,
     king: 500
 
 };
 
 // An elite 1-HP bomb is just noise, so kegs stay normal.
 const NO_ELITE = new Set([
-    "boss", "knight", "king", "powderKeg"
+    "boss", "knight", "royalMagus", "king", "powderKeg"
 ]);
 
 // =====================================
@@ -92,9 +94,10 @@ function startWave() {
 
     // Boss Rush skips straight from one boss fight to the
     // next (Game.wave goes 5, 10, 15, 20, ...) - fold it back
-    // onto the same 1-15 cycle Campaign uses so it keeps
-    // landing on BOSS_WAVE/KNIGHT_WAVE/KING_WAVE and just
-    // repeats (with HP still scaling off the real Game.wave).
+    // onto the same 1-20 cycle Campaign uses so it keeps
+    // landing on BOSS_WAVE/KNIGHT_WAVE/MAGUS_WAVE/KING_WAVE
+    // and just repeats (with HP still scaling off the real
+    // Game.wave).
     const cycleWave = Game.bossRush
         ? ((Game.wave - 1) % WAVES.KING_WAVE) + 1
         : Game.wave;
@@ -110,6 +113,14 @@ function startWave() {
     if (cycleWave === WAVES.KNIGHT_WAVE) {
 
         startKnightWave();
+
+        return;
+
+    }
+
+    if (cycleWave === WAVES.MAGUS_WAVE) {
+
+        startMagusWave();
 
         return;
 
@@ -184,7 +195,8 @@ function getSet2Counts() {
 // Set 3 (waves 11+): hand-tuned counts per wave rather than a
 // formula - the full roster is present from 11, with each
 // wave shifting which unit dominates. Waves past 14 reuse the
-// wave-14 row (wave 15 is the King anyway).
+// wave-14 row (15 is the Royal Magus, 20 the King; the filler
+// waves between them just repeat the wave-14 mix).
 
 const SET3_WAVE_COUNTS = {
     11: { powderKeg: 2, frostWeaver: 1, shade: 1, bloodCleric: 1 },
@@ -264,6 +276,90 @@ function startKnightWave() {
         Game.waveSpawning = false;
 
     }, 600);
+
+}
+
+// =====================================
+// Royal Magus (wave 15)
+// =====================================
+//
+// The Magus walks in like the other bosses, then his honor
+// guard files in behind him: a frost weaver on the left wall
+// and a fire mage on the right, one pair per ESCORT_GAP ms.
+// Escorts are given a `station` post (see moveTowardStation
+// in enemy.js) so they walk to the wall and hold it for the
+// whole fight - and since both types already cast at the
+// player from any distance, holding the wall doesn't blunt
+// them at all.
+
+function startMagusWave() {
+
+    Game.enemiesRemaining = 1 + MAGUS.ESCORT_PER_SIDE * 2;
+
+    const token = Game.runToken;
+
+    setTimeout(() => {
+
+        if (Game.runToken !== token || !isRunActive())
+            return;
+
+        spawnEnemy("royalMagus");
+
+    }, 600);
+
+    for (let i = 0; i < MAGUS.ESCORT_PER_SIDE; i++) {
+
+        const frac = (i + 1) / (MAGUS.ESCORT_PER_SIDE + 1);
+        const isLast = i === MAGUS.ESCORT_PER_SIDE - 1;
+
+        setTimeout(() => {
+
+            if (Game.runToken !== token || !isRunActive())
+                return;
+
+            spawnMagusEscort("frostWeaver", -1, frac);
+            spawnMagusEscort("fireMage", 1, frac);
+
+            if (isLast)
+                Game.waveSpawning = false;
+
+        }, 1200 + i * MAGUS.ESCORT_GAP);
+
+    }
+
+}
+
+// side -1 = left wall, +1 = right wall. Spawns just off that
+// edge and stations the enemy a step inside it, at `frac` of
+// the arena's height.
+
+function spawnMagusEscort(type, side, frac) {
+
+    const size = getEnemySize(type);
+
+    const y = canvas.height * frac - size / 2;
+    const x = side < 0 ? -size * 2 : canvas.width + size;
+
+    const EnemyClass = ENEMY_CLASSES[type];
+    const enemy = new EnemyClass(x, y);
+
+    // Shielded by their master: untouchable while the Magus
+    // lives, and they fall the instant he does (see
+    // RoyalMagus.takeDamage / Enemy.takeDamage).
+    enemy.magusGuard = true;
+    enemy.damageImmune = true;
+
+    // Stationed just inside the pillar clusters at the arena
+    // edges - any closer to the wall and the foreground
+    // pillars would draw over them.
+    const inset = canvas.width * 0.115;
+
+    enemy.station = {
+        x: side < 0 ? inset : canvas.width - size - inset,
+        y
+    };
+
+    Game.enemies.push(enemy);
 
 }
 
@@ -413,6 +509,9 @@ function getEnemySize(type) {
 
     if (type === "knight")
         return KNIGHT.SIZE;
+
+    if (type === "royalMagus")
+        return MAGUS.SIZE;
 
     if (type === "king")
         return KING.SIZE;

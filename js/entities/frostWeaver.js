@@ -35,6 +35,10 @@ class FrostWeaver extends Enemy {
     // Same keep-at-range drift as the fire mage.
     move() {
 
+        // Royal Magus honor guard holds its wall post.
+        if (this.moveTowardStation())
+            return;
+
         const dx = player.x - this.x;
         const dy = player.y - this.y;
         const distance = Math.sqrt(dx * dx + dy * dy);

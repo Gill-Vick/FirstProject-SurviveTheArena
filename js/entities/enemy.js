@@ -82,6 +82,34 @@ class Enemy {
 
     }
 
+    // Boss-fight escort behavior (Royal Magus): an enemy with
+    // a `station` point walks to its post, then holds it
+    // forever - it never chases or kites. Returns true when it
+    // has taken over movement, so a subclass's move() can bail
+    // out early. Their ranged attacks are unaffected (fire
+    // mages / frost weavers already cast at the player from
+    // any distance).
+    moveTowardStation() {
+
+        if (!this.station)
+            return false;
+
+        const dx = this.station.x - this.x;
+        const dy = this.station.y - this.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < 2)
+            return true;
+
+        const step = Math.min(dist, this.speed * Game.timeScale);
+
+        this.x += (dx / dist) * step;
+        this.y += (dy / dist) * step;
+
+        return true;
+
+    }
+
     move() {
 
         if (this.knockbackX !== 0 || this.knockbackY !== 0)
@@ -121,6 +149,23 @@ class Enemy {
     }
 
     takeDamage(amount, crit = false) {
+
+        // Royal Magus honor guard - untouchable while their
+        // master lives (the Magus kills them himself when he
+        // falls; see RoyalMagus.takeDamage). Hits still spark
+        // so the player can feel them bounce off.
+        if (this.damageImmune) {
+
+            this.flashTimer = 3;
+
+            Particle.createHitBurst(
+                this.x + this.size / 2,
+                this.y + this.size / 2
+            );
+
+            return;
+
+        }
 
         // Blood Cleric ward - a 1-hit shield that eats one
         // full instance of damage, whatever its size.
@@ -206,6 +251,9 @@ class Enemy {
         if (this.wardShield)
             this.drawWardShield();
 
+        if (this.damageImmune)
+            this.drawImmuneRing();
+
         ctx.shadowBlur = EFFECTS.ENEMY_GLOW;
         ctx.shadowColor = this.color;
 
@@ -229,6 +277,35 @@ class Enemy {
         ctx.shadowBlur = 0;
 
         this.drawHealthBar();
+
+    }
+
+    // Arcane ring around a damage-immune enemy (the Royal
+    // Magus' honor guard) - same idea as the ward shield ring
+    // but in the Magus' blue, so it reads as HIS protection.
+
+    drawImmuneRing() {
+
+        const pulse = 0.5 + Math.sin(Date.now() / 170) * 0.2;
+
+        ctx.save();
+
+        ctx.strokeStyle = `rgba(120, 150, 255, ${pulse})`;
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 14;
+        ctx.shadowColor = "#3d5af1";
+
+        ctx.beginPath();
+        ctx.arc(
+            this.x + this.size / 2,
+            this.y + this.size / 2,
+            this.size * 0.8,
+            0,
+            Math.PI * 2
+        );
+        ctx.stroke();
+
+        ctx.restore();
 
     }
 

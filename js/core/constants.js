@@ -484,6 +484,7 @@ const COINS = {
     powderKeg: 4,
     bloodCleric: 8,
     knight: 75,
+    royalMagus: 110,
     king: 150
 };
 
@@ -1046,6 +1047,7 @@ const ENEMY_LABELS = {
     powderKeg: "a Powder Keg",
     bloodCleric: "a Blood Cleric",
     knight: "the Knight",
+    royalMagus: "the Royal Magus",
     king: "the King"
 
 };
@@ -1134,6 +1136,66 @@ const KNIGHT = {
     BOW_SPEED: 10,
     BOW_SIZE: 6,
     BOW_COLOR: "#8b6914"
+
+};
+
+// =====================================
+// Royal Magus (Wave 15 Boss)
+// =====================================
+//
+// The court's archmage. Fights from mid-range and cycles
+// through four elemental skills (see royalMagus.js):
+// lightning shower, meteor, earth wall, wind gust. Spawns
+// with an honor guard of stationed frost weavers (left wall)
+// and fire mages (right wall).
+
+const MAGUS = {
+
+    SIZE: 110,
+    SPEED: 0.9,
+    COLOR: "#3d5af1",
+    HP: 100,
+
+    // Keep-at-range drift, same scheme as the fire mage.
+    PREFERRED_RANGE: 380,
+
+    // Skills fire on a fixed rotation: lightning -> wall ->
+    // wind -> meteor. One shared cooldown between casts, plus
+    // a grace period at the start of the fight.
+    OPENING_COOLDOWN: 2000,
+    SKILL_COOLDOWN: 4200,
+
+    // Lightning Shower - strikes scattered across the whole
+    // arena like rain, each with its own telegraph circle.
+    LIGHTNING_COUNT: 16,
+    LIGHTNING_SPAN: 2600,
+    LIGHTNING_TELEGRAPH: 750,
+    LIGHTNING_RADIUS: 46,
+
+    // Meteor - big telegraphed impact on the player's position
+    // that leaves a huge firestorm denying that ground.
+    METEOR_TELEGRAPH: 1300,
+    METEOR_RADIUS: 230,
+    METEOR_BURN_DURATION: 6000,
+    METEOR_BURN_TICK: 500,
+
+    // Earth Wall - a full-span stone wall raised just behind
+    // the player; they cannot move (or dash) past it while it
+    // stands.
+    WALL_THICKNESS: 36,
+    WALL_DURATION: 4000,
+    WALL_GAP_FROM_PLAYER: 55,
+
+    // Wind Gust - arena-wide, undodgeable, deals no damage.
+    // Just shoves the player along the gust direction.
+    WIND_TELEGRAPH: 700,
+    WIND_DURATION: 1100,
+    WIND_PUSH: 6.5,
+
+    // Honor guard entrance - one weaver + one mage walk in
+    // together, a new pair every ESCORT_GAP ms.
+    ESCORT_PER_SIDE: 4,
+    ESCORT_GAP: 1000
 
 };
 
@@ -1244,7 +1306,8 @@ const WAVES = {
 
     BOSS_WAVE: 5,
     KNIGHT_WAVE: 10,
-    KING_WAVE: 15,
+    MAGUS_WAVE: 15,
+    KING_WAVE: 20,
     BOSS_ESCORT_GRUNTS: 8,
     BOSS_ESCORT_TANKS: 4,
 
@@ -1301,7 +1364,7 @@ const BESTIARY_NORMAL_ORDER = [
     "shade", "frostWeaver", "powderKeg", "bloodCleric"
 ];
 
-const BESTIARY_BOSS_ORDER = ["boss", "knight", "king"];
+const BESTIARY_BOSS_ORDER = ["boss", "knight", "royalMagus", "king"];
 
 const BESTIARY = {
 
@@ -1480,6 +1543,19 @@ const BESTIARY = {
         hpAtWave(w) { return 3 + Math.floor((w - 1) / 8); },
         hpScale: "3 + floor((wave - 1) / 8)",
         baseSpeed: 1
+    },
+
+    royalMagus: {
+        name: "Royal Magus",
+        color: "#3d5af1",
+        size: 110,
+        isBoss: true,
+        desc: "The wave 15 gatekeeper - the court's archmage.",
+        behavior: "Cycles lightning showers, meteors, earth walls, and gale-force winds while stationed mages bombard from both walls.",
+        lore: "Court wizard to three kings, and poisoner of at least two of them. The crown keeps him not out of trust but out of terror — no one else can command the storm, split the earth, or call fire from the sky. He duels from the center of the arena like a conductor, his honor guard of weavers and pyromancers chained to the walls by oaths only he can break.",
+        hpAtWave(w) { return MAGUS.HP; },
+        hpScale: `${MAGUS.HP} (fixed)`,
+        baseSpeed: 0.9
     },
 
     king: {
