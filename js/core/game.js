@@ -599,6 +599,12 @@ function drawPlayingScene() {
     Game.projectiles.forEach(projectile => projectile.draw());
     Game.particles.forEach(particle => particle.draw());
 
+    // 5.5 NIGHT VEIL (night arena only): darkness drawn over
+    // entities with holes around the torches, so characters
+    // fade into the dark away from the light.
+
+    drawNightVeil();
+
     // 6. FOREGROUND OBJECT PASS: pillars occlude characters
     // that walk behind them
 

@@ -4,24 +4,29 @@
 
 const Arena = {
 
-    theme: "coliseum",
+    theme: "castle",
 
     pillars: [],
     torches: [],
-    thorns: []
+
+    // Static decoration for the castle-entrance arena (grass
+    // tufts, path cobbles). Generated once per arena so the
+    // layout doesn't reshuffle every frame.
+    deco: { tufts: [], stones: [] }
 
 };
 
 function updateArenaForWave() {
 
-    // Coliseum for waves 1-5, thorn room for 6-10, throne
-    // approach for 11+. Comparing against the CURRENT theme
-    // (rather than one-way checks) means custom-mode wave
-    // jumps regenerate correctly in both directions.
+    // Castle entrance for waves 1-5, night throne room (the
+    // Knight's arena) for 6-10, throne approach for 11+.
+    // Comparing against the CURRENT theme (rather than
+    // one-way checks) means custom-mode wave jumps regenerate
+    // correctly in both directions.
     const desired =
         Game.wave >= WAVES.SET3_START ? "throne" :
-        Game.wave >= WAVES.SET2_START ? "thorn" :
-        "coliseum";
+        Game.wave >= WAVES.SET2_START ? "night" :
+        "castle";
 
     if (Arena.theme === desired)
         return;
@@ -30,23 +35,98 @@ function updateArenaForWave() {
 
     if (desired === "throne")
         generateThroneRoom();
-    else if (desired === "thorn")
-        generateThornRoom();
+    else if (desired === "night")
+        generateNightThrone();
     else
-        generateColiseum();
+        generateCastleEntrance();
 
 }
 
 function generateArena() {
 
-    Arena.theme = "coliseum";
-    generateColiseum();
+    Arena.theme = "castle";
+    generateCastleEntrance();
 
 }
 
-function generateColiseum() {
+// =====================================
+// Castle Entrance (waves 1-5)
+// =====================================
+//
+// The arena straddles the castle threshold: the bottom half
+// is the courtyard outside (grass, cobblestone approach),
+// the top half is the first hall inside the keep (flagstone
+// floor), split by the castle wall with its gate standing
+// open. All the layout numbers live in getCastleLayout() so
+// the floor, wall, lighting, and decoration can never drift
+// apart.
 
-    generateColiseumPillars();
+function getCastleLayout() {
+
+    const pathW = canvas.width * 0.2;
+
+    return {
+        wallY: canvas.height * 0.5,   // inside/outside boundary
+        wallH: 42,                    // wall band thickness
+        cx: canvas.width / 2,
+        pathW,                        // cobblestone approach
+        gateW: pathW + 36             // gate opening in the wall
+    };
+
+}
+
+function generateCastleEntrance() {
+
+    // Open ground - no pillars sprouting out of the lawn.
+    // The castle wall and gate are the arena's architecture.
+    Arena.pillars = [];
+    Arena.torches = [];
+
+    const { wallY, cx, pathW } = getCastleLayout();
+
+    Arena.deco = { tufts: [], stones: [] };
+
+    // Grass tufts scattered around the courtyard, kept clear
+    // of the cobblestone path.
+    for (let i = 0; i < 70; i++) {
+
+        const x = Math.random() * canvas.width;
+        const y = wallY + 30 + Math.random() * (canvas.height - wallY - 40);
+
+        if (Math.abs(x - cx) < pathW / 2 + 16)
+            continue;
+
+        Arena.deco.tufts.push({
+            x, y,
+            size: 4 + Math.random() * 5,
+            lean: (Math.random() - 0.5) * 4
+        });
+
+    }
+
+    // Staggered cobbles down the approach path. Overhanging
+    // stones are clipped to the path at draw time.
+    const cols = 5;
+    const stoneW = pathW / cols;
+    let row = 0;
+
+    for (let y = wallY + 28; y < canvas.height + 24; y += 24, row++) {
+
+        const offset = (row % 2) * (stoneW / 2) - stoneW / 2;
+
+        for (let c = 0; c <= cols; c++) {
+
+            Arena.deco.stones.push({
+                x: cx - pathW / 2 + c * stoneW + offset,
+                y,
+                w: stoneW - 3,
+                h: 20,
+                shade: 0.82 + Math.random() * 0.36
+            });
+
+        }
+
+    }
 
 }
 
@@ -109,51 +189,26 @@ function generateColiseumPillars() {
     });
 }
 
-function generateThornRoom() {
+// The night throne room (waves 6-10, the Knight's arena) is
+// the throne approach after dark: identical pillar layout and
+// red carpet, but the only light comes from a single torch
+// mounted at the base of each pillar. The random rooftop
+// torches from generateColiseumPillars() are replaced with
+// exactly one base torch per pillar; bottom-row pillars sit
+// partly off-screen, so their torch is clamped up onto the
+// visible part of the shaft.
 
-    Arena.pillars = [];
+function generateNightThrone() {
+
+    generateColiseumPillars();
+
     Arena.torches = [];
-    Arena.thorns = [];
 
-    const margin = canvas.width * 0.04;
+    Arena.pillars.forEach(p => {
 
-    for (let i = 0; i < 14; i++) {
+        const baseY = Math.min(p.y + 28, canvas.height - 36);
 
-        const side = i % 4;
-        let x, y;
-
-        if (side === 0) {
-            x = margin + Math.random() * (canvas.width - margin * 2);
-            y = margin;
-        } else if (side === 1) {
-            x = canvas.width - margin;
-            y = margin + Math.random() * (canvas.height - margin * 2);
-        } else if (side === 2) {
-            x = margin + Math.random() * (canvas.width - margin * 2);
-            y = canvas.height - margin;
-        } else {
-            x = margin;
-            y = margin + Math.random() * (canvas.height - margin * 2);
-        }
-
-        Arena.thorns.push({
-            x, y,
-            size: 20 + Math.random() * 30,
-            rot: Math.random() * Math.PI
-        });
-
-    }
-
-    const leftX = canvas.width * 0.08;
-    const rightX = canvas.width * 0.92;
-
-    [leftX, rightX].forEach(x => {
-
-        Arena.pillars.push({
-            x,
-            y: canvas.height * 0.55,
-            width: 80
-        });
+        Arena.torches.push({ x: p.x, y: baseY, parentPillar: p });
 
     });
 
@@ -161,41 +216,272 @@ function generateThornRoom() {
 
 function drawArenaFloor() {
 
-    if (Arena.theme === "thorn") {
+    if (Arena.theme === "castle") {
 
-        ctx.fillStyle = "#1a1218";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        Arena.thorns.forEach(t => {
-
-            ctx.save();
-            ctx.translate(t.x, t.y);
-            ctx.rotate(t.rot);
-            ctx.strokeStyle = "#1a3015";
-            ctx.lineWidth = 2;
-
-            for (let i = -2; i <= 2; i++) {
-
-                ctx.beginPath();
-                ctx.moveTo(i * 6, 0);
-                ctx.lineTo(i * 3, -t.size);
-                ctx.stroke();
-
-            }
-
-            ctx.restore();
-
-        });
-
+        drawCastleEntranceFloor();
         return;
 
     }
 
+    // The night throne room shares the throne floor - same
+    // stone, same red carpet - and gets its darkness from the
+    // lighting pass, not from a different floor color.
     ctx.fillStyle = "#2b2927";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    if (Arena.theme === "throne")
+    if (Arena.theme === "throne" || Arena.theme === "night")
         drawRedCarpet();
+
+}
+
+// =====================================
+// Castle Entrance Floor
+// =====================================
+//
+// Painted bottom-up: keep interior (flagstones), courtyard
+// grass, the cobblestone approach, the entrance steps, and
+// finally the castle wall with its gate standing open. All
+// of it sits on the floor pass, so shadows, lighting, and
+// every entity draw on top.
+
+function drawCastleEntranceFloor() {
+
+    const { wallY, cx, pathW } = getCastleLayout();
+
+    // ---- inside the keep (top half): cool flagstones ----
+
+    let interior = ctx.createLinearGradient(0, 0, 0, wallY);
+    interior.addColorStop(0, "#25282e");
+    interior.addColorStop(1, "#33363c");
+
+    ctx.fillStyle = interior;
+    ctx.fillRect(0, 0, canvas.width, wallY);
+
+    // Flagstone seams - horizontal courses with vertical
+    // joints offset half a stone per row.
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.28)";
+    ctx.lineWidth = 2;
+
+    const courseH = 80;
+    const stoneSpan = 110;
+
+    for (let y = courseH, r = 0; y < wallY + courseH; y += courseH, r++) {
+
+        ctx.beginPath();
+        ctx.moveTo(0, Math.min(y, wallY));
+        ctx.lineTo(canvas.width, Math.min(y, wallY));
+        ctx.stroke();
+
+        const offset = (r % 2) * (stoneSpan / 2);
+
+        for (let x = offset; x < canvas.width; x += stoneSpan) {
+
+            ctx.beginPath();
+            ctx.moveTo(x, y - courseH);
+            ctx.lineTo(x, Math.min(y, wallY));
+            ctx.stroke();
+
+        }
+
+    }
+
+    // ---- courtyard (bottom half): grass ----
+
+    let grass = ctx.createLinearGradient(0, wallY, 0, canvas.height);
+    grass.addColorStop(0, "#38472a");
+    grass.addColorStop(1, "#2a3820");
+
+    ctx.fillStyle = grass;
+    ctx.fillRect(0, wallY, canvas.width, canvas.height - wallY);
+
+    ctx.strokeStyle = "#2c4520";
+    ctx.lineWidth = 2;
+
+    Arena.deco.tufts.forEach(t => {
+
+        for (let i = -1; i <= 1; i++) {
+
+            ctx.beginPath();
+            ctx.moveTo(t.x + i * 3, t.y);
+            ctx.lineTo(t.x + i * 2 + t.lean, t.y - t.size);
+            ctx.stroke();
+
+        }
+
+    });
+
+    // ---- cobblestone approach up the middle ----
+
+    ctx.save();
+
+    ctx.beginPath();
+    ctx.rect(cx - pathW / 2, wallY, pathW, canvas.height - wallY);
+    ctx.clip();
+
+    ctx.fillStyle = "#403b33";
+    ctx.fillRect(cx - pathW / 2, wallY, pathW, canvas.height - wallY);
+
+    Arena.deco.stones.forEach(s => {
+
+        ctx.fillStyle = `rgb(${Math.round(88 * s.shade)}, ${Math.round(82 * s.shade)}, ${Math.round(72 * s.shade)})`;
+
+        ctx.beginPath();
+        ctx.roundRect(s.x, s.y, s.w, s.h, 6);
+        ctx.fill();
+
+    });
+
+    ctx.restore();
+
+    // Worn edges where path meets grass.
+    ctx.fillStyle = "rgba(20, 26, 14, 0.4)";
+    ctx.fillRect(cx - pathW / 2 - 3, wallY, 3, canvas.height - wallY);
+    ctx.fillRect(cx + pathW / 2, wallY, 3, canvas.height - wallY);
+
+    drawCastleWall();
+
+}
+
+// The wall itself: two stone segments with battlements on
+// the courtyard face, round towers flanking the gate, the
+// entrance steps, and both wooden gate doors swung open
+// into the courtyard.
+
+function drawCastleWall() {
+
+    const { wallY, wallH, cx, gateW } = getCastleLayout();
+
+    const top = wallY - wallH;
+    const gateL = cx - gateW / 2;
+    const gateR = cx + gateW / 2;
+
+    // ---- entrance steps, just outside the gate ----
+
+    ctx.fillStyle = "#57524a";
+    ctx.fillRect(gateL - 14, wallY, gateW + 28, 12);
+
+    ctx.fillStyle = "#454138";
+    ctx.fillRect(gateL - 26, wallY + 12, gateW + 52, 12);
+
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(gateL - 14, wallY, gateW + 28, 12);
+    ctx.strokeRect(gateL - 26, wallY + 12, gateW + 52, 12);
+
+    // ---- wooden gate doors, swung open outward ----
+
+    const doorLen = gateW / 2 - 8;
+
+    [[gateL, 0.55], [gateR, -0.55]].forEach(([hingeX, angle]) => {
+
+        ctx.save();
+
+        ctx.translate(hingeX, wallY);
+        ctx.rotate(angle);
+
+        const x0 = angle > 0 ? 0 : -doorLen;
+
+        let wood = ctx.createLinearGradient(0, -6, 0, 6);
+        wood.addColorStop(0, "#6b4a2a");
+        wood.addColorStop(0.5, "#54381f");
+        wood.addColorStop(1, "#3a2715");
+
+        ctx.fillStyle = wood;
+        ctx.fillRect(x0, -6, doorLen, 12);
+
+        // Plank seams + iron band.
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.35)";
+
+        for (let i = 1; i < 4; i++) {
+
+            ctx.beginPath();
+            ctx.moveTo(x0 + (doorLen * i) / 4, -6);
+            ctx.lineTo(x0 + (doorLen * i) / 4, 6);
+            ctx.stroke();
+
+        }
+
+        ctx.fillStyle = "#23252a";
+        ctx.fillRect(x0, -2, doorLen, 4);
+
+        ctx.restore();
+
+    });
+
+    // ---- wall segments either side of the gate ----
+
+    [[0, gateL], [gateR, canvas.width]].forEach(([x0, x1]) => {
+
+        const w = x1 - x0;
+
+        let stone = ctx.createLinearGradient(0, top, 0, wallY + 10);
+        stone.addColorStop(0, "#4c515a");
+        stone.addColorStop(0.55, "#3a3f47");
+        stone.addColorStop(1, "#22252b");
+
+        ctx.fillStyle = stone;
+        ctx.fillRect(x0, top, w, wallH);
+
+        // Inside face catches a sliver of light.
+        ctx.fillStyle = "rgba(255, 255, 255, 0.09)";
+        ctx.fillRect(x0, top, w, 3);
+
+        // Block seams.
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.35)";
+        ctx.lineWidth = 2;
+
+        ctx.beginPath();
+        ctx.moveTo(x0, top + wallH / 2);
+        ctx.lineTo(x1, top + wallH / 2);
+        ctx.stroke();
+
+        for (let x = x0 + 23; x < x1; x += 46) {
+
+            ctx.beginPath();
+            ctx.moveTo(x, top);
+            ctx.lineTo(x, top + wallH / 2);
+            ctx.moveTo(x + 23, top + wallH / 2);
+            ctx.lineTo(x + 23, wallY);
+            ctx.stroke();
+
+        }
+
+        // Battlements on the courtyard face.
+        ctx.fillStyle = "#2e323a";
+
+        for (let x = x0 + 8; x + 18 < x1; x += 34)
+            ctx.fillRect(x, wallY, 18, 10);
+
+    });
+
+    // ---- round towers flanking the gate ----
+
+    [gateL, gateR].forEach(x => {
+
+        const ty = top + wallH / 2 + 4;
+        const r = 27;
+
+        let tower = ctx.createRadialGradient(x - r * 0.3, ty - r * 0.3, r * 0.2, x, ty, r);
+        tower.addColorStop(0, "#5b616b");
+        tower.addColorStop(0.7, "#3d424a");
+        tower.addColorStop(1, "#212429");
+
+        ctx.fillStyle = tower;
+        ctx.beginPath();
+        ctx.arc(x, ty, r, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.4)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Parapet ring seen from above.
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.25)";
+        ctx.beginPath();
+        ctx.arc(x, ty, r * 0.62, 0, Math.PI * 2);
+        ctx.stroke();
+
+    });
 
 }
 
@@ -288,6 +574,15 @@ function drawRedCarpet() {
 
 function getLightSource() {
 
+    // Castle entrance: daylight pours in from the open
+    // courtyard below the map. Everywhere else the sun sits
+    // off-screen to the right.
+    if (Arena.theme === "castle")
+        return {
+            x: canvas.width / 2,
+            y: canvas.height * 1.15
+        };
+
     return {
         x: canvas.width * 1.15,
         y: canvas.height * 0.5
@@ -312,26 +607,137 @@ function drawLightingSystem() {
 
     ctx.save();
 
-    if (Arena.theme === "thorn") {
+    if (Arena.theme === "night") {
 
-        let vignette = ctx.createRadialGradient(
-            canvas.width / 2, canvas.height / 2, canvas.width * 0.15,
-            canvas.width / 2, canvas.height / 2, canvas.width * 0.75
-        );
-        vignette.addColorStop(0, "rgba(60, 20, 40, 0.15)");
-        vignette.addColorStop(1, "rgba(10, 5, 15, 0.55)");
-        ctx.fillStyle = vignette;
+        // ---- night throne room: no sun, no moon. The room
+        // starts near-black with a cold blue cast, and the
+        // base torches carve out the only pools of light. ----
+
+        ctx.fillStyle = "rgba(6, 8, 20, 0.84)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        ctx.fillStyle = "rgba(120, 30, 60, 0.12)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const pulse = Math.sin(Date.now() / 90) * 6;
+        const flicker = Math.sin(Date.now() / 47) * 4;
+
+        Arena.torches.forEach(t => {
+
+            const radius = 345 + pulse + flicker;
+
+            // Broad warm wash - the candlelit floor pool.
+            let warmGlow = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, radius);
+            warmGlow.addColorStop(0, "rgba(255, 195, 95, 0.68)");
+            warmGlow.addColorStop(0.35, "rgba(255, 155, 58, 0.36)");
+            warmGlow.addColorStop(1, "rgba(255, 130, 40, 0)");
+
+            ctx.fillStyle = warmGlow;
+            ctx.beginPath();
+            ctx.arc(t.x, t.y, radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Hot core right around the flame itself.
+            const coreRadius = 95 + pulse * 0.5;
+
+            let core = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, coreRadius);
+            core.addColorStop(0, "rgba(255, 238, 175, 0.62)");
+            core.addColorStop(1, "rgba(255, 200, 110, 0)");
+
+            ctx.fillStyle = core;
+            ctx.beginPath();
+            ctx.arc(t.x, t.y, coreRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+        });
 
         ctx.restore();
         return;
 
     }
 
-    // ---- coliseum lighting ----
+    if (Arena.theme === "castle") {
+
+        // ---- castle-entrance lighting: daylight comes from
+        // the courtyard BELOW the map, so every directional
+        // pass here runs bottom-to-top instead of
+        // right-to-left. ----
+
+        // 1. Shadow settling toward the top of the map, fully
+        // clear by ~55% down so the courtyard stays bright.
+
+        let shade = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        shade.addColorStop(0, "rgba(15, 13, 12, 0.5)");
+        shade.addColorStop(0.55, "rgba(15, 13, 12, 0.15)");
+        shade.addColorStop(1, "rgba(15, 13, 12, 0)");
+
+        ctx.fillStyle = shade;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 2. Warm sunlight flooding up from below the map -
+        // the actual light source.
+
+        const sun = getLightSource();
+        const reach = canvas.height * 1.6;
+
+        let dayGlow = ctx.createRadialGradient(
+            sun.x, sun.y, 0,
+            sun.x, sun.y, reach
+        );
+
+        dayGlow.addColorStop(0, "rgba(255, 225, 170, 0.55)");
+        dayGlow.addColorStop(0.4, "rgba(255, 210, 150, 0.28)");
+        dayGlow.addColorStop(1, "rgba(255, 200, 140, 0)");
+
+        ctx.fillStyle = dayGlow;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 3. Hot edge along the bottom where the light
+        // enters, like sun blowing out right at the source.
+
+        let rim = ctx.createLinearGradient(0, canvas.height * 0.8, 0, canvas.height);
+        rim.addColorStop(0, "rgba(255, 240, 210, 0)");
+        rim.addColorStop(1, "rgba(255, 248, 225, 0.4)");
+
+        ctx.fillStyle = rim;
+        ctx.fillRect(0, canvas.height * 0.8, canvas.width, canvas.height * 0.2);
+
+        // 4. Interior shade: the keep (top half) sits out of
+        // the sun, so it reads noticeably dimmer and cooler,
+        // fading out right at the castle wall.
+
+        const { wallY, cx, gateW } = getCastleLayout();
+
+        let indoor = ctx.createLinearGradient(0, 0, 0, wallY + 6);
+        indoor.addColorStop(0, "rgba(8, 10, 18, 0.42)");
+        indoor.addColorStop(0.8, "rgba(8, 10, 18, 0.3)");
+        indoor.addColorStop(1, "rgba(8, 10, 18, 0)");
+
+        ctx.fillStyle = indoor;
+        ctx.fillRect(0, 0, canvas.width, wallY + 6);
+
+        // 5. Daylight spilling through the open gate onto the
+        // flagstones just inside.
+
+        ctx.save();
+
+        ctx.beginPath();
+        ctx.rect(0, 0, canvas.width, wallY);
+        ctx.clip();
+
+        let spill = ctx.createRadialGradient(cx, wallY, gateW * 0.15, cx, wallY, canvas.height * 0.42);
+        spill.addColorStop(0, "rgba(255, 226, 170, 0.4)");
+        spill.addColorStop(0.5, "rgba(255, 210, 150, 0.16)");
+        spill.addColorStop(1, "rgba(255, 200, 140, 0)");
+
+        ctx.fillStyle = spill;
+        ctx.fillRect(0, 0, canvas.width, wallY);
+
+        ctx.restore();
+
+        ctx.restore();
+        return;
+
+    }
+
+    // ---- throne lighting ----
     // dims, and only partially. Fully clear by ~55%
     // across so most of the arena stays bright. ----
 
@@ -394,6 +800,76 @@ function drawLightingSystem() {
 }
 
 // =====================================
+// NIGHT VEIL (entity darkness)
+// =====================================
+//
+// The floor-pass night darkness deliberately doesn't touch
+// entities (it draws before them). This second pass draws
+// AFTER entities: a darkness layer with a soft hole punched
+// around each torch, so the player, enemies, and projectiles
+// genuinely fade into the dark as they move away from the
+// light. Built on an offscreen canvas because punching
+// gradient holes needs destination-out compositing, which
+// would erase the scene if done on the main canvas.
+
+let nightVeilCanvas = null;
+
+function drawNightVeil() {
+
+    if (Arena.theme !== "night")
+        return;
+
+    if (canvas.width === 0 || canvas.height === 0)
+        return;
+
+    if (!nightVeilCanvas)
+        nightVeilCanvas = document.createElement("canvas");
+
+    if (nightVeilCanvas.width !== canvas.width || nightVeilCanvas.height !== canvas.height) {
+
+        nightVeilCanvas.width = canvas.width;
+        nightVeilCanvas.height = canvas.height;
+
+    }
+
+    const vctx = nightVeilCanvas.getContext("2d");
+
+    vctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    vctx.fillStyle = "rgba(4, 6, 16, 0.62)";
+    vctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Punch a flickering hole of visibility around each torch:
+    // fully clear near the flame, fading back to full darkness
+    // at the pool's edge.
+    vctx.globalCompositeOperation = "destination-out";
+
+    const pulse = Math.sin(Date.now() / 90) * 6;
+    const flicker = Math.sin(Date.now() / 47) * 4;
+
+    Arena.torches.forEach(t => {
+
+        const radius = 330 + pulse + flicker;
+
+        let hole = vctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, radius);
+        hole.addColorStop(0, "rgba(0, 0, 0, 1)");
+        hole.addColorStop(0.4, "rgba(0, 0, 0, 0.9)");
+        hole.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+        vctx.fillStyle = hole;
+        vctx.beginPath();
+        vctx.arc(t.x, t.y, radius, 0, Math.PI * 2);
+        vctx.fill();
+
+    });
+
+    vctx.globalCompositeOperation = "source-over";
+
+    ctx.drawImage(nightVeilCanvas, 0, 0);
+
+}
+
+// =====================================
 // PILLAR CAST SHADOWS
 // =====================================
 //
@@ -406,7 +882,10 @@ function drawLightingSystem() {
 
 function drawPillarShadows() {
 
-    if (Arena.theme === "thorn")
+    // No off-screen sun at night - the base torches are the
+    // only light, so directional cast shadows would point the
+    // wrong way. The night lighting pass handles depth instead.
+    if (Arena.theme === "night")
         return;
 
     const light = getLightSource();
@@ -496,35 +975,9 @@ function drawPillarShadows() {
 
 function drawPillars() {
 
-    if (Arena.theme === "thorn") {
+    if (Arena.theme === "night") {
 
-        Arena.pillars.forEach(p => {
-
-            ctx.save();
-
-            let grad = ctx.createLinearGradient(p.x - p.width / 2, 0, p.x + p.width / 2, 0);
-            grad.addColorStop(0, "#3d2b35");
-            grad.addColorStop(0.5, "#5c3d4a");
-            grad.addColorStop(1, "#2a1a22");
-
-            ctx.fillStyle = grad;
-            ctx.fillRect(p.x - p.width / 2, 0, p.width, p.y + 40);
-
-            ctx.strokeStyle = "#4a6741";
-            ctx.lineWidth = 2;
-
-            for (let i = 0; i < 5; i++) {
-
-                ctx.beginPath();
-                ctx.moveTo(p.x - p.width / 2 + i * 16, 0);
-                ctx.lineTo(p.x - p.width / 2 + i * 16 + 8, p.y);
-                ctx.stroke();
-
-            }
-
-            ctx.restore();
-
-        });
+        Arena.pillars.forEach(p => drawNightPillar(p));
 
         return;
 
@@ -636,32 +1089,107 @@ function drawThronePillar(p) {
 
 }
 
+// Night pillar: the exact throne pillar, then a night pass
+// clipped to the pillar's own footprint - a cold dark wash
+// over the marble, and a warm torchlight gradient rising from
+// the base torch so the stone visibly catches the flame.
+// Pillars draw after the lighting pass (so they can occlude
+// entities), which is why they need their own darkening here.
+
+function drawNightPillar(p) {
+
+    drawThronePillar(p);
+
+    const shaftHeight = p.y + 40;
+    const torch = Arena.torches.find(t => t.parentPillar === p);
+    const torchY = torch ? torch.y : shaftHeight;
+
+    ctx.save();
+
+    // Clip to the pillar's silhouette: shaft (with the gold
+    // band's slight overhang) plus both plinth steps.
+    ctx.beginPath();
+    ctx.rect(p.x - p.width * 0.55, 0, p.width * 1.1, shaftHeight);
+    ctx.rect(p.x - p.width * 0.65, shaftHeight, p.width * 1.3, 15);
+    ctx.rect(p.x - p.width * 0.75, shaftHeight + 14, p.width * 1.5, 12);
+    ctx.clip();
+
+    const left = p.x - p.width * 0.75;
+    const width = p.width * 1.5;
+    const height = shaftHeight + 26;
+
+    // Cold night wash over the marble.
+    ctx.fillStyle = "rgba(7, 9, 22, 0.72)";
+    ctx.fillRect(left, 0, width, height);
+
+    // Warm torchlight climbing the stone from the base torch.
+    const flicker = Math.sin(Date.now() / 80) * 8;
+    const reach = p.width * 2.2 + flicker;
+
+    let glow = ctx.createRadialGradient(p.x, torchY, 0, p.x, torchY, reach);
+    glow.addColorStop(0, "rgba(255, 185, 85, 0.55)");
+    glow.addColorStop(0.5, "rgba(255, 145, 55, 0.25)");
+    glow.addColorStop(1, "rgba(255, 130, 40, 0)");
+
+    ctx.fillStyle = glow;
+    ctx.fillRect(left, 0, width, height);
+
+    ctx.restore();
+
+}
+
 // =====================================
 // TORCHES
 // =====================================
 
 function drawTorches() {
 
-    if (Arena.theme === "thorn")
-        return;
+    // Night torches are the arena's only light source, so
+    // they render bigger: a heavier bracket, a taller flame
+    // with a white-hot inner tongue, and a stronger halo.
+    const night = Arena.theme === "night";
 
-    const flicker = Math.sin(Date.now() / 80) * 2;
+    const flicker = Math.sin(Date.now() / 80) * (night ? 3 : 2);
 
     Arena.torches.forEach(t => {
 
         ctx.save();
 
-        ctx.fillStyle = "#3a2a1a";
-        ctx.fillRect(t.x - 3, t.y - 5, 6, 20);
+        if (night) {
 
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = "orange";
+            ctx.fillStyle = "#3a2a1a";
+            ctx.fillRect(t.x - 4, t.y - 6, 8, 30);
 
-        ctx.fillStyle = "#ffae42";
+            ctx.fillStyle = "#1f1610";
+            ctx.fillRect(t.x - 8, t.y + 20, 16, 5);
 
-        ctx.beginPath();
-        ctx.ellipse(t.x, t.y - 10 + flicker, 6, 12, 0, 0, Math.PI * 2);
-        ctx.fill();
+            ctx.shadowBlur = 35;
+            ctx.shadowColor = "orange";
+
+            ctx.fillStyle = "#ffae42";
+            ctx.beginPath();
+            ctx.ellipse(t.x, t.y - 14 + flicker, 9, 18, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = "#fff3c4";
+            ctx.beginPath();
+            ctx.ellipse(t.x, t.y - 11 + flicker * 0.6, 4, 9, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+        } else {
+
+            ctx.fillStyle = "#3a2a1a";
+            ctx.fillRect(t.x - 3, t.y - 5, 6, 20);
+
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = "orange";
+
+            ctx.fillStyle = "#ffae42";
+            ctx.beginPath();
+            ctx.ellipse(t.x, t.y - 10 + flicker, 6, 12, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+        }
 
         ctx.restore();
 

@@ -13,6 +13,11 @@
 
 function drawGrid() {
 
+    // The castle entrance paints its own flagstone seams and
+    // grass - a square grid over lawn would break the look.
+    if (Arena.theme === "castle")
+        return;
+
     ctx.strokeStyle = CANVAS.GRID_COLOR;
     ctx.lineWidth = 1;
 
