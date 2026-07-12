@@ -349,6 +349,10 @@ function spawnMagusEscort(type, side, frac) {
     enemy.magusGuard = true;
     enemy.damageImmune = true;
 
+    // Driven harder by their master - faster casts for this
+    // fight only.
+    enemy.castRateScale = MAGUS.ESCORT_COOLDOWN_SCALE;
+
     // Stationed just inside the pillar clusters at the arena
     // edges - any closer to the wall and the foreground
     // pillars would draw over them.

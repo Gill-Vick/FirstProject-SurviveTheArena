@@ -70,7 +70,11 @@ class FireMage extends Enemy {
 
         Game.hazards.push(new FireCast(tx, ty));
 
-        this.castCooldown = ENEMY_TYPES.fireMage.CAST_COOLDOWN;
+        // castRateScale is only ever set on the Royal Magus'
+        // honor guard (see spawnMagusEscort in wave.js).
+        this.castCooldown =
+            ENEMY_TYPES.fireMage.CAST_COOLDOWN *
+            (this.castRateScale ?? 1);
 
     }
 

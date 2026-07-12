@@ -38,6 +38,9 @@ class RoyalMagus extends Enemy {
         this.skillCooldown = MAGUS.OPENING_COOLDOWN;
         this.skillIndex = 0;
 
+        // Close-range defense - see checkNova()/ArcaneNova.
+        this.novaCooldown = 0;
+
         // Brief staff-raise glow whenever a skill is cast.
         this.castFlash = 0;
 
@@ -100,10 +103,41 @@ class RoyalMagus extends Enemy {
 
     }
 
+    // Close-range defense: anyone who gets inside
+    // NOVA_TRIGGER_RANGE sets off an Arcane Nova - charge-up,
+    // then a blast that damages and shoves the player back
+    // out. Runs on its own cooldown, independent of (and in
+    // parallel with) the skill rotation.
+
+    checkNova() {
+
+        if (this.novaCooldown > 0) {
+
+            this.novaCooldown -= Game.dt;
+
+            return;
+
+        }
+
+        const dx = player.x + player.size / 2 - (this.x + this.size / 2);
+        const dy = player.y + player.size / 2 - (this.y + this.size / 2);
+
+        if (Math.hypot(dx, dy) > MAGUS.NOVA_TRIGGER_RANGE)
+            return;
+
+        Game.hazards.push(new ArcaneNova(this));
+
+        this.novaCooldown = MAGUS.NOVA_COOLDOWN;
+        this.castFlash = 300;
+
+    }
+
     attack() {
 
         if (this.castFlash > 0)
             this.castFlash -= Game.dt;
+
+        this.checkNova();
 
         if (this.skillCooldown > 0) {
 
@@ -242,6 +276,158 @@ class RoyalMagus extends Enemy {
         ctx.beginPath();
         ctx.arc(sx + 3, topY - 10, 3.5, 0, Math.PI * 2);
         ctx.fill();
+
+        ctx.restore();
+
+    }
+
+}
+
+// =====================================
+// Arcane Nova
+// =====================================
+//
+// The Magus' answer to melee pressure. A short charge-up
+// (rings converging on him), then a blast centered on
+// wherever he is at detonation: damages the player if
+// they're still inside NOVA_RADIUS and shoves them back
+// outward for NOVA_PUSH_DURATION regardless of i-frames -
+// the shove IS the defense, the damage is just the sting.
+
+class ArcaneNova {
+
+    constructor(magus) {
+
+        this.magus = magus;
+        this.state = "charge";
+        this.timer = MAGUS.NOVA_CHARGE;
+
+        this.pushing = false;
+        this.pushAngle = 0;
+
+    }
+
+    center() {
+
+        return {
+            x: this.magus.x + this.magus.size / 2,
+            y: this.magus.y + this.magus.size / 2
+        };
+
+    }
+
+    update() {
+
+        this.timer -= Game.dt;
+
+        if (this.state === "charge") {
+
+            if (this.timer <= 0) {
+
+                this.state = "blast";
+                this.timer = MAGUS.NOVA_PUSH_DURATION;
+
+                const c = this.center();
+                const dx = player.x + player.size / 2 - c.x;
+                const dy = player.y + player.size / 2 - c.y;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist < MAGUS.NOVA_RADIUS + player.size / 2) {
+
+                    player.takeHit(ENEMY_LABELS.royalMagus);
+
+                    this.pushing = true;
+                    this.pushAngle = dist === 0
+                        ? Math.random() * Math.PI * 2
+                        : Math.atan2(dy, dx);
+
+                }
+
+                Game.screenShake = 8;
+
+                Particle.createHitBurst(c.x, c.y);
+
+            }
+
+            return;
+
+        }
+
+        if (this.state === "blast") {
+
+            if (this.pushing) {
+
+                player.x += Math.cos(this.pushAngle) * MAGUS.NOVA_PUSH * Game.timeScale;
+                player.y += Math.sin(this.pushAngle) * MAGUS.NOVA_PUSH * Game.timeScale;
+
+                player.keepOnScreen();
+
+            }
+
+            if (this.timer <= 0)
+                this.state = "done";
+
+        }
+
+    }
+
+    isDead() {
+
+        return this.state === "done";
+
+    }
+
+    draw() {
+
+        const c = this.center();
+
+        ctx.save();
+
+        if (this.state === "charge") {
+
+            // Rings converging inward as he gathers the blast.
+            const progress = 1 - this.timer / MAGUS.NOVA_CHARGE;
+            const radius = MAGUS.NOVA_RADIUS * (1 - progress * 0.75);
+
+            ctx.strokeStyle = `rgba(140, 170, 255, ${0.3 + progress * 0.5})`;
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = "#3d5af1";
+
+            ctx.beginPath();
+            ctx.arc(c.x, c.y, radius, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Danger area preview.
+            ctx.fillStyle = `rgba(120, 150, 255, ${0.08 + progress * 0.08})`;
+            ctx.beginPath();
+            ctx.arc(c.x, c.y, MAGUS.NOVA_RADIUS, 0, Math.PI * 2);
+            ctx.fill();
+
+        } else if (this.state === "blast") {
+
+            // Shockwave ring expanding out to full radius.
+            const progress = 1 - this.timer / MAGUS.NOVA_PUSH_DURATION;
+            const radius = MAGUS.NOVA_RADIUS * progress;
+            const fade = 1 - progress;
+
+            ctx.strokeStyle = `rgba(200, 220, 255, ${0.85 * fade})`;
+            ctx.lineWidth = 8 * fade + 2;
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = "#7fa0ff";
+
+            ctx.beginPath();
+            ctx.arc(c.x, c.y, radius, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.strokeStyle = `rgba(120, 150, 255, ${0.4 * fade})`;
+            ctx.lineWidth = 2;
+
+            ctx.beginPath();
+            ctx.arc(c.x, c.y, radius * 0.7, 0, Math.PI * 2);
+            ctx.stroke();
+
+        }
 
         ctx.restore();
 

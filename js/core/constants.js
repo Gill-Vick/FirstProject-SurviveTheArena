@@ -1162,8 +1162,19 @@ const MAGUS = {
     // Skills fire on a fixed rotation: lightning -> wall ->
     // wind -> meteor. One shared cooldown between casts, plus
     // a grace period at the start of the fight.
-    OPENING_COOLDOWN: 2000,
-    SKILL_COOLDOWN: 4200,
+    OPENING_COOLDOWN: 1500,
+    SKILL_COOLDOWN: 2000,
+
+    // Arcane Nova - his close-range defense. Getting inside
+    // TRIGGER_RANGE sets off a short charge-up, then a blast
+    // that damages and shoves the player back out. Separate
+    // cooldown from the skill rotation.
+    NOVA_TRIGGER_RANGE: 190,
+    NOVA_COOLDOWN: 2600,
+    NOVA_CHARGE: 350,
+    NOVA_RADIUS: 210,
+    NOVA_PUSH: 14,
+    NOVA_PUSH_DURATION: 280,
 
     // Lightning Shower - strikes scattered across the whole
     // arena like rain, each with its own telegraph circle.
@@ -1195,7 +1206,12 @@ const MAGUS = {
     // Honor guard entrance - one weaver + one mage walk in
     // together, a new pair every ESCORT_GAP ms.
     ESCORT_PER_SIDE: 4,
-    ESCORT_GAP: 1000
+    ESCORT_GAP: 1000,
+
+    // The Magus drives his guard harder than they'd cast on
+    // their own - multiplier on the weavers'/mages' cast
+    // cooldowns during this fight only.
+    ESCORT_COOLDOWN_SCALE: 0.55
 
 };
 

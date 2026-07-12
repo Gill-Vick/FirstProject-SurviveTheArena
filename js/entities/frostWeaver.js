@@ -82,7 +82,11 @@ class FrostWeaver extends Enemy {
 
         Game.hazards.push(new FrostZone(tx, ty, radius));
 
-        this.castCooldown = ENEMY_TYPES.frostWeaver.CAST_COOLDOWN;
+        // castRateScale is only ever set on the Royal Magus'
+        // honor guard (see spawnMagusEscort in wave.js).
+        this.castCooldown =
+            ENEMY_TYPES.frostWeaver.CAST_COOLDOWN *
+            (this.castRateScale ?? 1);
 
     }
 
