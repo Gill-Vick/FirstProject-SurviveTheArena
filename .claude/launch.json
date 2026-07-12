@@ -6,9 +6,10 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": [
         "-c",
-        "import http.server\nclass H(http.server.SimpleHTTPRequestHandler):\n    def end_headers(self):\n        self.send_header('Cache-Control', 'no-store')\n        super().end_headers()\nhttp.server.test(HandlerClass=H, port=8321)"
+        "import http.server, os\nclass H(http.server.SimpleHTTPRequestHandler):\n    def end_headers(self):\n        self.send_header('Cache-Control', 'no-store')\n        super().end_headers()\nhttp.server.test(HandlerClass=H, port=int(os.environ.get('PORT', 8321)))"
       ],
-      "port": 8321
+      "port": 8321,
+      "autoPort": true
     }
   ]
 }

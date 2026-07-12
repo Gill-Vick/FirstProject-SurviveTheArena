@@ -34,6 +34,17 @@ class Warrior extends Player {
 
         this.bowCooldown = 0;
 
+        // Berserker Medallion rage - stacks build one per
+        // connecting swing (not per enemy hit), fade together
+        // when the window runs out without a landed swing.
+        this.rageStacks = 0;
+        this.rageTimer = 0;
+        this.rageGainedThisSwing = false;
+
+        // Forgemaster's Sigil reforge countdown (ms of Game.dt,
+        // 0 = not currently reforging).
+        this.reforgeTimer = 0;
+
         // King's Blade laser (right-click ability)
 
         this.kingsBladeCooldown = 0;
@@ -65,6 +76,10 @@ class Warrior extends Player {
         this.updateBow();
 
         this.updateKingsBlade();
+
+        this.updateRage();
+
+        this.updateReforge();
 
         // Hold-to-swing checking system triggers auto attacks safely
         if (isMouseDown && Game.state === "playing") {
@@ -144,11 +159,29 @@ class Warrior extends Player {
 
             const displayLabel = (Save.equippedShieldStage === 2) ? "Onyx Shield" : "Shield";
 
+            let stateText = this.shieldActive ? "ACTIVE" : "USED";
+
+            if (!this.shieldActive && this.reforgeTimer > 0) {
+                const reforgeSecs = (this.reforgeTimer / (1000 * GAME_SPEED)).toFixed(1);
+                stateText = `REFORGING ${reforgeSecs}s`;
+            }
+
             lines.push({
-                text: `${displayLabel}: ${this.shieldActive ? "ACTIVE" : "USED"}`,
+                text: `${displayLabel}: ${stateText}`,
                 color: this.shieldActive
                     ? ((Save.equippedShieldStage === 2) ? "#b533ff" : "#44ffda")
-                    : "#666"
+                    : (this.reforgeTimer > 0 ? "#e67e22" : "#666")
+            });
+
+        }
+
+        if (Save.isEquipped("berserkerMedallion")) {
+
+            lines.push({
+                text: this.rageStacks > 0
+                    ? `Rage: +${this.getRageBonus()} dmg`
+                    : "Rage: 0",
+                color: this.rageStacks > 0 ? "#ff6b4a" : "#666"
             });
 
         }
@@ -172,8 +205,14 @@ class Warrior extends Player {
 
         this.shieldCharges--;
 
-        if (this.shieldCharges <= 0)
+        if (this.shieldCharges <= 0) {
+
             this.shieldActive = false;
+
+            if (Save.isEquipped("forgeSigil"))
+                this.reforgeTimer = FORGE_SIGIL.REFORGE_MS;
+
+        }
 
         this.invulnTimer = SHIELD.INVULN_MS;
 
@@ -226,7 +265,77 @@ class Warrior extends Player {
             ? (Save.isEquipped("kingsBlade") ? KINGS_BLADE.WETSTONE_BONUS : SWORD.WETSTONE_BONUS)
             : 0;
 
-        return base + wetstoneBonus;
+        return base + wetstoneBonus + this.getRageBonus();
+
+    }
+
+    // =====================================
+    // Berserker Medallion (rage)
+    // =====================================
+
+    getRageBonus() {
+
+        return Save.isEquipped("berserkerMedallion")
+            ? this.rageStacks * RAGE.BONUS_PER_STACK
+            : 0;
+
+    }
+
+    // Called from attackEnemies() when a swing connects - one
+    // stack per swing no matter how many enemies it clips.
+    gainRage() {
+
+        if (!Save.isEquipped("berserkerMedallion"))
+            return;
+
+        if (this.rageGainedThisSwing)
+            return;
+
+        this.rageGainedThisSwing = true;
+
+        this.rageStacks = Math.min(
+            RAGE.MAX_STACKS,
+            this.rageStacks + 1
+        );
+
+        this.rageTimer = RAGE.WINDOW_MS;
+
+    }
+
+    updateRage() {
+
+        if (this.rageTimer <= 0)
+            return;
+
+        this.rageTimer -= Game.dt;
+
+        if (this.rageTimer <= 0)
+            this.rageStacks = 0;
+
+    }
+
+    // =====================================
+    // Forgemaster's Sigil (shield reforge)
+    // =====================================
+
+    updateReforge() {
+
+        if (this.reforgeTimer <= 0)
+            return;
+
+        this.reforgeTimer -= Game.dt;
+
+        if (this.reforgeTimer > 0)
+            return;
+
+        // Unequipping mid-run isn't possible, but stay safe.
+        if (!Save.isEquipped("shield"))
+            return;
+
+        this.shieldActive = true;
+
+        this.shieldCharges =
+            Save.equippedShieldStage >= 3 ? 2 : 1;
 
     }
 
@@ -399,6 +508,8 @@ class Warrior extends Player {
 
         this.swordAngle = aimAngle;
 
+        this.rageGainedThisSwing = false;
+
         Game.enemies.forEach(enemy => {
 
             enemy.hitThisSwing = false;
@@ -485,6 +596,8 @@ class Warrior extends Player {
                 );
 
                 enemy.hitThisSwing = true;
+
+                this.gainRage();
 
                 this.tryCharmOnHit(enemy);
 

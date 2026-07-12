@@ -101,6 +101,37 @@ const SHIELD = {
 };
 
 // =====================================
+// Warrior - Berserker Medallion (Castle Guard tier)
+// =====================================
+//
+// The Warrior's damage passive, filling the same slot as the
+// Thief's Master of the Blade: consecutive sword swings that
+// connect build Rage, each stack adding flat sword damage.
+// Rage fades if no swing lands within the window, so it
+// rewards staying committed in melee - the Warrior's whole
+// identity - rather than poking and running.
+
+const RAGE = {
+    BONUS_PER_STACK: 1,
+    MAX_STACKS: 3,
+    WINDOW_MS: 2000
+};
+
+// =====================================
+// Warrior - Forgemaster's Sigil (Castle Guard tier)
+// =====================================
+//
+// The Warrior's survivability passive: a broken shield
+// reforges itself after a delay instead of staying gone for
+// the rest of the run. Each reforged Onyx block still procs
+// the nuke, so it doubles as slow-drip damage in long boss
+// fights.
+
+const FORGE_SIGIL = {
+    REFORGE_MS: 8000
+};
+
+// =====================================
 // Windrunner Anklet (shop item)
 // =====================================
 //
@@ -515,7 +546,7 @@ const SHOP_ITEMS = {
         classId: "warrior",
         price: 0,
         name: "Wet Stone",
-        desc: "Sword deals 2 damage",
+        desc: "Sword deals +1 damage",
         equippable: true
     },
 
@@ -537,11 +568,29 @@ const SHOP_ITEMS = {
         equippable: true
     },
 
+    berserkerMedallion: {
+        classId: "warrior",
+        price: 0,
+        name: "Berserker Medallion",
+        desc: "Sword hits build Rage — +1 sword dmg per stack (max +3), fades after 2s",
+        requiresFirstBoss: false,
+        equippable: true
+    },
+
+    forgeSigil: {
+        classId: "warrior",
+        price: 0,
+        name: "Forgemaster's Sigil",
+        desc: "A broken shield reforges itself after 8s",
+        requiresFirstBoss: false,
+        equippable: true
+    },
+
     kingsBlade: {
         classId: "warrior",
         price: 0,
         name: "King's Blade",
-        desc: "2 dmg sword + right-click laser (5 dmg, 4s cd)",
+        desc: "3 dmg sword + right-click laser (5 dmg, 4s cd)",
         requiresKingKilled: false,
         equippable: true
     },
