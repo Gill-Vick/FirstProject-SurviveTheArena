@@ -62,6 +62,26 @@ canvas.addEventListener("mousedown", (e) => {
                 handleMenuClick(x, y);
                 break;
 
+            case "playing":
+
+                // Clicking the pause control pauses instead of
+                // counting as an attack.
+                if (hitRect(getPauseButton(), x, y)) {
+
+                    isMouseDown = false;
+
+                    togglePause();
+
+                }
+                break;
+
+            case "paused":
+
+                isMouseDown = false;
+
+                handlePauseMenuClick(x, y);
+                break;
+
             case "gameover":
 
                 const homeBtn = getHomeButton();
@@ -241,6 +261,18 @@ window.addEventListener("keydown", (e) => {
     ) {
 
         player.onAbilityKey();
+
+    }
+
+    // [P] - pause toggle, mirroring the on-screen button.
+    if (
+
+        e.key.toLowerCase() === "p" &&
+        (Game.state === "playing" || Game.state === "paused")
+
+    ) {
+
+        togglePause();
 
     }
 

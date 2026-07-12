@@ -13,6 +13,10 @@ const ENEMY_CLASSES = {
     necromancer: Necromancer,
     skeleton: Skeleton,
     lancer: Lancer,
+    shade: Shade,
+    frostWeaver: FrostWeaver,
+    powderKeg: PowderKeg,
+    bloodCleric: BloodCleric,
     knight: Knight,
     king: King
 
@@ -28,13 +32,18 @@ const SPAWN_GAP = {
     fireMage: 650,
     necromancer: 800,
     lancer: 550,
+    shade: 700,
+    frostWeaver: 800,
+    powderKeg: 350,
+    bloodCleric: 900,
     knight: 500,
     king: 500
 
 };
 
+// An elite 1-HP bomb is just noise, so kegs stay normal.
 const NO_ELITE = new Set([
-    "boss", "knight", "king"
+    "boss", "knight", "king", "powderKeg"
 ]);
 
 // =====================================
@@ -53,7 +62,18 @@ const WAVE_ORDER_SET2 = [
     "tank", "necromancer", "fireMage", "lancer", "runner", "archer"
 ];
 
+// Clerics arrive right behind the tanks they want to heal;
+// kegs trickle in late, during the chaos.
+const WAVE_ORDER_SET3 = [
+    "tank", "bloodCleric", "frostWeaver", "necromancer",
+    "fireMage", "shade", "lancer", "powderKeg",
+    "runner", "archer"
+];
+
 function getSpawnOrder() {
+
+    if (Game.wave >= WAVES.SET3_START)
+        return WAVE_ORDER_SET3;
 
     return Game.wave >= WAVES.SET2_START
         ? WAVE_ORDER_SET2
@@ -161,12 +181,53 @@ function getSet2Counts() {
 
 }
 
+// Set 3 (waves 11+): hand-tuned counts per wave rather than a
+// formula - the full roster is present from 11, with each
+// wave shifting which unit dominates. Waves past 14 reuse the
+// wave-14 row (wave 15 is the King anyway).
+
+const SET3_WAVE_COUNTS = {
+    11: { powderKeg: 2, frostWeaver: 1, shade: 1, bloodCleric: 1 },
+    12: { powderKeg: 2, frostWeaver: 2, shade: 1, bloodCleric: 2 },
+    13: { powderKeg: 1, frostWeaver: 1, shade: 3, bloodCleric: 3 },
+    14: { powderKeg: 3, frostWeaver: 3, shade: 1, bloodCleric: 3 }
+};
+
+function getSet3Counts() {
+
+    if (Game.wave < WAVES.SET3_START)
+        return {};
+
+    return { ...(SET3_WAVE_COUNTS[Game.wave] ?? SET3_WAVE_COUNTS[14]) };
+
+}
+
 function startNormalWave() {
 
     const set1 = getSet1Counts();
     const set2 = getSet2Counts();
+    const set3 = getSet3Counts();
 
-    const counts = { ...set1, ...set2 };
+    // During set-3 waves the older units keep coming, just
+    // thinned out so the arena isn't overcrowded on top of
+    // the new roster.
+    if (Game.wave >= WAVES.SET3_START) {
+
+        [set1, set2].forEach(set => {
+
+            Object.keys(set).forEach(type => {
+
+                set[type] = Math.floor(
+                    set[type] * WAVES.SET3_OLD_UNIT_SCALE
+                );
+
+            });
+
+        });
+
+    }
+
+    const counts = { ...set1, ...set2, ...set3 };
 
     Game.enemiesRemaining = Object.values(counts)
         .reduce((a, b) => a + b, 0);
@@ -191,9 +252,11 @@ function startKnightWave() {
 
     Game.enemiesRemaining = 1;
 
+    const token = Game.runToken;
+
     setTimeout(() => {
 
-        if (Game.state !== "playing")
+        if (Game.runToken !== token || !isRunActive())
             return;
 
         spawnEnemy("knight");
@@ -208,9 +271,11 @@ function startKingWave() {
 
     Game.enemiesRemaining = 1;
 
+    const token = Game.runToken;
+
     setTimeout(() => {
 
-        if (Game.state !== "playing")
+        if (Game.runToken !== token || !isRunActive())
             return;
 
         spawnEnemy("king");
@@ -233,6 +298,12 @@ function spawnWaveEnemies(counts) {
         return;
 
     }
+
+    // Captured at schedule time: if the run/wave is torn down
+    // (menu, restart, custom wave jump) before a timer fires,
+    // the stale callback must not spawn into - or touch the
+    // bookkeeping of - whatever replaced it.
+    const token = Game.runToken;
 
     let pending = totalCount;
 
@@ -283,7 +354,10 @@ function spawnWaveEnemies(counts) {
 
             setTimeout(() => {
 
-                if (Game.state === "playing")
+                if (Game.runToken !== token)
+                    return;
+
+                if (isRunActive())
                     spawnEnemy(type);
 
                 finishOne();
@@ -316,7 +390,10 @@ function spawnWaveEnemies(counts) {
 
             setTimeout(() => {
 
-                if (Game.state === "playing")
+                if (Game.runToken !== token)
+                    return;
+
+                if (isRunActive())
                     spawnEnemy("grunt");
 
                 finishOne();
@@ -421,9 +498,11 @@ function updateWave() {
     Game.waveTransition = true;
     Game.waveActive = false;
 
+    const token = Game.runToken;
+
     setTimeout(() => {
 
-        if (Game.state !== "playing")
+        if (Game.runToken !== token || !isRunActive())
             return;
 
         // Boss Rush jumps a full 5-wave cycle at a time so the

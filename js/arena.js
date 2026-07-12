@@ -14,12 +14,26 @@ const Arena = {
 
 function updateArenaForWave() {
 
-    if (Game.wave >= WAVES.SET2_START && Arena.theme !== "thorn") {
+    // Coliseum for waves 1-5, thorn room for 6-10, throne
+    // approach for 11+. Comparing against the CURRENT theme
+    // (rather than one-way checks) means custom-mode wave
+    // jumps regenerate correctly in both directions.
+    const desired =
+        Game.wave >= WAVES.SET3_START ? "throne" :
+        Game.wave >= WAVES.SET2_START ? "thorn" :
+        "coliseum";
 
-        Arena.theme = "thorn";
+    if (Arena.theme === desired)
+        return;
+
+    Arena.theme = desired;
+
+    if (desired === "throne")
+        generateThroneRoom();
+    else if (desired === "thorn")
         generateThornRoom();
-
-    }
+    else
+        generateColiseum();
 
 }
 
@@ -31,6 +45,22 @@ function generateArena() {
 }
 
 function generateColiseum() {
+
+    generateColiseumPillars();
+
+}
+
+// The throne approach (wave 11+) keeps the coliseum's exact
+// pillar arrangement - only the floor (red carpet) and the
+// pillar rendering itself (marble + gold) change.
+
+function generateThroneRoom() {
+
+    generateColiseumPillars();
+
+}
+
+function generateColiseumPillars() {
     Arena.pillars = [];
     Arena.torches = [];
 
@@ -163,6 +193,87 @@ function drawArenaFloor() {
 
     ctx.fillStyle = "#2b2927";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (Arena.theme === "throne")
+        drawRedCarpet();
+
+}
+
+// =====================================
+// Red Carpet (throne approach)
+// =====================================
+//
+// A full-height runner down the center of the arena - deep
+// red body, gold trim bands down both sides, and a line of
+// gold diamond motifs spaced along the middle. Purely
+// decorative; it sits on the floor pass so shadows, lighting,
+// and every entity draw on top of it.
+
+function drawRedCarpet() {
+
+    const carpetWidth = canvas.width * 0.26;
+    const trimWidth = Math.max(8, carpetWidth * 0.05);
+    const left = canvas.width / 2 - carpetWidth / 2;
+    const right = left + carpetWidth;
+
+    ctx.save();
+
+    // Soft contact shadow so the carpet reads as sitting on
+    // the floor instead of painted onto it.
+    ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
+    ctx.fillRect(left - 6, 0, carpetWidth + 12, canvas.height);
+
+    // Red body - darker at the edges, richer in the middle,
+    // like the pile catching the light down its center.
+    let body = ctx.createLinearGradient(left, 0, right, 0);
+    body.addColorStop(0, "#4a0c14");
+    body.addColorStop(0.18, "#6e1220");
+    body.addColorStop(0.5, "#8f1626");
+    body.addColorStop(0.82, "#6e1220");
+    body.addColorStop(1, "#4a0c14");
+
+    ctx.fillStyle = body;
+    ctx.fillRect(left, 0, carpetWidth, canvas.height);
+
+    // Gold trim bands down both sides.
+    [left, right - trimWidth].forEach(x => {
+
+        let trim = ctx.createLinearGradient(x, 0, x + trimWidth, 0);
+        trim.addColorStop(0, "#7a5c14");
+        trim.addColorStop(0.5, "#d4af37");
+        trim.addColorStop(1, "#7a5c14");
+
+        ctx.fillStyle = trim;
+        ctx.fillRect(x, 0, trimWidth, canvas.height);
+
+    });
+
+    // Thin dark seam where the trim meets the red, so the
+    // bands don't blur into the body.
+    ctx.fillStyle = "rgba(30, 5, 8, 0.6)";
+    ctx.fillRect(left + trimWidth, 0, 2, canvas.height);
+    ctx.fillRect(right - trimWidth - 2, 0, 2, canvas.height);
+
+    // Gold diamond motifs spaced down the center line.
+    const cx = canvas.width / 2;
+    const spacing = 140;
+    const size = carpetWidth * 0.055;
+
+    ctx.fillStyle = "rgba(212, 175, 55, 0.55)";
+
+    for (let y = spacing / 2; y < canvas.height; y += spacing) {
+
+        ctx.beginPath();
+        ctx.moveTo(cx, y - size);
+        ctx.lineTo(cx + size, y);
+        ctx.lineTo(cx, y + size);
+        ctx.lineTo(cx - size, y);
+        ctx.closePath();
+        ctx.fill();
+
+    }
+
+    ctx.restore();
 
 }
 
@@ -419,6 +530,14 @@ function drawPillars() {
 
     }
 
+    if (Arena.theme === "throne") {
+
+        Arena.pillars.forEach(p => drawThronePillar(p));
+
+        return;
+
+    }
+
     Arena.pillars.forEach(p => {
         ctx.save();
 
@@ -445,6 +564,76 @@ function drawPillars() {
 
         ctx.restore();
     });
+}
+
+// Throne pillar: same silhouette and plinth as the coliseum
+// pillar (same x/width/height), rendered as polished marble -
+// smoother multi-stop gradient, a bright edge highlight,
+// proper fluting grooves, and gold capital/plinth trim to
+// match the carpet.
+
+function drawThronePillar(p) {
+
+    const shaftLeft = p.x - p.width / 2;
+    const shaftHeight = p.y + 40;
+
+    ctx.save();
+
+    // Polished marble shaft - more gradient stops than the
+    // coliseum version so the rounding reads smoothly.
+    let shaft = ctx.createLinearGradient(shaftLeft, 0, shaftLeft + p.width, 0);
+    shaft.addColorStop(0, "#e8ecec");
+    shaft.addColorStop(0.12, "#c3ced1");
+    shaft.addColorStop(0.35, "#8fa1a8");
+    shaft.addColorStop(0.6, "#54626e");
+    shaft.addColorStop(0.85, "#2b3843");
+    shaft.addColorStop(1, "#151d24");
+
+    ctx.fillStyle = shaft;
+    ctx.fillRect(shaftLeft, 0, p.width, shaftHeight);
+
+    // Bright specular streak near the lit edge.
+    ctx.fillStyle = "rgba(255, 255, 255, 0.28)";
+    ctx.fillRect(shaftLeft + p.width * 0.07, 0, p.width * 0.05, shaftHeight);
+
+    // Fluting - four soft vertical grooves instead of the
+    // coliseum's two hard lines.
+    for (let i = 1; i <= 4; i++) {
+
+        const gx = shaftLeft + (p.width * i) / 5;
+
+        let groove = ctx.createLinearGradient(gx - 3, 0, gx + 3, 0);
+        groove.addColorStop(0, "rgba(0, 0, 0, 0)");
+        groove.addColorStop(0.5, "rgba(0, 0, 0, 0.3)");
+        groove.addColorStop(1, "rgba(255, 255, 255, 0.08)");
+
+        ctx.fillStyle = groove;
+        ctx.fillRect(gx - 3, 0, 6, shaftHeight);
+
+    }
+
+    // Gold capital band where the shaft meets the plinth.
+    let band = ctx.createLinearGradient(0, shaftHeight - 18, 0, shaftHeight);
+    band.addColorStop(0, "#d4af37");
+    band.addColorStop(0.5, "#a07d1f");
+    band.addColorStop(1, "#6e5512");
+
+    ctx.fillStyle = band;
+    ctx.fillRect(shaftLeft - p.width * 0.05, shaftHeight - 18, p.width * 1.1, 18);
+
+    // Plinth - same two-step footprint as the coliseum
+    // pillar, in marble tones with a gold trim line.
+    ctx.fillStyle = "#3d4d5c";
+    ctx.fillRect(p.x - p.width * 0.65, shaftHeight, p.width * 1.3, 14);
+
+    ctx.fillStyle = "#d4af37";
+    ctx.fillRect(p.x - p.width * 0.65, shaftHeight + 12, p.width * 1.3, 3);
+
+    ctx.fillStyle = "#1b2530";
+    ctx.fillRect(p.x - p.width * 0.75, shaftHeight + 14, p.width * 1.5, 12);
+
+    ctx.restore();
+
 }
 
 // =====================================

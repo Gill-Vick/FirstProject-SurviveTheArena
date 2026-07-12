@@ -112,12 +112,29 @@ const Game = {
 
     wave: 1,
 
+    // Which mode the current/next run is playing:
+    // "campaign" | "bossRush" | "custom". Custom plays like
+    // campaign but unlocks the pause menu's cheats (wave
+    // jumping, immortality).
+    mode: "campaign",
+
     // True when the current/next run is Boss Rush mode -
     // waves jump straight from one boss fight to the next
     // (5, 10, 15, 20, ...) instead of playing the filler
     // waves in between. See startWave()/updateWave() in
     // wave.js.
     bossRush: false,
+
+    // Custom-mode cheat: player.takeHit() is a no-op while
+    // set. Toggled from the pause menu.
+    immortal: false,
+
+    // Bumped whenever the run's timeline is invalidated
+    // (new run, back to menu, custom wave jump). Every
+    // setTimeout-scheduled spawn captures the token at
+    // schedule time and bails if it changed by fire time, so
+    // stale spawns can't leak into a different run/wave.
+    runToken: 0,
 
     // Real elapsed ms since the current run started (startGame()),
     // ticked up in update() using Game.dt so it respects
@@ -250,7 +267,13 @@ function startGame(mode = "campaign") {
 
     Game.state = "playing";
 
+    Game.mode = mode;
+
     Game.bossRush = mode === "bossRush";
+
+    Game.immortal = false;
+
+    Game.runToken++;
 
     Game.killedBy = null;
 
@@ -316,11 +339,63 @@ function onEnemyKilled(enemy) {
 
 }
 
+// True while a run exists on screen - playing OR paused.
+// setTimeout-scheduled spawns use this instead of checking
+// for "playing" directly, so pausing doesn't swallow enemies
+// whose spawn timers fire mid-pause (they spawn frozen).
+
+function isRunActive() {
+
+    return Game.state === "playing" || Game.state === "paused";
+
+}
+
+function togglePause() {
+
+    if (Game.state === "playing")
+        Game.state = "paused";
+
+    else if (Game.state === "paused")
+        Game.state = "playing";
+
+}
+
+// Custom-mode cheat: tear down the current wave completely
+// and restart at `targetWave`. The runToken bump strands any
+// spawns the old wave still had scheduled.
+
+function jumpToWave(targetWave) {
+
+    Game.runToken++;
+
+    Game.wave = Math.max(1, targetWave);
+
+    Game.enemies = [];
+    Game.projectiles = [];
+    Game.hazards = [];
+    Game.spawnTelegraphs = [];
+    Game.damageNumbers = [];
+
+    Game.waveActive = false;
+    Game.waveSpawning = false;
+    Game.waveTransition = false;
+    Game.enemiesRemaining = 0;
+
+    startWave();
+
+}
+
 function resetGame() {
 
     Game.state = "menu";
 
     Game.menuView = "main";
+
+    Game.mode = "campaign";
+
+    Game.immortal = false;
+
+    Game.runToken++;
 
     Game.bestiarySelected = null;
 
@@ -490,32 +565,14 @@ function draw() {
             break;
 
         case "playing":
+            drawPlayingScene();
+            break;
 
-            // 4. LIGHTING PASS: floor-only. Everything drawn
-            // after this is fully opaque and unaffected by it.
+        case "paused":
 
-            drawLightingSystem();
-
-            Game.hazards.forEach(hazard => hazard.draw());
-
-            Game.spawnTelegraphs.forEach(telegraph => telegraph.draw());
-
-            player.draw();
-            Game.enemies.forEach(enemy => enemy.draw());
-            Game.projectiles.forEach(projectile => projectile.draw());
-            Game.particles.forEach(particle => particle.draw());
-
-            // 6. FOREGROUND OBJECT PASS: pillars occlude characters
-            // that walk behind them
-
-            drawPillars();
-            drawTorches();
-
-            // 7. UI PASS: always on top, always readable
-
-            Game.damageNumbers.forEach(number => number.draw());
-            drawHUD();
-            drawWaveMessages();
+            // The frozen scene stays visible under the menu.
+            drawPlayingScene();
+            drawPauseMenu();
             break;
 
         case "gameover":
@@ -524,4 +581,34 @@ function draw() {
     }
 
     ctx.restore();
+}
+
+function drawPlayingScene() {
+
+    // 4. LIGHTING PASS: floor-only. Everything drawn
+    // after this is fully opaque and unaffected by it.
+
+    drawLightingSystem();
+
+    Game.hazards.forEach(hazard => hazard.draw());
+
+    Game.spawnTelegraphs.forEach(telegraph => telegraph.draw());
+
+    player.draw();
+    Game.enemies.forEach(enemy => enemy.draw());
+    Game.projectiles.forEach(projectile => projectile.draw());
+    Game.particles.forEach(particle => particle.draw());
+
+    // 6. FOREGROUND OBJECT PASS: pillars occlude characters
+    // that walk behind them
+
+    drawPillars();
+    drawTorches();
+
+    // 7. UI PASS: always on top, always readable
+
+    Game.damageNumbers.forEach(number => number.draw());
+    drawHUD();
+    drawWaveMessages();
+
 }

@@ -344,7 +344,7 @@ const THROWING_KNIFE = {
     SIZE: 5,
     COLOR: "#c0392b",
     TELEPORT_WINDOW_MS: 2000,
-    TELEPORT_INVULN_MS: 500
+    TELEPORT_INVULN_MS: 300
 };
 
 // =====================================
@@ -448,6 +448,10 @@ const COINS = {
     necromancer: 4,
     skeleton: 1,
     lancer: 5,
+    shade: 6,
+    frostWeaver: 7,
+    powderKeg: 4,
+    bloodCleric: 8,
     knight: 75,
     king: 150
 };
@@ -892,6 +896,80 @@ const ENEMY_TYPES = {
         DASH_DURATION: 9,
         DASH_WIDTH: 60
 
+    },
+
+    // ---- Set 3 (waves 11+) ----
+
+    shade: {
+
+        SIZE: 38,
+        SPEED: 1.6,
+        COLOR: "#1a1025",
+
+        // Teleport cycle: walk → vanish → reappear behind the
+        // player → windup (telegraph) → lunge → recover.
+        TELEPORT_COOLDOWN: 4000,
+        VANISH_DURATION: 500,
+        WINDUP_DURATION: 600,
+        LUNGE_SPEED: 11,
+        LUNGE_DURATION: 13,
+        RECOVER_DURATION: 1000,
+
+        // How far behind the player it reappears.
+        BLINK_DISTANCE: 120
+
+    },
+
+    frostWeaver: {
+
+        SIZE: 42,
+        SPEED: 1.2,
+        COLOR: "#aee3f5",
+        PREFERRED_RANGE: 340,
+        CAST_COOLDOWN: 2800,
+
+        // Frost zone (see FrostZone in hazard.js): no damage,
+        // just slows the player while inside.
+        ZONE_RADIUS: 120,
+        ZONE_DURATION: 4000,
+        ZONE_GROW_TIME: 400,
+        SLOW_FACTOR: 0.6
+
+    },
+
+    powderKeg: {
+
+        SIZE: 44,
+        SPEED: 2.6,
+        COLOR: "#5d5348",
+
+        // Fuse starts at TRIGGER_RANGE from the player OR when
+        // its 1 HP runs out; explosion hurts the player AND
+        // other enemies (bait it into the horde).
+        TRIGGER_RANGE: 90,
+        FUSE_TIME: 550,
+        EXPLOSION_RADIUS: 110,
+        EXPLOSION_ENEMY_DAMAGE: 3
+
+    },
+
+    bloodCleric: {
+
+        SIZE: 46,
+        SPEED: 1.0,
+        COLOR: "#e8e0d0",
+        PREFERRED_RANGE: 300,
+
+        // Heal channel: picks the most-injured non-boss ally,
+        // tethers to it for CHANNEL_TIME, then heals it. If
+        // nobody's hurt, wards a nearby ally with a 1-hit
+        // shield instead.
+        HEAL_COOLDOWN: 3000,
+        CHANNEL_TIME: 1000,
+        HEAL_AMOUNT: 2,
+        ELITE_HEAL_AMOUNT: 3,
+        WARD_RANGE: 250
+
     }
 
 };
@@ -914,6 +992,10 @@ const ENEMY_LABELS = {
     necromancer: "a Necromancer",
     skeleton: "a Skeleton",
     lancer: "a Lancer",
+    shade: "a Shade",
+    frostWeaver: "a Frost Weaver",
+    powderKeg: "a Powder Keg",
+    bloodCleric: "a Blood Cleric",
     knight: "the Knight",
     king: "the King"
 
@@ -1019,17 +1101,30 @@ const KING = {
 
     SUMMON_THRESHOLD: 65,
 
-    // Laser - a continuous beam, not a bullet. It telegraphs
-    // (thin warning line) then fires as a full beam that
-    // spans clear across the map. Fires as a 3-round burst,
-    // re-aiming at the player between each pulse.
-    LASER_COOLDOWN: 2400,
-    LASER_TELEGRAPH: 350,
-    LASER_DURATION: 250,
-    LASER_BURST_COUNT: 3,
-    LASER_BURST_GAP: 200,
-    LASER_WIDTH: 55,
+    // Wall Laser Barrage - bullet-hell style. Instead of a
+    // single beam tracking out from the King's own position,
+    // full-length laser lines telegraph in from fixed lanes
+    // across the whole arena (vertical/horizontal/diagonal),
+    // leaving one gap in the wall for the player to dodge
+    // through. See fireWallBarrage()/spawnWallPattern() in
+    // king.js.
     LASER_COLOR: "#00bfff",
+    WALL_LASER_COOLDOWN: 3200,
+    WALL_LASER_TELEGRAPH: 750,
+    WALL_LASER_DURATION: 450,
+    WALL_LASER_WIDTH: 46,
+    WALL_LASER_SPACING: 100,
+
+    // How many consecutive lane slots are left empty to form
+    // the dodge lane through each wall.
+    WALL_LASER_GAP_COUNT: 2,
+
+    // Once the King passes SUMMON_THRESHOLD, every barrage
+    // layers a second, differently-angled wall shortly after
+    // the first - e.g. vertical + horizontal, or both
+    // diagonals - so the two independent gaps have to be
+    // threaded together instead of just one.
+    WALL_LASER_WAVE_GAP: 550,
 
     // Sword - a much longer, heavier greatsword swing than
     // the old 120px reach. No longer parriable, and swings a
@@ -1064,6 +1159,16 @@ const WAVES = {
     SET1_END: 5,
     SET2_START: 6,
     SET2_END: 19,
+
+    // Waves 11+ move into the throne approach - the red
+    // carpet arena leading up to the King (see
+    // generateThroneRoom in arena.js).
+    SET3_START: 11,
+
+    // Set-1/set-2 units keep spawning during set-3 waves,
+    // thinned by this multiplier so the arena isn't
+    // overcrowded on top of the new roster.
+    SET3_OLD_UNIT_SCALE: 0.6,
 
     // Previously dampened tank/archer/runner counts back down
     // after wave 5 (0.35x). Difficulty pass: no more dampening -
@@ -1143,7 +1248,8 @@ const EFFECTS = {
 
 const BESTIARY_NORMAL_ORDER = [
     "grunt", "tank", "archer", "runner",
-    "fireMage", "necromancer", "skeleton", "lancer"
+    "fireMage", "necromancer", "skeleton", "lancer",
+    "shade", "frostWeaver", "powderKeg", "bloodCleric"
 ];
 
 const BESTIARY_BOSS_ORDER = ["boss", "knight", "king"];
@@ -1275,13 +1381,65 @@ const BESTIARY = {
         baseSpeed: 2
     },
 
+    shade: {
+        name: "Shade",
+        color: "#1a1025",
+        size: 38,
+        isBoss: false,
+        emoji: "🗡",
+        desc: "A living shadow that strikes from behind.",
+        behavior: "Vanishes, reappears behind you, then lunges after a telegraph.",
+        hpAtWave(w) { return 2 + Math.floor((w - 1) / 8); },
+        hpScale: "2 + floor((wave - 1) / 8)",
+        baseSpeed: 1.6
+    },
+
+    frostWeaver: {
+        name: "Frost Weaver",
+        color: "#aee3f5",
+        size: 42,
+        isBoss: false,
+        emoji: "❄",
+        desc: "Freezes the ground beneath your feet.",
+        behavior: "Casts frost zones that slow your movement and dash.",
+        hpAtWave(w) { return 2 + Math.floor((w - 1) / 10); },
+        hpScale: "2 + floor((wave - 1) / 10)",
+        baseSpeed: 1.2
+    },
+
+    powderKeg: {
+        name: "Powder Keg",
+        color: "#5d5348",
+        size: 44,
+        isBoss: false,
+        emoji: "💣",
+        desc: "A walking bomb with a lit fuse.",
+        behavior: "Chases you and explodes up close or on death - the blast hurts enemies too.",
+        hpAtWave(w) { return 1; },
+        hpScale: "1 (fixed)",
+        baseSpeed: 2.6
+    },
+
+    bloodCleric: {
+        name: "Blood Cleric",
+        color: "#e8e0d0",
+        size: 46,
+        isBoss: false,
+        emoji: "✚",
+        desc: "A field medic for the arena's horrors.",
+        behavior: "Stays back and heals injured allies, or shields healthy ones.",
+        hpAtWave(w) { return 3 + Math.floor((w - 1) / 8); },
+        hpScale: "3 + floor((wave - 1) / 8)",
+        baseSpeed: 1
+    },
+
     king: {
         name: "King",
         color: "#6a0dad",
         size: 130,
         isBoss: true,
         desc: "The arena's ruler. A multi-phase nightmare.",
-        behavior: "Laser bursts, greatsword slashes, and elite summons at half HP.",
+        behavior: "Laser wall barrages, greatsword slashes, and elite summons at half HP.",
         lore: "The mad monarch who turned his own throne room into an arena for his amusement. Wave after wave he watches from above, bored of victories bought with other men's blood. Those his soldiers cannot break, he descends to break himself — greatsword in hand, crown ablaze.",
         hpAtWave(w) { return KING.HP; },
         hpScale: `${KING.HP} (fixed)`,

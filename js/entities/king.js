@@ -26,13 +26,12 @@ class King extends Enemy {
         this.slashAngle = 0;
         this.slashProgress = 0;
 
-        // Laser - "idle" | "telegraph" | "firing" | "gap"
-        this.laserCooldown = 0;
-        this.laserState = "idle";
-        this.laserTimer = 0;
-        this.laserAngle = 0;
-        this.laserHitRegistered = false;
-        this.laserBurstsRemaining = 0;
+        // Wall laser barrage - active WallLaser instances owned
+        // by this King (see attack()/fireWallBarrage() below).
+        // A short opening cooldown so the barrage can't hit the
+        // player in the first instant of the fight.
+        this.wallLaserCooldown = 1000;
+        this.walls = [];
 
         this.summoned = false;
 
@@ -113,16 +112,17 @@ class King extends Enemy {
 
     attack() {
 
-        if (this.laserCooldown > 0)
-            this.laserCooldown -= Game.dt;
+        if (this.wallLaserCooldown > 0)
+            this.wallLaserCooldown -= Game.dt;
 
         if (this.slashCooldown > 0)
             this.slashCooldown -= Game.dt;
 
-        // The laser telegraph/firing cycle keeps running even
-        // while a sword swing starts, so the beam never freezes
-        // mid-animation.
-        this.updateLaser();
+        // The walls keep telegraphing/firing/fading on their own
+        // schedule even while a sword swing starts, so a barrage
+        // never freezes mid-animation.
+        this.walls.forEach(wall => wall.update());
+        this.walls = this.walls.filter(wall => !wall.isDead());
 
         if (this.slashing) {
 
@@ -138,23 +138,17 @@ class King extends Enemy {
 
         }
 
-        const cx = this.x + this.size / 2;
-        const cy = this.y + this.size / 2;
+        if (this.wallLaserCooldown <= 0) {
 
-        if (this.laserState === "idle" && this.laserCooldown <= 0) {
-
-            const dx = player.x + player.size / 2 - cx;
-            const dy = player.y + player.size / 2 - cy;
-
-            this.laserAngle = Math.atan2(dy, dx);
-            this.laserState = "telegraph";
-            this.laserTimer = KING.LASER_TELEGRAPH;
-            this.laserBurstsRemaining = KING.LASER_BURST_COUNT;
+            this.fireWallBarrage();
+            this.wallLaserCooldown = KING.WALL_LASER_COOLDOWN;
 
         }
 
         if (this.slashCooldown <= 0) {
 
+            const cx = this.x + this.size / 2;
+            const cy = this.y + this.size / 2;
             const dx = player.x + player.size / 2 - cx;
             const dy = player.y + player.size / 2 - cy;
 
@@ -169,122 +163,91 @@ class King extends Enemy {
     }
 
     // =====================================
-    // Laser (continuous beam)
+    // Wall Laser Barrage (bullet-hell)
     // =====================================
+    //
+    // Full-arena laser walls, not a beam tracking out from the
+    // King's own position - each spawnWallPattern() call lays
+    // down a set of parallel WallLaser lines (vertical,
+    // horizontal, or diagonal) spanning the whole screen, with
+    // one gap left in the wall to dodge through. Once the King
+    // passes SUMMON_THRESHOLD ("this.summoned"), a second wall
+    // at a different angle follows shortly after, so the two
+    // gaps have to be threaded together instead of just one.
 
-    updateLaser() {
+    fireWallBarrage() {
 
-        if (this.laserState === "telegraph") {
+        const patterns = ["vertical", "horizontal", "diagonalRight", "diagonalLeft"];
+        const pattern = patterns[Math.floor(Math.random() * patterns.length)];
 
-            this.laserTimer -= Game.dt;
+        this.spawnWallPattern(pattern);
 
-            if (this.laserTimer <= 0) {
-
-                this.laserState = "firing";
-                this.laserTimer = KING.LASER_DURATION;
-                this.laserHitRegistered = false;
-
-            }
-
+        if (!this.summoned)
             return;
 
-        }
+        const isDiagonal = pattern === "diagonalRight" || pattern === "diagonalLeft";
 
-        if (this.laserState === "firing") {
+        const secondPattern = isDiagonal
+            ? (pattern === "diagonalRight" ? "diagonalLeft" : "diagonalRight")
+            : (pattern === "vertical" ? "horizontal" : "vertical");
 
-            this.laserTimer -= Game.dt;
+        setTimeout(() => {
 
-            this.checkLaserHit();
+            if (isRunActive() && Game.enemies.includes(this))
+                this.spawnWallPattern(secondPattern);
 
-            if (this.laserTimer <= 0) {
-
-                this.laserBurstsRemaining--;
-
-                if (this.laserBurstsRemaining > 0) {
-
-                    this.laserState = "gap";
-                    this.laserTimer = KING.LASER_BURST_GAP;
-
-                } else {
-
-                    this.laserState = "idle";
-                    this.laserCooldown = KING.LASER_COOLDOWN;
-
-                }
-
-            }
-
-            return;
-
-        }
-
-        if (this.laserState === "gap") {
-
-            this.laserTimer -= Game.dt;
-
-            if (this.laserTimer <= 0) {
-
-                // Re-aim for the next pulse in the burst so it
-                // still tracks where the player is now.
-                const cx = this.x + this.size / 2;
-                const cy = this.y + this.size / 2;
-                const dx = player.x + player.size / 2 - cx;
-                const dy = player.y + player.size / 2 - cy;
-
-                this.laserAngle = Math.atan2(dy, dx);
-                this.laserState = "telegraph";
-                this.laserTimer = KING.LASER_TELEGRAPH;
-
-            }
-
-        }
+        }, KING.WALL_LASER_WAVE_GAP);
 
     }
 
-    // The beam is a rectangle projecting out from the king's
-    // center along laserAngle, long enough to clear the map in
-    // any direction from any position, and a little wider than
-    // the player. Same rotate-into-local-space rectangle test
-    // used by the lancer's lance hitbox.
+    spawnWallPattern(pattern) {
 
-    getLaserLength() {
+        const spacing = KING.WALL_LASER_SPACING;
+        const isDiagonal = pattern === "diagonalRight" || pattern === "diagonalLeft";
 
-        return Math.hypot(canvas.width, canvas.height) * 1.2;
+        const angle =
+            pattern === "vertical" ? Math.PI / 2 :
+            pattern === "horizontal" ? 0 :
+            pattern === "diagonalRight" ? Math.PI / 4 :
+            -Math.PI / 4;
 
-    }
+        // Lines are stacked along the perpendicular axis to
+        // `angle` - moving along it steps each line over from
+        // the last, evenly covering the screen.
+        const perpAngle = angle + Math.PI / 2;
+        const perpX = Math.cos(perpAngle);
+        const perpY = Math.sin(perpAngle);
 
-    checkLaserHit() {
+        // Diagonal lines cover more screen per unit of
+        // perpendicular offset, so they need the full diagonal
+        // span rather than just width/height.
+        const span = isDiagonal
+            ? Math.hypot(canvas.width, canvas.height)
+            : (pattern === "vertical" ? canvas.width : canvas.height);
 
-        if (this.laserHitRegistered)
-            return;
+        const lineCount = Math.ceil(span / spacing) + 2;
+        const half = (lineCount - 1) / 2;
 
-        const cx = this.x + this.size / 2;
-        const cy = this.y + this.size / 2;
-        const px = player.x + player.size / 2;
-        const py = player.y + player.size / 2;
+        // A run of consecutive lines is skipped entirely so
+        // there's always a clean lane through the wall.
+        const gapSize = Math.min(KING.WALL_LASER_GAP_COUNT, lineCount);
+        const gapStart = Math.floor(Math.random() * (lineCount - gapSize + 1));
 
-        const dx = px - cx;
-        const dy = py - cy;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
 
-        const cos = Math.cos(-this.laserAngle);
-        const sin = Math.sin(-this.laserAngle);
+        for (let i = 0; i < lineCount; i++) {
 
-        const localX = dx * cos - dy * sin;
-        const localY = dx * sin + dy * cos;
+            if (i >= gapStart && i < gapStart + gapSize)
+                continue;
 
-        const pad = player.size / 2;
-        const halfWidth = KING.LASER_WIDTH / 2 + pad;
+            const offset = (i - half) * spacing;
 
-        if (
-
-            localX >= -pad &&
-            localX <= this.getLaserLength() + pad &&
-            Math.abs(localY) <= halfWidth
-
-        ) {
-
-            player.takeHit(ENEMY_LABELS.king);
-            this.laserHitRegistered = true;
+            this.walls.push(new WallLaser(
+                centerX + perpX * offset,
+                centerY + perpY * offset,
+                angle
+            ));
 
         }
 
@@ -341,14 +304,6 @@ class King extends Enemy {
         const cx = this.x + this.size / 2;
         const cy = this.y + this.size / 2;
 
-        // Beam draws first (underneath) so the king's body
-        // still reads clearly near its point of origin.
-        if (this.laserState === "telegraph")
-            this.drawLaserTelegraph(cx, cy);
-
-        if (this.laserState === "firing")
-            this.drawLaserBeam(cx, cy);
-
         ctx.save();
 
         ctx.fillStyle = "rgba(139, 0, 0, 0.85)";
@@ -382,67 +337,10 @@ class King extends Enemy {
         ctx.textAlign = "center";
         ctx.fillText("KING", cx, this.y - 28);
 
-    }
-
-    drawLaserTelegraph(cx, cy) {
-
-        const length = this.getLaserLength();
-        const pulse = 0.45 + Math.sin(Date.now() / 50) * 0.25;
-
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.rotate(this.laserAngle);
-
-        ctx.strokeStyle = `rgba(0, 191, 255, ${pulse})`;
-        ctx.lineWidth = 4;
-        ctx.setLineDash([14, 10]);
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = KING.LASER_COLOR;
-
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(length, 0);
-        ctx.stroke();
-
-        // Faint preview of the beam's width so it's clear
-        // exactly how wide the danger zone will be.
-        ctx.setLineDash([]);
-        ctx.fillStyle = `rgba(0, 191, 255, ${pulse * 0.12})`;
-        ctx.fillRect(0, -KING.LASER_WIDTH / 2, length, KING.LASER_WIDTH);
-
-        ctx.restore();
-
-    }
-
-    drawLaserBeam(cx, cy) {
-
-        const length = this.getLaserLength();
-        const width = KING.LASER_WIDTH;
-
-        // Fades out over its own duration so it doesn't just
-        // vanish instantly.
-        const fade = Math.max(0, this.laserTimer / KING.LASER_DURATION);
-
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.rotate(this.laserAngle);
-
-        ctx.shadowBlur = 30;
-        ctx.shadowColor = KING.LASER_COLOR;
-
-        const grad = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
-        grad.addColorStop(0, "rgba(0, 191, 255, 0)");
-        grad.addColorStop(0.5, `rgba(200, 245, 255, ${0.95 * fade})`);
-        grad.addColorStop(1, "rgba(0, 191, 255, 0)");
-
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, -width / 2, length, width);
-
-        // Bright hot core running through the middle
-        ctx.fillStyle = `rgba(255, 255, 255, ${0.85 * fade})`;
-        ctx.fillRect(0, -width * 0.12, length, width * 0.24);
-
-        ctx.restore();
+        // Walls draw last, on top of everything (including the
+        // King himself), so the bullet-hell pattern reads
+        // clearly no matter where on screen it crosses.
+        this.walls.forEach(wall => wall.draw());
 
     }
 
@@ -542,6 +440,171 @@ class King extends Enemy {
         ctx.beginPath();
         ctx.arc(0, 0, 6, 0, Math.PI * 2);
         ctx.fill();
+
+        ctx.restore();
+
+    }
+
+}
+
+// =====================================
+// Wall Laser (King bullet-hell barrage)
+// =====================================
+//
+// A single full-length laser line anchored at a fixed point in
+// the arena, extending in both directions along `angle` -
+// unlike a beam shot from an enemy's position, this is a lane
+// in a wall pattern. Telegraphs (thin warning line) then fires
+// solid for a beat, same rotate-into-local-space rectangle hit
+// test the old tracking beam used, just centered on the wall's
+// own anchor point instead of the King.
+
+class WallLaser {
+
+    constructor(x, y, angle) {
+
+        this.x = x;
+        this.y = y;
+        this.angle = angle;
+
+        this.state = "telegraph";
+        this.timer = KING.WALL_LASER_TELEGRAPH;
+        this.hitRegistered = false;
+
+    }
+
+    update() {
+
+        if (this.state === "telegraph") {
+
+            this.timer -= Game.dt;
+
+            if (this.timer <= 0) {
+
+                this.state = "firing";
+                this.timer = KING.WALL_LASER_DURATION;
+
+            }
+
+            return;
+
+        }
+
+        if (this.state === "firing") {
+
+            this.timer -= Game.dt;
+
+            this.checkHit();
+
+            if (this.timer <= 0)
+                this.state = "done";
+
+        }
+
+    }
+
+    isDead() {
+
+        return this.state === "done";
+
+    }
+
+    // Long enough that the line clears the arena in either
+    // direction from any anchor point on screen.
+    getLength() {
+
+        return Math.hypot(canvas.width, canvas.height) * 1.2;
+
+    }
+
+    checkHit() {
+
+        if (this.hitRegistered)
+            return;
+
+        const px = player.x + player.size / 2;
+        const py = player.y + player.size / 2;
+
+        const dx = px - this.x;
+        const dy = py - this.y;
+
+        const cos = Math.cos(-this.angle);
+        const sin = Math.sin(-this.angle);
+
+        const localX = dx * cos - dy * sin;
+        const localY = dx * sin + dy * cos;
+
+        const pad = player.size / 2;
+        const halfLength = this.getLength() / 2 + pad;
+        const halfWidth = KING.WALL_LASER_WIDTH / 2 + pad;
+
+        if (
+
+            Math.abs(localX) <= halfLength &&
+            Math.abs(localY) <= halfWidth
+
+        ) {
+
+            player.takeHit(ENEMY_LABELS.king);
+            this.hitRegistered = true;
+
+        }
+
+    }
+
+    draw() {
+
+        const length = this.getLength();
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+
+        if (this.state === "telegraph") {
+
+            const pulse = 0.45 + Math.sin(Date.now() / 50) * 0.25;
+
+            ctx.strokeStyle = `rgba(0, 191, 255, ${pulse})`;
+            ctx.lineWidth = 4;
+            ctx.setLineDash([14, 10]);
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = KING.LASER_COLOR;
+
+            ctx.beginPath();
+            ctx.moveTo(-length / 2, 0);
+            ctx.lineTo(length / 2, 0);
+            ctx.stroke();
+
+            // Faint preview of the beam's width so it's clear
+            // exactly how wide the danger zone will be.
+            ctx.setLineDash([]);
+            ctx.fillStyle = `rgba(0, 191, 255, ${pulse * 0.12})`;
+            ctx.fillRect(-length / 2, -KING.WALL_LASER_WIDTH / 2, length, KING.WALL_LASER_WIDTH);
+
+        } else if (this.state === "firing") {
+
+            const width = KING.WALL_LASER_WIDTH;
+
+            // Fades out over its own duration so it doesn't
+            // just vanish instantly.
+            const fade = Math.max(0, this.timer / KING.WALL_LASER_DURATION);
+
+            ctx.shadowBlur = 30;
+            ctx.shadowColor = KING.LASER_COLOR;
+
+            const grad = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
+            grad.addColorStop(0, "rgba(0, 191, 255, 0)");
+            grad.addColorStop(0.5, `rgba(200, 245, 255, ${0.95 * fade})`);
+            grad.addColorStop(1, "rgba(0, 191, 255, 0)");
+
+            ctx.fillStyle = grad;
+            ctx.fillRect(-length / 2, -width / 2, length, width);
+
+            // Bright hot core running through the middle
+            ctx.fillStyle = `rgba(255, 255, 255, ${0.85 * fade})`;
+            ctx.fillRect(-length / 2, -width * 0.12, length, width * 0.24);
+
+        }
 
         ctx.restore();
 

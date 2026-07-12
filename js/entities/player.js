@@ -138,6 +138,10 @@ class Player {
 
     takeHit(source = "an unknown enemy") {
 
+        // Custom-mode cheat, toggled from the pause menu.
+        if (Game.immortal)
+            return false;
+
         if (this.invulnTimer > 0)
             return false;
 
@@ -160,9 +164,24 @@ class Player {
     // Movement
     // =====================================
 
+    // 1 normally, SLOW_FACTOR while standing in any Frost
+    // Weaver zone (see FrostZone in hazard.js). Applies to
+    // both walking and dash distance.
+    getFrostMultiplier() {
+
+        const inFrost = Game.hazards.some(
+            h => h.slowsPlayer && h.containsPlayer()
+        );
+
+        return inFrost
+            ? ENEMY_TYPES.frostWeaver.SLOW_FACTOR
+            : 1;
+
+    }
+
     updateMovement() {
 
-        const speed = this.getCurrentSpeed();
+        const speed = this.getCurrentSpeed() * this.getFrostMultiplier();
 
         if (keys["w"])
             this.y -= speed * Game.timeScale;
@@ -311,10 +330,12 @@ class Player {
 
             // The second dash charge (index 1, Hermes Shoes)
             // covers only 60% of a normal dash's distance.
+            // Frost zones shorten the dash the same way they
+            // slow walking.
             const dashDistance =
-                i === 1
+                (i === 1
                     ? DASH.DISTANCE * 0.6
-                    : DASH.DISTANCE;
+                    : DASH.DISTANCE) * this.getFrostMultiplier();
 
             const startX = this.x;
             const startY = this.y;

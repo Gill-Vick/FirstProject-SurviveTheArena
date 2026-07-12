@@ -72,6 +72,108 @@ class FireCast {
 }
 
 // =====================================
+// Frost Zone (Frost Weaver)
+// =====================================
+//
+// No damage at all - a patch of frozen ground that slows the
+// player's movement and dash while they stand in it (see
+// Player.getFrostMultiplier in player.js). Grows in over
+// ZONE_GROW_TIME so it reads as being conjured, then holds
+// for the rest of its life and fades out.
+
+class FrostZone {
+
+    constructor(x, y, radius) {
+
+        this.x = x;
+        this.y = y;
+        this.maxRadius = radius;
+        this.life = ENEMY_TYPES.frostWeaver.ZONE_DURATION;
+        this.age = 0;
+
+        // Duck-typed flag read by Player.getFrostMultiplier -
+        // avoids instanceof checks across load order.
+        this.slowsPlayer = true;
+
+    }
+
+    getRadius() {
+
+        const grow = Math.min(
+            1,
+            this.age / ENEMY_TYPES.frostWeaver.ZONE_GROW_TIME
+        );
+
+        return this.maxRadius * grow;
+
+    }
+
+    containsPlayer() {
+
+        const px = player.x + player.size / 2;
+        const py = player.y + player.size / 2;
+        const dx = px - this.x;
+        const dy = py - this.y;
+
+        return Math.sqrt(dx * dx + dy * dy) < this.getRadius();
+
+    }
+
+    update() {
+
+        this.age += Game.dt;
+        this.life -= Game.dt;
+
+    }
+
+    isDead() {
+
+        return this.life <= 0;
+
+    }
+
+    draw() {
+
+        const radius = this.getRadius();
+        const fade = Math.min(1, this.life / 600);
+        const shimmer = 0.75 + Math.sin(Date.now() / 200) * 0.1;
+
+        ctx.save();
+
+        ctx.fillStyle = `rgba(150, 215, 240, ${0.22 * fade * shimmer})`;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = `rgba(200, 240, 255, ${0.55 * fade})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Crystalline spokes so it reads as ice, not water.
+        ctx.strokeStyle = `rgba(220, 245, 255, ${0.3 * fade})`;
+        ctx.lineWidth = 1.5;
+
+        for (let i = 0; i < 6; i++) {
+
+            const a = (Math.PI / 3) * i + Math.PI / 12;
+
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y);
+            ctx.lineTo(
+                this.x + Math.cos(a) * radius * 0.85,
+                this.y + Math.sin(a) * radius * 0.85
+            );
+            ctx.stroke();
+
+        }
+
+        ctx.restore();
+
+    }
+
+}
+
+// =====================================
 // Burning Ground
 // =====================================
 

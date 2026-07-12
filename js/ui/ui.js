@@ -127,15 +127,34 @@ function getCampaignCardButton() {
 
 }
 
+// Boss Rush and Custom split the right column: Boss Rush on
+// top at half height, Custom connected directly beneath it.
+
 function getBossRushCardButton() {
 
     const m = getModeSelectCardMetrics();
+    const stackGap = ph(0.015);
 
     return {
         x: canvas.width / 2 + m.gap / 2,
         y: m.y,
         width: m.width,
-        height: m.height
+        height: (m.height - stackGap) / 2
+    };
+
+}
+
+function getCustomCardButton() {
+
+    const m = getModeSelectCardMetrics();
+    const stackGap = ph(0.015);
+    const half = (m.height - stackGap) / 2;
+
+    return {
+        x: canvas.width / 2 + m.gap / 2,
+        y: m.y + half + stackGap,
+        width: m.width,
+        height: half
     };
 
 }
@@ -163,6 +182,185 @@ function getHomeButton() {
         width,
         height
     };
+
+}
+
+// =====================================
+// Pause
+// =====================================
+//
+// A small button top-center during play (P also toggles).
+// The menu it opens always offers resume/abandon; custom
+// mode adds wave jumping and an immortality toggle.
+
+function getPauseButton() {
+
+    const width = pw(0.034);
+    const height = ph(0.055);
+
+    return {
+        x: canvas.width / 2 - width / 2,
+        y: ph(0.02),
+        width,
+        height
+    };
+
+}
+
+function getPausePanelRect() {
+
+    const width = pw(0.34);
+    const height = Game.mode === "custom" ? ph(0.62) : ph(0.42);
+
+    return {
+        x: canvas.width / 2 - width / 2,
+        y: canvas.height / 2 - height / 2,
+        width,
+        height
+    };
+
+}
+
+function getPauseResumeButton() {
+
+    const panel = getPausePanelRect();
+    const width = pw(0.2);
+
+    return {
+        x: canvas.width / 2 - width / 2,
+        y: panel.y + ph(0.1),
+        width,
+        height: ph(0.07)
+    };
+
+}
+
+const PAUSE_WAVE_DELTAS = [-5, -1, 1, 5];
+
+function getPauseWaveButton(index) {
+
+    const panel = getPausePanelRect();
+
+    const width = pw(0.055);
+    const gap = pw(0.012);
+    const total = width * 4 + gap * 3;
+    const startX = canvas.width / 2 - total / 2;
+
+    return {
+        x: startX + index * (width + gap),
+        y: panel.y + ph(0.29),
+        width,
+        height: ph(0.055)
+    };
+
+}
+
+function getPauseImmortalButton() {
+
+    const panel = getPausePanelRect();
+    const width = pw(0.2);
+
+    return {
+        x: canvas.width / 2 - width / 2,
+        y: panel.y + ph(0.38),
+        width,
+        height: ph(0.06)
+    };
+
+}
+
+function getPauseAbandonButton() {
+
+    const panel = getPausePanelRect();
+    const width = pw(0.2);
+
+    return {
+        x: canvas.width / 2 - width / 2,
+        y: panel.y + panel.height - ph(0.1),
+        width,
+        height: ph(0.07)
+    };
+
+}
+
+function drawPauseMenu() {
+
+    // Dim the frozen scene behind the menu.
+    ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const panel = getPausePanelRect();
+
+    ctx.fillStyle = "#1c1815";
+    ctx.fillRect(panel.x, panel.y, panel.width, panel.height);
+    ctx.strokeStyle = "#c9a227";
+    ctx.lineWidth = Math.max(3, ph(0.005));
+    ctx.strokeRect(panel.x, panel.y, panel.width, panel.height);
+
+    ctx.fillStyle = "white";
+    ctx.font = `bold ${ph(0.045)}px Arial`;
+    ctx.textAlign = "center";
+    ctx.fillText("PAUSED", canvas.width / 2, panel.y + ph(0.065));
+
+    drawButton(getPauseResumeButton(), "RESUME", "lime", "black", ph(0.026));
+
+    if (Game.mode === "custom") {
+
+        ctx.fillStyle = "#f1c40f";
+        ctx.font = `bold ${ph(0.026)}px Arial`;
+        ctx.textAlign = "center";
+        ctx.fillText(`Wave: ${Game.wave}`, canvas.width / 2, panel.y + ph(0.26));
+
+        PAUSE_WAVE_DELTAS.forEach((delta, i) => {
+
+            drawButton(
+                getPauseWaveButton(i),
+                (delta > 0 ? "+" : "") + delta,
+                "#333",
+                "white",
+                ph(0.022)
+            );
+
+        });
+
+        drawButton(
+            getPauseImmortalButton(),
+            `IMMORTAL: ${Game.immortal ? "ON" : "OFF"}`,
+            Game.immortal ? "#f1c40f" : "#444",
+            Game.immortal ? "black" : "white",
+            ph(0.022)
+        );
+
+    }
+
+    drawButton(getPauseAbandonButton(), "ABANDON RUN", "#8b1520", "white", ph(0.024));
+
+}
+
+function handlePauseMenuClick(x, y) {
+
+    if (hitRect(getPauseResumeButton(), x, y)) {
+        togglePause();
+        return;
+    }
+
+    if (hitRect(getPauseAbandonButton(), x, y)) {
+        resetGame();
+        return;
+    }
+
+    if (Game.mode !== "custom")
+        return;
+
+    PAUSE_WAVE_DELTAS.forEach((delta, i) => {
+
+        if (hitRect(getPauseWaveButton(i), x, y))
+            jumpToWave(Game.wave + delta);
+
+    });
+
+    if (hitRect(getPauseImmortalButton(), x, y))
+        Game.immortal = !Game.immortal;
 
 }
 
@@ -401,7 +599,11 @@ function getBestiaryGridMetrics() {
     const gapY = ph(0.085);
 
     const gridTop = ph(0.34);
-    const gridBottom = panel.y + panel.height - ph(0.045);
+
+    // The bottom row's name label hangs ~ph(0.05) below its
+    // cell, so that strip is reserved here - otherwise a
+    // 3-row grid's last labels poke out of the panel.
+    const gridBottom = panel.y + panel.height - ph(0.045) - ph(0.05);
 
     const availableWidth = panel.width - pw(0.04);
     const availableHeight = gridBottom - gridTop;
@@ -710,16 +912,25 @@ function drawModeSelect() {
     drawModeCard(
         getBossRushCardButton(),
         "BOSS RUSH",
-        "No grunts. No filler. The Boss, the Knight, and " +
-        "the King, one after another with barely a breath " +
-        "between - and when the King falls, the cycle " +
-        "begins again, harder than before.",
-        "#c0392b"
+        "The Boss, the Knight, the King - no filler, one " +
+        "after another, and the cycle repeats harder each " +
+        "time.",
+        "#c0392b",
+        true
+    );
+
+    drawModeCard(
+        getCustomCardButton(),
+        "CUSTOM",
+        "Your arena, your rules. Begin at any wave, bend " +
+        "time with a pause, and cheat death itself.",
+        "#f1c40f",
+        true
     );
 
 }
 
-function drawModeCard(card, title, lore, accent) {
+function drawModeCard(card, title, lore, accent, compact = false) {
 
     ctx.fillStyle = "rgba(15, 15, 15, 0.7)";
     ctx.fillRect(card.x, card.y, card.width, card.height);
@@ -728,27 +939,36 @@ function drawModeCard(card, title, lore, accent) {
     ctx.lineWidth = Math.max(3, ph(0.006));
     ctx.strokeRect(card.x, card.y, card.width, card.height);
 
+    // Half-height cards squeeze every offset/font down so the
+    // same anatomy (title, divider, lore) still fits.
+    const titleFont = compact ? ph(0.026) : ph(0.034);
+    const titleY = compact ? ph(0.05) : ph(0.075);
+    const dividerY = compact ? ph(0.075) : ph(0.11);
+    const loreY = compact ? ph(0.115) : ph(0.16);
+    const loreFont = compact ? ph(0.018) : ph(0.021);
+    const loreLine = compact ? ph(0.027) : ph(0.032);
+
     ctx.fillStyle = accent;
-    ctx.font = `bold ${ph(0.034)}px Arial`;
+    ctx.font = `bold ${titleFont}px Arial`;
     ctx.textAlign = "center";
-    ctx.fillText(title, card.x + card.width / 2, card.y + ph(0.075));
+    ctx.fillText(title, card.x + card.width / 2, card.y + titleY);
 
     ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(card.x + pw(0.02), card.y + ph(0.11));
-    ctx.lineTo(card.x + card.width - pw(0.02), card.y + ph(0.11));
+    ctx.moveTo(card.x + pw(0.02), card.y + dividerY);
+    ctx.lineTo(card.x + card.width - pw(0.02), card.y + dividerY);
     ctx.stroke();
 
     ctx.fillStyle = "#e8d9b8";
-    ctx.font = `italic ${ph(0.021)}px Georgia, serif`;
+    ctx.font = `italic ${loreFont}px Georgia, serif`;
     ctx.textAlign = "left";
     wrapText(
         lore,
         card.x + pw(0.02),
-        card.y + ph(0.16),
+        card.y + loreY,
         card.width - pw(0.04),
-        ph(0.032)
+        loreLine
     );
 
 }
@@ -1287,6 +1507,11 @@ function handleMenuClick(x, y) {
             return;
         }
 
+        if (hitRect(getCustomCardButton(), x, y)) {
+            startGame("custom");
+            return;
+        }
+
         return;
 
     }
@@ -1497,6 +1722,37 @@ function handleMenuMouseUp() {
 // =====================================
 
 function drawHUD() {
+
+    // Pause control, top-center ("II" glyph). P toggles too.
+    const pauseBtn = getPauseButton();
+
+    ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
+    ctx.fillRect(pauseBtn.x, pauseBtn.y, pauseBtn.width, pauseBtn.height);
+
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(pauseBtn.x, pauseBtn.y, pauseBtn.width, pauseBtn.height);
+
+    const barW = pauseBtn.width * 0.16;
+    const barH = pauseBtn.height * 0.5;
+    const barY = pauseBtn.y + (pauseBtn.height - barH) / 2;
+
+    ctx.fillStyle = "white";
+    ctx.fillRect(pauseBtn.x + pauseBtn.width * 0.3 - barW / 2, barY, barW, barH);
+    ctx.fillRect(pauseBtn.x + pauseBtn.width * 0.7 - barW / 2, barY, barW, barH);
+
+    if (Game.immortal) {
+
+        ctx.fillStyle = "#f1c40f";
+        ctx.font = `bold ${ph(0.022)}px Arial`;
+        ctx.textAlign = "center";
+        ctx.fillText(
+            "IMMORTAL",
+            canvas.width / 2,
+            pauseBtn.y + pauseBtn.height + ph(0.032)
+        );
+
+    }
 
     ctx.fillStyle = "white";
     ctx.font = `bold ${ph(0.035)}px Arial`;

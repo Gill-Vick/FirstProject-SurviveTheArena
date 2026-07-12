@@ -122,6 +122,22 @@ class Enemy {
 
     takeDamage(amount, crit = false) {
 
+        // Blood Cleric ward - a 1-hit shield that eats one
+        // full instance of damage, whatever its size.
+        if (this.wardShield) {
+
+            this.wardShield = false;
+            this.flashTimer = 5;
+
+            Particle.createHitBurst(
+                this.x + this.size / 2,
+                this.y + this.size / 2
+            );
+
+            return;
+
+        }
+
         this.hp -= amount;
 
         this.flashTimer = 5;
@@ -187,6 +203,9 @@ class Enemy {
         if (this.charmTimer > 0)
             this.drawCharmIndicator();
 
+        if (this.wardShield)
+            this.drawWardShield();
+
         ctx.shadowBlur = EFFECTS.ENEMY_GLOW;
         ctx.shadowColor = this.color;
 
@@ -210,6 +229,34 @@ class Enemy {
         ctx.shadowBlur = 0;
 
         this.drawHealthBar();
+
+    }
+
+    // Pale ring around a warded enemy (Blood Cleric's 1-hit
+    // shield) - pulses gently so it reads as active magic.
+
+    drawWardShield() {
+
+        const pulse = 0.55 + Math.sin(Date.now() / 150) * 0.2;
+
+        ctx.save();
+
+        ctx.strokeStyle = `rgba(255, 240, 220, ${pulse})`;
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = "#ffe8c8";
+
+        ctx.beginPath();
+        ctx.arc(
+            this.x + this.size / 2,
+            this.y + this.size / 2,
+            this.size * 0.75,
+            0,
+            Math.PI * 2
+        );
+        ctx.stroke();
+
+        ctx.restore();
 
     }
 
