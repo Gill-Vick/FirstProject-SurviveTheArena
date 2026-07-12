@@ -669,7 +669,7 @@ const SHOP_ITEMS = {
         price: 0,
         name: "Falcon Quiver",
         desc: "Arrows pierce through 1 enemy",
-        requiresFirstBoss: true,
+        requiresFirstBoss: false,
         equippable: true
     },
 
@@ -678,7 +678,7 @@ const SHOP_ITEMS = {
         price: 0,
         name: "Swiftdraw Gloves",
         desc: "Bow fires ~40% faster",
-        requiresFirstBoss: true,
+        requiresFirstBoss: false,
         equippable: true
     },
 
@@ -687,7 +687,7 @@ const SHOP_ITEMS = {
         price: 0,
         name: "Hunter's Mark",
         desc: "Arrow hits mark enemies — marked take +50% damage for 4s",
-        requiresKnightKilled: true,
+        requiresKnightKilled: false,
         equippable: true
     },
 
@@ -696,7 +696,7 @@ const SHOP_ITEMS = {
         price: 0,
         name: "Gale Recurve",
         desc: "Bow fires 2 arrows in a fan",
-        requiresKnightKilled: true,
+        requiresKnightKilled: false,
         equippable: true
     },
 
@@ -705,7 +705,7 @@ const SHOP_ITEMS = {
         price: 0,
         name: "Stormpiercer",
         desc: "2 dmg arrows + right-click storm lance (5 dmg, 4s cd)",
-        requiresKingKilled: true,
+        requiresKingKilled: false,
         equippable: true
     },
 
@@ -760,7 +760,7 @@ const SHOP_ITEMS = {
         price: 0,
         name: "Void Enchant",
         desc: "Hits mark enemies - stored damage explodes in an AOE after 1s",
-        requiresFirstBoss: true,
+        requiresFirstBoss: false,
         equippable: true
     },
 
@@ -769,7 +769,7 @@ const SHOP_ITEMS = {
         price: 0,
         name: "Master of the Blade",
         desc: "Every 3rd dagger swing unleashes 4 cuts (2 dmg each) in 0.4s",
-        requiresFirstBoss: true,
+        requiresFirstBoss: false,
         equippable: true
     },
 
@@ -778,7 +778,7 @@ const SHOP_ITEMS = {
         price: 0,
         name: "Serrated Blade",
         desc: "Dagger deals 1 more base damage",
-        requiresKnightKilled: true,
+        requiresKnightKilled: false,
         equippable: true
     },
 
@@ -787,7 +787,7 @@ const SHOP_ITEMS = {
         price: 0,
         name: "Thief's Pocket Watch",
         desc: "Landing a hit shaves 0.05s off your active cooldowns",
-        requiresKnightKilled: true,
+        requiresKnightKilled: false,
         equippable: true
     },
 
@@ -796,7 +796,7 @@ const SHOP_ITEMS = {
         price: 0,
         name: "Moonlight Daggers",
         desc: "+1 dagger dmg, a 2nd dash charge, and swings leave a flame trail (1 dmg/s)",
-        requiresKingKilled: true,
+        requiresKingKilled: false,
         equippable: true
     },
 
