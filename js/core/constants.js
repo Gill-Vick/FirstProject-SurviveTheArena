@@ -575,7 +575,7 @@ const SHOP_ITEMS = {
         price: 0,
         name: "Berserker Medallion",
         desc: "Sword hits build Rage — +1 sword dmg per stack (max +3), fades after ~2.9s",
-        requiresFirstBoss: false,
+        requiresKnightKilled: false,
         equippable: true
     },
 
@@ -584,7 +584,7 @@ const SHOP_ITEMS = {
         price: 0,
         name: "Forgemaster's Sigil",
         desc: "A broken shield reforges itself after ~11.4s",
-        requiresFirstBoss: false,
+        requiresKnightKilled: false,
         equippable: true
     },
 
