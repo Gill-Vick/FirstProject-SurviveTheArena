@@ -27,7 +27,7 @@ class Lancer extends Enemy {
                 ENEMY_TYPES.lancer.SPEED *
                 Game.enemySpeedMultiplier,
 
-            hp: 1 + Math.floor((Game.wave - 1) / 6),
+            hp: 2 + Math.floor((Game.wave - 1) / 6),
 
             color: ENEMY_TYPES.lancer.COLOR
 
@@ -58,7 +58,7 @@ class Lancer extends Enemy {
         if (this.shieldHits > 0) {
 
             this.shieldHits--;
-            this.flashTimer = 5;
+            this.flashTimer = 7;
 
             if (this.shieldHits <= 0)
                 this.knockbackImmune = false;
@@ -147,7 +147,7 @@ class Lancer extends Enemy {
         const dy = py - cy;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        if (dist > ENEMY_TYPES.lancer.THURST_RANGE)
+        if (dist > ENEMY_TYPES.lancer.THRUST_RANGE)
             return;
 
         this.attackAngle = Math.atan2(dy, dx);
@@ -184,7 +184,7 @@ class Lancer extends Enemy {
         this.lanceExtension = Math.max(0, progress) * 24;
 
         this.checkLanceHit(
-            ENEMY_TYPES.lancer.THURST_RANGE,
+            ENEMY_TYPES.lancer.THRUST_RANGE,
             ENEMY_TYPES.lancer.THRUST_WIDTH
         );
 
@@ -332,7 +332,7 @@ class Lancer extends Enemy {
 
             this.drawRectTelegraph(
                 cx, cy, this.attackAngle,
-                ENEMY_TYPES.lancer.THURST_RANGE,
+                ENEMY_TYPES.lancer.THRUST_RANGE,
                 ENEMY_TYPES.lancer.THRUST_WIDTH,
                 "rgba(231, 76, 60, 0.32)",
                 true
@@ -344,7 +344,7 @@ class Lancer extends Enemy {
 
             this.drawRectTelegraph(
                 cx, cy, this.attackAngle,
-                ENEMY_TYPES.lancer.THURST_RANGE,
+                ENEMY_TYPES.lancer.THRUST_RANGE,
                 ENEMY_TYPES.lancer.THRUST_WIDTH,
                 "rgba(231, 76, 60, 0.55)",
                 false

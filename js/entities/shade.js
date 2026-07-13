@@ -23,7 +23,7 @@ class Shade extends Enemy {
                 ENEMY_TYPES.shade.SPEED *
                 Game.enemySpeedMultiplier,
 
-            hp: 2 + Math.floor((Game.wave - 1) / 8),
+            hp: 3 + Math.floor((Game.wave - 1) / 8),
 
             color: ENEMY_TYPES.shade.COLOR
 

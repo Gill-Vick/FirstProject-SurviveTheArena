@@ -135,7 +135,7 @@ class FrostZone {
     draw() {
 
         const radius = this.getRadius();
-        const fade = Math.min(1, this.life / 600);
+        const fade = Math.min(1, this.life / 857);
         const shimmer = 0.75 + Math.sin(Date.now() / 200) * 0.1;
 
         ctx.save();
@@ -245,7 +245,7 @@ class KegKillZone {
 
     draw() {
 
-        const grow = Math.min(1, this.age / 300);
+        const grow = Math.min(1, this.age / 429);
         const flicker = 0.85 + Math.sin(Date.now() / 110) * 0.15;
 
         ctx.save();

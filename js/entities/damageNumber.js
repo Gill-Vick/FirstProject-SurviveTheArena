@@ -24,10 +24,10 @@ class DamageNumber {
         this.damage = damage;
         this.crit = crit;
 
-        this.life = 35;
-        this.maxLife = 35;
+        this.life = 50;
+        this.maxLife = 50;
 
-        this.vy = -1.2;
+        this.vy = -0.84;
 
     }
 

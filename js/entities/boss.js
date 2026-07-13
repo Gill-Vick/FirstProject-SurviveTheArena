@@ -27,9 +27,9 @@ class Boss extends Enemy {
         this.dashTimer = 0;
 
         // NEW CONFIGS: Tweaked to make the dash distance significantly longer!
-        this.dashSpeed = 12; // Speed boosted from 7 to 12
-        this.dashDuration = 40; // Travel frames boosted from 24 to 40
-        // Total dash distance is now 12 * 40 = 480px (previously 168px)
+        this.dashSpeed = 8.4;
+        this.dashDuration = 57;
+        // Total dash distance: 8.4 * 57 = ~480px
     }
 
     // =====================================
@@ -78,7 +78,7 @@ class Boss extends Enemy {
         }
 
         this.fireRadialBurst();
-        this.dashCharge = 45;
+        this.dashCharge = 64;
         this.attackCooldown = BOSS.ATTACK_COOLDOWN;
     }
 
@@ -96,7 +96,7 @@ class Boss extends Enemy {
                     speed: BOSS.PROJECTILE_SPEED,
                     color: BOSS.PROJECTILE_COLOR,
                     size: 8,
-                    life: 120,
+                    life: 171,
                     sourceType: "boss"
                 }
             ));

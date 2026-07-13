@@ -11,12 +11,12 @@ class Projectile {
 
         this.angle = angle;
 
-        this.speed = options.speed ?? 10;
+        this.speed = options.speed ?? 7;
         this.size = options.size ?? 6;
         this.damage = options.damage ?? 1;
         this.color = options.color ?? "yellow";
 
-        this.life = options.life ?? 90;
+        this.life = options.life ?? 129;
 
         this.owner = options.owner ?? "enemy";
         this.isLaser = options.isLaser ?? false;
@@ -158,10 +158,11 @@ class Projectile {
             const label =
                 ENEMY_LABELS[this.sourceType] ?? "an enemy projectile";
 
-            if (player.takeHit(label))
-                this.life = 0;
-            else
-                this.life = 0;
+            player.takeHit(label);
+
+            // Spent on contact whether the hit landed or was
+            // absorbed (shield/i-frames).
+            this.life = 0;
 
         }
 
@@ -198,7 +199,7 @@ class Projectile {
 
                 enemy.takeDamage(dealt, this.crit);
 
-                enemy.applyKnockback(px, py, 10);
+                enemy.applyKnockback(px, py, 7);
 
                 // On-hit effects (Warrior charm rolls, Ranger
                 // burns/marks, Thief's Wit/Void Enchant). Most

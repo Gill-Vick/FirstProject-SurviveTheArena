@@ -81,7 +81,7 @@ const Game = {
     // Real elapsed ms since last frame, and that same
     // duration expressed as "how many 60fps frames" -
     // set once per loop in main.js. See main.js for why.
-    dt: 1000 / 70,
+    dt: 1000 / 60,
     timeScale: 1,
 
     state: "menu",
@@ -137,8 +137,8 @@ const Game = {
     runToken: 0,
 
     // Real elapsed ms since the current run started (startGame()),
-    // ticked up in update() using Game.dt so it respects
-    // GAME_SPEED/timeScale like everything else.
+    // ticked up in update() using Game.dt - pauses with the
+    // game, unlike Date.now().
     elapsedTime: 0,
 
     waveActive: false,
@@ -172,7 +172,7 @@ const Game = {
 
     hazards: [],
 
-    // Red warning circles shown 0.5s before a summoned enemy
+    // Red warning circles shown ~0.7s before a summoned enemy
     // (necromancer skeletons, king reinforcements) actually
     // appears - see SpawnWarning below.
     spawnTelegraphs: [],
@@ -565,7 +565,7 @@ function draw() {
         ctx.translate(shakeX, shakeY);
         // Exponential decay via Math.pow so the shake dies
         // out at the same real-world rate regardless of fps.
-        Game.screenShake *= Math.pow(0.9, Game.timeScale);
+        Game.screenShake *= Math.pow(0.93, Game.timeScale);
     }
 
     switch (Game.state) {

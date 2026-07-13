@@ -50,13 +50,13 @@ let lastFrameTime = performance.now();
 
 const MAX_FRAME_TIME = 1000 / 15;
 
-// Global speed dial. 1.0 = normal. 0.75 = 25% slower,
-// 1.25 = 25% faster. Since every movement speed, cooldown,
-// and animation timer in the game reads off Game.dt /
-// Game.timeScale, changing this one number slows or speeds
-// up literally everything at once - player, enemies,
-// projectiles, particles, cooldowns, all of it.
-const GAME_SPEED = 0.7;
+// NOTE: there used to be a global GAME_SPEED dial (0.7)
+// multiplied into delta here, slowing everything down at
+// once. It's been removed - its 0.7 factor is now baked
+// directly into every speed constant (×0.7) and every
+// cooldown/duration constant (÷0.7), so the game plays
+// identically but Game.dt is honest real time and every
+// "Ns" in the UI means N real seconds.
 
 function gameLoop(currentTime) {
 
@@ -68,8 +68,6 @@ function gameLoop(currentTime) {
 
     if (delta < 0)
         delta = 0;
-
-    delta *= GAME_SPEED;
 
     Game.dt = delta;
     Game.timeScale = delta / (1000 / 60);

@@ -164,7 +164,7 @@ class Thief extends Player {
 
             let knifeText = "READY [E]";
             if (this.knifeCooldown > 0) {
-                const realKnifeSecs = (this.knifeCooldown / (1000 * GAME_SPEED)).toFixed(1);
+                const realKnifeSecs = (this.knifeCooldown / 1000).toFixed(1);
                 knifeText = `${realKnifeSecs}s`;
             }
 
@@ -349,7 +349,7 @@ class Thief extends Player {
 
             enemy.takeDamage(damage, critical);
 
-            enemy.applyKnockback(px, py, critical ? 16 : 12);
+            enemy.applyKnockback(px, py, critical ? 11.2 : 8.4);
 
             landedHit = true;
 

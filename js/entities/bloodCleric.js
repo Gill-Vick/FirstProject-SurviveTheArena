@@ -21,7 +21,7 @@ class BloodCleric extends Enemy {
                 ENEMY_TYPES.bloodCleric.SPEED *
                 Game.enemySpeedMultiplier,
 
-            hp: 3 + Math.floor((Game.wave - 1) / 8),
+            hp: 4 + Math.floor((Game.wave - 1) / 8),
 
             color: ENEMY_TYPES.bloodCleric.COLOR
 
@@ -104,7 +104,7 @@ class BloodCleric extends Enemy {
             // The tether shields its target: re-asserted every
             // frame so it collapses on its own right after the
             // cleric dies or drops the channel.
-            this.healTarget.healShieldTimer = 250;
+            this.healTarget.healShieldTimer = 357;
 
             this.channelTimer -= Game.dt;
 

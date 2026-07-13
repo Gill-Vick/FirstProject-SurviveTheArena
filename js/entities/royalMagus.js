@@ -135,7 +135,7 @@ class RoyalMagus extends Enemy {
         Game.hazards.push(new ArcaneNova(this));
 
         this.novaCooldown = MAGUS.NOVA_COOLDOWN;
-        this.castFlash = 300;
+        this.castFlash = 429;
 
     }
 
@@ -178,7 +178,7 @@ class RoyalMagus extends Enemy {
 
         this.skillIndex++;
         this.skillCooldown = MAGUS.SKILL_COOLDOWN;
-        this.castFlash = 400;
+        this.castFlash = 571;
 
         if (skill === "wall")
             Game.hazards.push(new EarthWall(this));
@@ -534,7 +534,7 @@ class LightningStrike {
             if (this.timer <= 0) {
 
                 this.struck = true;
-                this.flash = 160;
+                this.flash = 229;
 
                 const px = player.x + player.size / 2;
                 const py = player.y + player.size / 2;
@@ -584,7 +584,7 @@ class LightningStrike {
 
         } else {
 
-            const fade = Math.max(0, this.flash / 160);
+            const fade = Math.max(0, this.flash / 229);
 
             // Scorch pool at the impact point.
             ctx.fillStyle = `rgba(255, 250, 200, ${0.5 * fade})`;
@@ -749,7 +749,7 @@ class MagusFirestorm {
 
     draw() {
 
-        const fade = Math.min(1, this.life / 1000);
+        const fade = Math.min(1, this.life / 1429);
         const flicker = 0.85 + Math.sin(Date.now() / 90) * 0.15;
 
         ctx.save();
@@ -903,8 +903,8 @@ class EarthWall {
 
         // Rises out of the ground over the first 250ms, then
         // crumbles (fades) over its last 500ms.
-        const rise = Math.min(1, this.age / 250);
-        const fade = Math.min(1, this.life / 500);
+        const rise = Math.min(1, this.age / 357);
+        const fade = Math.min(1, this.life / 714);
         const alpha = rise * fade;
 
         ctx.save();

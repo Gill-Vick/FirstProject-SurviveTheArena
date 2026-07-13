@@ -216,7 +216,7 @@ class Knight extends Enemy {
                     speed: KNIGHT.BOW_SPEED,
                     color: KNIGHT.BOW_COLOR,
                     size: KNIGHT.BOW_SIZE,
-                    life: 130,
+                    life: 186,
                     sourceType: "knight",
                     isArrow: true
 

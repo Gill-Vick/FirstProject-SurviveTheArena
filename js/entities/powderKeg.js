@@ -2,7 +2,7 @@
 // Powder Keg (Set 3)
 // =====================================
 //
-// A walking bomb. 1 HP, never scales - it's supposed to die
+// A walking bomb. 2 HP, never scales - it's supposed to die
 // easily. The decision is WHERE you let it die: reaching
 // TRIGGER_RANGE of the player or losing its HP both light the
 // fuse, and after FUSE_TIME it explodes, hurting the player
@@ -28,7 +28,7 @@ class PowderKeg extends Enemy {
                 ENEMY_TYPES.powderKeg.SPEED *
                 Game.enemySpeedMultiplier,
 
-            hp: 1,
+            hp: 2,
 
             color: ENEMY_TYPES.powderKeg.COLOR
 
@@ -190,7 +190,7 @@ class PowderKeg extends Enemy {
 
             // Rapid white flashing as it's about to blow.
             if (Math.floor(Date.now() / (90 - urgency * 60)) % 2 === 0)
-                this.flashTimer = 2;
+                this.flashTimer = 3;
 
         }
 

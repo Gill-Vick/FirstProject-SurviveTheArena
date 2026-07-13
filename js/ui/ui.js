@@ -1470,9 +1470,10 @@ function drawBestiaryDetail() {
     const wave1Hp = entry.hpAtWave(1);
     const wave5Hp = entry.hpAtWave(5);
     const wave10Hp = entry.hpAtWave(10);
-    const speed1 = (entry.baseSpeed * (1 + 0 * 0.08)).toFixed(1);
-    const speed5 = (entry.baseSpeed * (1 + 4 * 0.08)).toFixed(1);
-    const speed10 = (entry.baseSpeed * (1 + 9 * 0.08)).toFixed(1);
+
+    // Speed no longer scales per wave - it's a flat combat
+    // multiplier (see getWaveSpeedMultiplier in game.js).
+    const combatSpeed = (entry.baseSpeed * 1.2).toFixed(2);
 
     const statsY = previewY + previewSize + ph(0.08);
 
@@ -1484,8 +1485,8 @@ function drawBestiaryDetail() {
     ctx.font = `${ph(0.023)}px Arial`;
     ctx.fillText(`HP scaling: ${entry.hpScale}`, panel.x + pw(0.03), statsY + ph(0.05));
     ctx.fillText(`Wave 1 HP: ${wave1Hp}   Wave 5: ${wave5Hp}   Wave 10: ${wave10Hp}`, panel.x + pw(0.03), statsY + ph(0.09));
-    ctx.fillText(`Base speed: ${entry.baseSpeed} (+8% per wave)`, panel.x + pw(0.03), statsY + ph(0.13));
-    ctx.fillText(`Speed W1: ${speed1}   W5: ${speed5}   W10: ${speed10}`, panel.x + pw(0.03), statsY + ph(0.17));
+    ctx.fillText(`Base speed: ${entry.baseSpeed}`, panel.x + pw(0.03), statsY + ph(0.13));
+    ctx.fillText(`In combat: ${combatSpeed} (flat ×1.2)`, panel.x + pw(0.03), statsY + ph(0.17));
 
 }
 
@@ -1761,7 +1762,7 @@ function drawHUD() {
 
     ctx.fillText(`Wave: ${Game.wave}`, pw(0.015), ph(0.05));
 
-    const realElapsedSecs = Game.elapsedTime / (1000 * GAME_SPEED);
+    const realElapsedSecs = Game.elapsedTime / 1000;
     const minutes = Math.floor(realElapsedSecs / 60);
     const seconds = Math.floor(realElapsedSecs % 60);
     const timeText = `${minutes}:${seconds.toString().padStart(2, "0")}`;
@@ -1771,7 +1772,7 @@ function drawHUD() {
     const getDashText = (cd) => {
         if (cd <= 0)
             return "READY";
-        const realDashSecs = (cd / (1000 * GAME_SPEED)).toFixed(1);
+        const realDashSecs = (cd / 1000).toFixed(1);
         return `${realDashSecs}s`;
     };
 

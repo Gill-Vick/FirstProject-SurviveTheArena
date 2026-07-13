@@ -11,12 +11,12 @@ class Particle {
 
         this.size = options.size ?? (Math.random() * 5 + 2);
 
-        this.vx = options.vx ?? (Math.random() - 0.5) * 8;
-        this.vy = options.vy ?? (Math.random() - 0.5) * 8;
+        this.vx = options.vx ?? (Math.random() - 0.5) * 5.6;
+        this.vy = options.vy ?? (Math.random() - 0.5) * 5.6;
 
         this.color = options.color ?? "white";
 
-        this.life = options.life ?? 20;
+        this.life = options.life ?? 29;
         this.maxLife = this.life;
 
     }
@@ -84,12 +84,12 @@ class Particle {
 
                 size: Math.random() * 6 + 2,
 
-                vx: (Math.random() - 0.5) * 10,
-                vy: (Math.random() - 0.5) * 10,
+                vx: (Math.random() - 0.5) * 7,
+                vy: (Math.random() - 0.5) * 7,
 
                 color: "cyan",
 
-                life: 30
+                life: 43
 
             }));
 
@@ -105,12 +105,12 @@ class Particle {
 
                 size: Math.random() * 5 + 2,
 
-                vx: (Math.random() - 0.5) * 8,
-                vy: (Math.random() - 0.5) * 8,
+                vx: (Math.random() - 0.5) * 5.6,
+                vy: (Math.random() - 0.5) * 5.6,
 
                 color: "red",
 
-                life: 20
+                life: 29
 
             }));
 

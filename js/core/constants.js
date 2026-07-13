@@ -14,7 +14,7 @@ const CANVAS = {
 
 const PLAYER = {
     SIZE: 40,
-    SPEED: 5,
+    SPEED: 3.5,
     COLOR: "lime",
 
     // Sprite sheet: 6 frames of a walk cycle, 256x256 each.
@@ -22,7 +22,7 @@ const PLAYER = {
     SPRITE_FRAME_SIZE: 256,
     SPRITE_FRAME_COUNT: 6,
     SPRITE_IDLE_FRAME: 2,
-    SPRITE_FRAME_DURATION: 90, // ms per frame while walking
+    SPRITE_FRAME_DURATION: 129, // ms per frame while walking
 
     // The artwork's "forward" direction points toward the top
     // of the sheet. aimAngle=0 means "facing right", so we
@@ -42,7 +42,7 @@ const PLAYER = {
 
 const SWORD = {
     LENGTH: 130,
-    DURATION: 15,
+    DURATION: 21.4,
     ARC: Math.PI * 1.2,
     DAMAGE: 2,
     WETSTONE_BONUS: 1
@@ -63,14 +63,14 @@ const KINGS_BLADE = {
     BASE_DAMAGE: 3,
     WETSTONE_BONUS: 1,
 
-    // A bit longer than the base sword's 110px, nowhere near
+    // A bit longer than the base sword's 130px, nowhere near
     // the King's own 320px greatsword.
     LENGTH: 150,
 
     // Right-click laser ability
-    LASER_COOLDOWN: 4000,
+    LASER_COOLDOWN: 5714,
     LASER_DAMAGE: 5,
-    LASER_DURATION: 200, // ms the beam is visible/active for
+    LASER_DURATION: 286, // ms the beam is visible/active for
     LASER_WIDTH: 30,
     LASER_COLOR: "#00bfff"
 
@@ -81,9 +81,9 @@ const KINGS_BLADE = {
 // =====================================
 
 const BOW = {
-    COOLDOWN: 2000,
+    COOLDOWN: 2857,
     DAMAGE: 2,
-    SPEED: 14,
+    SPEED: 9.8,
     SIZE: 6,
     COLOR: "#8b6914",
     FAN_SPREAD: 0.18
@@ -94,7 +94,7 @@ const BOW = {
 // =====================================
 
 const SHIELD = {
-    INVULN_MS: 1000,
+    INVULN_MS: 1429,
     OUTLINE_COLOR: "#4da6ff",
     OUTLINE_WIDTH: 4,
     ONYX_DAMAGE: 5
@@ -114,7 +114,7 @@ const SHIELD = {
 const RAGE = {
     BONUS_PER_STACK: 1,
     MAX_STACKS: 3,
-    WINDOW_MS: 2000
+    WINDOW_MS: 2857
 };
 
 // =====================================
@@ -128,7 +128,7 @@ const RAGE = {
 // fights.
 
 const FORGE_SIGIL = {
-    REFORGE_MS: 8000
+    REFORGE_MS: 11429
 };
 
 // =====================================
@@ -156,7 +156,7 @@ const WINDRUNNER = {
 // King.charmImmune), same treatment as knockback immunity.
 
 const CHARM = {
-    DURATION_MS: 1500,
+    DURATION_MS: 2143,
     BASE: 0.05,
     PER_UPGRADE: 0.01,
     MAX: 0.10
@@ -191,9 +191,9 @@ const CLASSES = [
 // Blade doubles the sword's base damage.
 
 const RANGER_BOW = {
-    COOLDOWN: 500,
+    COOLDOWN: 714,
     DAMAGE: 1,
-    SPEED: 14,
+    SPEED: 9.8,
     SIZE: 6,
     COLOR: "#2e8b57",
     FAN_SPREAD: 0.14
@@ -222,18 +222,18 @@ const BRACELET = {
 // the Warrior's purchasable bow (the second attack option
 // outside the class weapon). Talon Dagger -> Shortsword
 // (much longer reach) -> Venom Blade (stabs inject venom:
-// 2 dmg every 0.3s, 6 total).
+// 2 dmg every ~0.4s, 6 total).
 
 const DAGGER = {
     RANGE: 95,
     SHORTSWORD_RANGE: 180, // stage 2+
     ARC: Math.PI * 1.1,
     DAMAGE: 2,
-    COOLDOWN: 1500,
-    SWING_MS: 150,
+    COOLDOWN: 2143,
+    SWING_MS: 214,
     VENOM_DAMAGE_PER_TICK: 2,
     VENOM_TICKS: 3,
-    VENOM_TICK_MS: 300
+    VENOM_TICK_MS: 429
 };
 
 // =====================================
@@ -248,7 +248,7 @@ const DAGGER = {
 const EMBER_ARROWS = {
     BURN_DAMAGE_PER_TICK: 1,
     BURN_TICKS: 2,
-    BURN_TICK_MS: 800
+    BURN_TICK_MS: 1143
 };
 
 // =====================================
@@ -280,7 +280,7 @@ const SWIFTDRAW = {
 // 2 arrows per shot.
 
 const HUNTERS_MARK = {
-    DURATION_MS: 4000,
+    DURATION_MS: 5714,
     DAMAGE_MULTIPLIER: 1.5,
     COLOR: "gold"
 };
@@ -300,9 +300,9 @@ const GALE_RECURVE = {
 
 const STORMPIERCER = {
     BASE_DAMAGE: 2,
-    LASER_COOLDOWN: 4000,
+    LASER_COOLDOWN: 5714,
     LASER_DAMAGE: 5,
-    LASER_DURATION: 200, // ms the lance is visible/active for
+    LASER_DURATION: 286, // ms the lance is visible/active for
     LASER_WIDTH: 26,
     LASER_COLOR: "#b19cd9",
     ARROW_COLOR: "#8e7cc3"
@@ -322,7 +322,7 @@ const STORMPIERCER = {
 const CLOAK = {
     // Phase duration in real ms, indexed by equipped cloak
     // stage (index 0 = not owned/equipped).
-    PHASE_MS: [0, 350, 600, 900],
+    PHASE_MS: [0, 500, 857, 1286],
     DASH_DAMAGE: 3,
     DASH_HIT_WIDTH: 50,
     GLOW_COLOR: "#9b59b6"
@@ -336,8 +336,8 @@ const CLOAK = {
 // shorter, much faster version of the Warrior's sword swing:
 // 60% of the sword's reach, and noticeably faster to swing
 // (though eased back a smidge from a flat 2x). Base damage
-// mirrors the sword's own 1 dmg baseline, doubled by the
-// Serrated Blade the same way Wet Stone doubles the sword's.
+// mirrors the Warrior's kit progression: 1 base, doubled by
+// the Serrated Blade the same way Wet Stone bumps the sword.
 //
 // Visually the Thief wields two daggers, alternating sides
 // each swing (left, then right) - SIDE_OFFSET is how far off
@@ -369,13 +369,13 @@ const THROWING_KNIFE = {
     RANGE_FRACTION: 0.5,
     DAMAGE_BASE: 2,
     DAMAGE_UPGRADED: 3, // Wind Knife / Heart Stealer
-    SPEED_SLOW: 7,
-    SPEED_FAST: 20,
-    COOLDOWN: 1100,
+    SPEED_SLOW: 4.9,
+    SPEED_FAST: 14,
+    COOLDOWN: 1571,
     SIZE: 5,
     COLOR: "#c0392b",
-    TELEPORT_WINDOW_MS: 2000,
-    TELEPORT_INVULN_MS: 300
+    TELEPORT_WINDOW_MS: 2857,
+    TELEPORT_INVULN_MS: 429
 };
 
 // =====================================
@@ -390,7 +390,7 @@ const THROWING_KNIFE = {
 const THIEFS_WIT = {
     SPEED_BONUS: 0.3,
     ATTACK_SPEED_BONUS: 0.2,
-    DURATION_MS: 2000
+    DURATION_MS: 2857
 };
 
 // =====================================
@@ -399,12 +399,12 @@ const THIEFS_WIT = {
 //
 // Hitting an enemy marks it with a purple glow that stores
 // every subsequent hit of damage it takes over the next
-// second, then detonates - dealing the stored total as AOE
+// ~1.4s, then detonates - dealing the stored total as AOE
 // damage to everyone in a fire-mage-sized radius (see
 // HAZARD.FIRE_RADIUS in thief.js's use of it).
 
 const VOID_ENCHANT = {
-    STORE_DURATION_MS: 1000,
+    STORE_DURATION_MS: 1429,
     MARK_COLOR: "#8e44ad"
 };
 
@@ -413,14 +413,15 @@ const VOID_ENCHANT = {
 // =====================================
 //
 // Every 3rd dagger swing unleashes a flurry in front of the
-// Thief - 4 extra hits over 0.4s (one every 0.1s), independent
-// of whether the triggering swing itself connected.
+// Thief - 4 extra hits over ~0.6s (one every ~0.14s),
+// independent of whether the triggering swing itself
+// connected.
 
 const MASTER_OF_BLADE = {
     TRIGGER_EVERY: 3,
     TICK_DAMAGE: 2,
     TICKS: 4,
-    TICK_MS: 100
+    TICK_MS: 143
 };
 
 // =====================================
@@ -443,7 +444,7 @@ const SERRATED_BLADE = {
 // currently ticking - the knife's and the shared dash's.
 
 const POCKET_WATCH = {
-    COOLDOWN_REDUCTION_MS: 50
+    COOLDOWN_REDUCTION_MS: 71
 };
 
 // =====================================
@@ -453,14 +454,14 @@ const POCKET_WATCH = {
 // The Thief's ultimate: +1 dagger damage (stacks with Serrated
 // Blade), a second dash charge, and every dagger swing leaves
 // a lingering purple flame patch at the point of attack -
-// anyone standing in it takes a tick of damage once a second
+// anyone standing in it takes a tick of damage every ~1.4s
 // for as long as it lingers.
 
 const MOONLIGHT_DAGGERS = {
     BONUS_DAMAGE: 1,
     TRAIL_RADIUS: 45,
-    TRAIL_DURATION_MS: 3000,
-    TRAIL_TICK_MS: 1000,
+    TRAIL_DURATION_MS: 4286,
+    TRAIL_TICK_MS: 1429,
     TRAIL_TICK_DAMAGE: 1,
     TRAIL_COLOR: "#b967ff"
 };
@@ -516,9 +517,9 @@ const SHOP_ITEMS = {
             return "Wooden Shield";
         },
         get desc() {
-            if (Save.equippedShieldStage >= 3) return "Blocks 2 hits, 1s invuln + AOE Nuke (5 dmg) each";
-            if (Save.equippedShieldStage >= 1) return "Blocks 1 hit, 1s invuln + AOE Nuke (5 dmg)";
-            return "Blocks 1 hit + 1s invuln";
+            if (Save.equippedShieldStage >= 3) return "Blocks 2 hits, 1.4s invuln + AOE Nuke (5 dmg) each";
+            if (Save.equippedShieldStage >= 1) return "Blocks 1 hit, 1.4s invuln + AOE Nuke (5 dmg)";
+            return "Blocks 1 hit + 1.4s invuln";
         },
         equippable: true
     },
@@ -539,7 +540,7 @@ const SHOP_ITEMS = {
         get desc() {
             if (Save.equippedBowStage >= 3) return "Bow fires 3 arrows in a fan";
             if (Save.equippedBowStage === 2) return "Bow fires 2 arrows in a fan";
-            return "Press E — 2 dmg arrow (2s cd)";
+            return "Press E — 2 dmg arrow (2.9s cd)";
         }
     },
 
@@ -573,7 +574,7 @@ const SHOP_ITEMS = {
         classId: "warrior",
         price: 0,
         name: "Berserker Medallion",
-        desc: "Sword hits build Rage — +1 sword dmg per stack (max +3), fades after 2s",
+        desc: "Sword hits build Rage — +1 sword dmg per stack (max +3), fades after ~2.9s",
         requiresFirstBoss: false,
         equippable: true
     },
@@ -582,7 +583,7 @@ const SHOP_ITEMS = {
         classId: "warrior",
         price: 0,
         name: "Forgemaster's Sigil",
-        desc: "A broken shield reforges itself after 8s",
+        desc: "A broken shield reforges itself after ~11.4s",
         requiresFirstBoss: false,
         equippable: true
     },
@@ -591,7 +592,7 @@ const SHOP_ITEMS = {
         classId: "warrior",
         price: 0,
         name: "King's Blade",
-        desc: "3 dmg sword + right-click laser (5 dmg, 4s cd)",
+        desc: "3 dmg sword + right-click laser (5 dmg, 5.7s cd)",
         requiresKingKilled: false,
         equippable: true
     },
@@ -603,7 +604,7 @@ const SHOP_ITEMS = {
             return "Knight's Locket";
         },
         get desc() {
-            return `${Math.round(Save.getCharmChance() * 100)}% chance to charm enemies for 1.5s (silences their attack)`;
+            return `${Math.round(Save.getCharmChance() * 100)}% chance to charm enemies for ~2.1s (silences their attack)`;
         },
         requiresKnightKilled: false,
         repeatable: true
@@ -650,9 +651,9 @@ const SHOP_ITEMS = {
             return "Talon Dagger";
         },
         get desc() {
-            if (Save.equippedDaggerStage >= 3) return "Stabs inject venom — 2 dmg every 0.3s (6 total)";
+            if (Save.equippedDaggerStage >= 3) return "Stabs inject venom — 2 dmg every ~0.4s (6 total)";
             if (Save.equippedDaggerStage === 2) return "Much longer reach on the stab";
-            return "Press E — 2 dmg close-range stab (1.5s cd)";
+            return "Press E — 2 dmg close-range stab (2.1s cd)";
         }
     },
 
@@ -660,7 +661,7 @@ const SHOP_ITEMS = {
         classId: "ranger",
         price: 0,
         name: "Emberweave Arrows",
-        desc: "Arrow hits ignite enemies — 2 burn dmg over ~1.5s",
+        desc: "Arrow hits ignite enemies — 2 burn dmg over ~2.3s",
         equippable: true
     },
 
@@ -677,7 +678,7 @@ const SHOP_ITEMS = {
         classId: "ranger",
         price: 0,
         name: "Swiftdraw Gloves",
-        desc: "Bow fires ~40% faster",
+        desc: "Bow fires ~43% faster",
         requiresFirstBoss: false,
         equippable: true
     },
@@ -686,7 +687,7 @@ const SHOP_ITEMS = {
         classId: "ranger",
         price: 0,
         name: "Hunter's Mark",
-        desc: "Arrow hits mark enemies — marked take +50% damage for 4s",
+        desc: "Arrow hits mark enemies — marked take +50% damage for ~5.7s",
         requiresKnightKilled: false,
         equippable: true
     },
@@ -704,7 +705,7 @@ const SHOP_ITEMS = {
         classId: "ranger",
         price: 0,
         name: "Stormpiercer",
-        desc: "2 dmg arrows + right-click storm lance (5 dmg, 4s cd)",
+        desc: "2 dmg arrows + right-click storm lance (5 dmg, 5.7s cd)",
         requiresKingKilled: false,
         equippable: true
     },
@@ -722,9 +723,9 @@ const SHOP_ITEMS = {
             return "Tattered Cloak";
         },
         get desc() {
-            if (Save.equippedCloakStage >= 3) return "Dash phases 0.9s + deals 3 dmg to enemies dashed through";
-            if (Save.equippedCloakStage === 2) return "Dash phases 0.6s (untouchable while phasing)";
-            return "Dash phases 0.35s (untouchable while phasing)";
+            if (Save.equippedCloakStage >= 3) return "Dash phases 1.3s + deals 3 dmg to enemies dashed through";
+            if (Save.equippedCloakStage === 2) return "Dash phases 0.9s (untouchable while phasing)";
+            return "Dash phases 0.5s (untouchable while phasing)";
         },
         equippable: true
     },
@@ -741,7 +742,7 @@ const SHOP_ITEMS = {
             return "Throwing Knife";
         },
         get desc() {
-            if (Save.equippedThrowingKnifeStage >= 3) return "Press E again within 2s to blink to the knife";
+            if (Save.equippedThrowingKnifeStage >= 3) return "Press E again within ~2.9s to blink to the knife";
             if (Save.equippedThrowingKnifeStage === 2) return "3 dmg, much faster throw";
             return "Press E — 2 dmg slow knife toss";
         }
@@ -751,7 +752,7 @@ const SHOP_ITEMS = {
         classId: "thief",
         price: 0,
         name: "Thief's Wit",
-        desc: "Hits grant +30% move speed, +20% attack speed for 2s",
+        desc: "Hits grant +30% move speed, +20% attack speed for ~2.9s",
         equippable: true
     },
 
@@ -759,7 +760,7 @@ const SHOP_ITEMS = {
         classId: "thief",
         price: 0,
         name: "Void Enchant",
-        desc: "Hits mark enemies - stored damage explodes in an AOE after 1s",
+        desc: "Hits mark enemies - stored damage explodes in an AOE after ~1.4s",
         requiresFirstBoss: false,
         equippable: true
     },
@@ -768,7 +769,7 @@ const SHOP_ITEMS = {
         classId: "thief",
         price: 0,
         name: "Master of the Blade",
-        desc: "Every 3rd dagger swing unleashes 4 cuts (2 dmg each) in 0.4s",
+        desc: "Every 3rd dagger swing unleashes 4 cuts (2 dmg each) in ~0.6s",
         requiresFirstBoss: false,
         equippable: true
     },
@@ -786,7 +787,7 @@ const SHOP_ITEMS = {
         classId: "thief",
         price: 0,
         name: "Thief's Pocket Watch",
-        desc: "Landing a hit shaves 0.05s off your active cooldowns",
+        desc: "Landing a hit shaves 0.07s off your active cooldowns",
         requiresKnightKilled: false,
         equippable: true
     },
@@ -795,7 +796,7 @@ const SHOP_ITEMS = {
         classId: "thief",
         price: 0,
         name: "Moonlight Daggers",
-        desc: "+1 dagger dmg, a 2nd dash charge, and swings leave a flame trail (1 dmg/s)",
+        desc: "+1 dagger dmg, a 2nd dash charge, and swings leave a flame trail (1 dmg per ~1.4s)",
         requiresKingKilled: false,
         equippable: true
     },
@@ -830,7 +831,7 @@ const CRIT = {
 
 const DASH = {
     DISTANCE: 120,
-    COOLDOWN: 2500
+    COOLDOWN: 3571
 };
 
 // =====================================
@@ -846,7 +847,7 @@ const ENEMY_TYPES = {
     grunt: {
 
         SIZE: 40,
-        SPEED: 2,
+        SPEED: 1.4,
         COLOR: "red",
         HP_MULTIPLIER: 1
     },
@@ -854,7 +855,7 @@ const ENEMY_TYPES = {
     tank: {
 
         SIZE: 70,
-        SPEED: 1,
+        SPEED: 0.7,
         COLOR: "darkred",
         HP_MULTIPLIER: 1.5,
 
@@ -863,14 +864,14 @@ const ENEMY_TYPES = {
         // reach the player and start tanking hits instead of
         // lagging behind the rest of the wave.
         ENTRY_BOOST_MULTIPLIER: 2.75,
-        ENTRY_BOOST_DURATION: 2000
+        ENTRY_BOOST_DURATION: 2857
 
     },
 
     archer: {
 
         SIZE: 36,
-        SPEED: 1.6,
+        SPEED: 1.12,
         COLOR: "#8B4513",
         HP_MULTIPLIER: 0.5,
 
@@ -878,9 +879,9 @@ const ENEMY_TYPES = {
 
         PREFERRED_RANGE: 260,
 
-        SHOOT_COOLDOWN: 90,
+        SHOOT_COOLDOWN: 129,
 
-        PROJECTILE_SPEED: 7,
+        PROJECTILE_SPEED: 4.9,
         PROJECTILE_COLOR: "#5c4033"
 
     },
@@ -888,12 +889,12 @@ const ENEMY_TYPES = {
     runner: {
 
         SIZE: 30,
-        SPEED: 3,
+        SPEED: 2.1,
         COLOR: "orange",
         HP_MULTIPLIER: 0.5,
 
-        CHARGE_COOLDOWN: 150,
-        CHARGE_DURATION: 40,
+        CHARGE_COOLDOWN: 214,
+        CHARGE_DURATION: 57,
         CHARGE_MULTIPLIER: 3
 
     },
@@ -901,26 +902,26 @@ const ENEMY_TYPES = {
     fireMage: {
 
         SIZE: 38,
-        SPEED: 1.4,
+        SPEED: 0.98,
         COLOR: "#c0392b",
         PREFERRED_RANGE: 280,
-        CAST_COOLDOWN: 1900
+        CAST_COOLDOWN: 2714
 
     },
 
     necromancer: {
 
         SIZE: 42,
-        SPEED: 0.9,
+        SPEED: 0.63,
         COLOR: "#4a235a",
-        SUMMON_COOLDOWN: 2000
+        SUMMON_COOLDOWN: 2857
 
     },
 
     skeleton: {
 
         SIZE: 32,
-        SPEED: 3.2,
+        SPEED: 2.24,
         COLOR: "#d5d8dc"
 
     },
@@ -928,22 +929,22 @@ const ENEMY_TYPES = {
     lancer: {
 
         SIZE: 44,
-        SPEED: 2,
+        SPEED: 1.4,
         COLOR: "#566573",
         SHIELD_HITS: 2,
 
         // Thrust attack (short poke)
-        THRUST_COOLDOWN: 1200,
-        THRUST_WINDUP: 10,
-        THRUST_DURATION: 15,
-        THURST_RANGE: 160,
+        THRUST_COOLDOWN: 1714,
+        THRUST_WINDUP: 14,
+        THRUST_DURATION: 21,
+        THRUST_RANGE: 160,
         THRUST_WIDTH: 50,
         LANCE_LENGTH: 90,
 
         // Dash attack (shield-broken lunge)
-        DASH_WINDUP: 10,
-        DASH_SPEED: 20,
-        DASH_DURATION: 9,
+        DASH_WINDUP: 14,
+        DASH_SPEED: 14,
+        DASH_DURATION: 13,
         DASH_WIDTH: 60
 
     },
@@ -953,17 +954,17 @@ const ENEMY_TYPES = {
     shade: {
 
         SIZE: 38,
-        SPEED: 1.6,
+        SPEED: 1.12,
         COLOR: "#1a1025",
 
         // Teleport cycle: walk → vanish → reappear behind the
         // player → windup (telegraph) → lunge → recover.
-        TELEPORT_COOLDOWN: 4000,
-        VANISH_DURATION: 500,
-        WINDUP_DURATION: 600,
-        LUNGE_SPEED: 11,
-        LUNGE_DURATION: 13,
-        RECOVER_DURATION: 1000,
+        TELEPORT_COOLDOWN: 5714,
+        VANISH_DURATION: 714,
+        WINDUP_DURATION: 857,
+        LUNGE_SPEED: 7.7,
+        LUNGE_DURATION: 18.6,
+        RECOVER_DURATION: 1429,
 
         // How far behind the player it reappears.
         BLINK_DISTANCE: 120
@@ -973,16 +974,16 @@ const ENEMY_TYPES = {
     frostWeaver: {
 
         SIZE: 42,
-        SPEED: 1.2,
+        SPEED: 0.84,
         COLOR: "#aee3f5",
         PREFERRED_RANGE: 340,
-        CAST_COOLDOWN: 2800,
+        CAST_COOLDOWN: 4000,
 
         // Frost zone (see FrostZone in hazard.js): no damage,
         // just slows the player while inside.
         ZONE_RADIUS: 120,
-        ZONE_DURATION: 4000,
-        ZONE_GROW_TIME: 400,
+        ZONE_DURATION: 5714,
+        ZONE_GROW_TIME: 571,
         SLOW_FACTOR: 0.6
 
     },
@@ -990,14 +991,14 @@ const ENEMY_TYPES = {
     powderKeg: {
 
         SIZE: 44,
-        SPEED: 2.6,
+        SPEED: 1.82,
         COLOR: "#5d5348",
 
         // Fuse starts at TRIGGER_RANGE from the player OR when
         // its 1 HP runs out; explosion hurts the player AND
         // other enemies (bait it into the horde).
         TRIGGER_RANGE: 90,
-        FUSE_TIME: 550,
+        FUSE_TIME: 786,
         EXPLOSION_RADIUS: 110,
         EXPLOSION_ENEMY_DAMAGE: 3,
 
@@ -1005,14 +1006,14 @@ const ENEMY_TYPES = {
         // stays lethal to the player until the wave is over -
         // every keg that goes off permanently (for the wave)
         // shrinks the safe area.
-        KILL_ZONE_TICK: 500
+        KILL_ZONE_TICK: 714
 
     },
 
     bloodCleric: {
 
         SIZE: 46,
-        SPEED: 1.0,
+        SPEED: 0.7,
         COLOR: "#e8e0d0",
         PREFERRED_RANGE: 300,
 
@@ -1022,9 +1023,9 @@ const ENEMY_TYPES = {
         // shield instead. The channel target is invincible
         // while the tether holds (see healShieldTimer in
         // enemy.js) - kill the cleric to break it.
-        HEAL_COOLDOWN: 800,
-        CHANNEL_TIME: 350,
-        RETRY_BEAT: 400,
+        HEAL_COOLDOWN: 1143,
+        CHANNEL_TIME: 500,
+        RETRY_BEAT: 571,
         HEAL_AMOUNT: 2,
         ELITE_HEAL_AMOUNT: 3,
         WARD_RANGE: 250
@@ -1107,17 +1108,17 @@ const BOSS_RING = {
 const BOSS = {
 
     SIZE: 120,
-    SPEED: 1.2,
+    SPEED: 0.84,
     COLOR: "#8b0000",
     DISPLAY_NAME: "Castle Guard",
 
     BASE_HP: 30,
     HP_PER_WAVE: 2.5,
 
-    ATTACK_COOLDOWN: 100,
+    ATTACK_COOLDOWN: 143,
 
     PROJECTILE_COUNT: 12,
-    PROJECTILE_SPEED: 8,
+    PROJECTILE_SPEED: 5.6,
     PROJECTILE_COLOR: "#ff4500"
 
 };
@@ -1135,7 +1136,7 @@ const BOSS = {
 const KNIGHT = {
 
     SIZE: 50,
-    SPEED: 3,
+    SPEED: 2.1,
     COLOR: "#34495e",
 
     BASE_HP: 70,
@@ -1146,20 +1147,20 @@ const KNIGHT = {
     // wind down so it reads as a heavier weapon
     SWORD_LENGTH: 130,
     SWORD_ARC: Math.PI * 1.2,
-    SWING_DURATION: 20,
-    SWING_COOLDOWN: 1150,
+    SWING_DURATION: 28.6,
+    SWING_COOLDOWN: 1643,
 
     // Dashes in from range like the player's own dash
     DASH_TRIGGER_RANGE: 130,
-    DASH_SPEED: 12,
-    DASH_DURATION: 14,
-    DASH_COOLDOWN: 1900,
+    DASH_SPEED: 8.4,
+    DASH_DURATION: 20,
+    DASH_COOLDOWN: 2714,
 
     // Bow - the player's own shortbow
     BOW_ARROW_COUNT: 7,
     BOW_SPREAD: 0.26,
-    BOW_COOLDOWN: 2500,
-    BOW_SPEED: 10,
+    BOW_COOLDOWN: 3571,
+    BOW_SPEED: 7,
     BOW_SIZE: 6,
     BOW_COLOR: "#8b6914"
 
@@ -1178,7 +1179,7 @@ const KNIGHT = {
 const MAGUS = {
 
     SIZE: 110,
-    SPEED: 0.9,
+    SPEED: 0.63,
     COLOR: "#3d5af1",
     HP: 100,
 
@@ -1189,19 +1190,19 @@ const MAGUS = {
     // meteor. One shared cooldown between casts, plus a
     // grace period at the start of the fight. (Lightning is
     // no longer part of the rotation - see below.)
-    OPENING_COOLDOWN: 1500,
-    SKILL_COOLDOWN: 2000,
+    OPENING_COOLDOWN: 2143,
+    SKILL_COOLDOWN: 2857,
 
     // Arcane Nova - his close-range defense. Getting inside
     // TRIGGER_RANGE sets off a short charge-up, then a blast
     // that damages and shoves the player back out. Separate
     // cooldown from the skill rotation.
     NOVA_TRIGGER_RANGE: 190,
-    NOVA_COOLDOWN: 2600,
-    NOVA_CHARGE: 350,
+    NOVA_COOLDOWN: 3714,
+    NOVA_CHARGE: 500,
     NOVA_RADIUS: 210,
-    NOVA_PUSH: 14,
-    NOVA_PUSH_DURATION: 280,
+    NOVA_PUSH: 9.8,
+    NOVA_PUSH_DURATION: 400,
 
     // Lightning Shower - strikes scattered across the whole
     // arena like rain, each with its own telegraph circle.
@@ -1209,32 +1210,33 @@ const MAGUS = {
     // next begins, so lightning rains for the entire fight,
     // in parallel with the skill rotation above.
     LIGHTNING_COUNT: 16,
-    LIGHTNING_SPAN: 2600,
-    LIGHTNING_TELEGRAPH: 750,
+    LIGHTNING_SPAN: 3714,
+    LIGHTNING_TELEGRAPH: 1071,
     LIGHTNING_RADIUS: 46,
 
     // Meteor - big telegraphed impact on the player's position
     // that leaves a huge firestorm denying that ground.
-    METEOR_TELEGRAPH: 1300,
+    METEOR_TELEGRAPH: 1857,
     METEOR_RADIUS: 230,
-    METEOR_BURN_DURATION: 6000,
-    METEOR_BURN_TICK: 500,
+    METEOR_BURN_DURATION: 8571,
+    METEOR_BURN_TICK: 714,
 
     // Earth Wall - a full-span stone wall raised just behind
     // the player; they cannot move (or dash) past it while it
     // stands.
     WALL_THICKNESS: 36,
-    WALL_DURATION: 4000,
+    WALL_DURATION: 5714,
     WALL_GAP_FROM_PLAYER: 55,
 
     // Wind Gust - arena-wide, undodgeable, deals no damage.
     // Just shoves the player along the gust direction.
-    WIND_TELEGRAPH: 700,
-    WIND_DURATION: 1100,
-    WIND_PUSH: 6.5,
+    WIND_TELEGRAPH: 1000,
+    WIND_DURATION: 1571,
+    WIND_PUSH: 4.55,
 
     // Honor guard entrance - one weaver + one mage walk in
-    // together, a new pair every ESCORT_GAP ms.
+    // together, a new pair every ESCORT_GAP ms. (Real ms -
+    // these drive setTimeout in wave.js, not Game.dt.)
     ESCORT_PER_SIDE: 4,
     ESCORT_GAP: 1000,
 
@@ -1252,7 +1254,7 @@ const MAGUS = {
 const KING = {
 
     SIZE: 130,
-    SPEED: 0.8,
+    SPEED: 0.56,
     COLOR: "#6a0dad",
     HP: 130,
 
@@ -1266,9 +1268,9 @@ const KING = {
     // through. See fireWallBarrage()/spawnWallPattern() in
     // king.js.
     LASER_COLOR: "#00bfff",
-    WALL_LASER_COOLDOWN: 3200,
-    WALL_LASER_TELEGRAPH: 750,
-    WALL_LASER_DURATION: 450,
+    WALL_LASER_COOLDOWN: 4571,
+    WALL_LASER_TELEGRAPH: 1071,
+    WALL_LASER_DURATION: 643,
     WALL_LASER_WIDTH: 46,
     WALL_LASER_SPACING: 100,
 
@@ -1280,14 +1282,15 @@ const KING = {
     // layers a second, differently-angled wall shortly after
     // the first - e.g. vertical + horizontal, or both
     // diagonals - so the two independent gaps have to be
-    // threaded together instead of just one.
+    // threaded together instead of just one. (Real ms - this
+    // drives a setTimeout in king.js, not Game.dt.)
     WALL_LASER_WAVE_GAP: 550,
 
     // Sword - a much longer, heavier greatsword swing than
     // the old 120px reach. No longer parriable, and swings a
     // bit faster/more often than before.
-    SLASH_COOLDOWN: 4000,
-    SLASH_DURATION: 16,
+    SLASH_COOLDOWN: 5714,
+    SLASH_DURATION: 22.9,
     SLASH_ARC: Math.PI * 0.9,
     SLASH_LENGTH: 320
 
@@ -1300,10 +1303,10 @@ const KING = {
 const HAZARD = {
 
     FIRE_RADIUS: 55,
-    FIRE_WARNING: 600,
+    FIRE_WARNING: 857,
     BURN_RADIUS: 50,
-    BURN_DURATION: 3000,
-    BURN_TICK: 500
+    BURN_DURATION: 4286,
+    BURN_TICK: 714
 
 };
 
@@ -1368,18 +1371,6 @@ const WAVES = {
 };
 
 // =====================================
-// Difficulty
-// =====================================
-
-const DIFFICULTY = {
-
-    HP_SCALE_TIME: 20,
-
-    SPEED_SCALE: 0.02
-
-};
-
-// =====================================
 // Effects
 // =====================================
 
@@ -1421,9 +1412,9 @@ const BESTIARY = {
         isBoss: false,
         desc: "The arena's cannon fodder. Slow-witted but relentless.",
         behavior: "Walks straight toward you for a melee hit.",
-        hpAtWave(w) { return 1 + Math.floor((w - 1) / 6); },
-        hpScale: "1 + floor((wave - 1) / 6)",
-        baseSpeed: 2
+        hpAtWave(w) { return 2 + Math.floor((w - 1) / 6); },
+        hpScale: "2 + floor((wave - 1) / 6)",
+        baseSpeed: ENEMY_TYPES.grunt.SPEED
     },
 
     tank: {
@@ -1433,9 +1424,9 @@ const BESTIARY = {
         isBoss: false,
         desc: "A hulking bruiser that soaks up punishment.",
         behavior: "Slow chase. Immune to knockback.",
-        hpAtWave(w) { return 3 + Math.floor((w - 1) / 3); },
-        hpScale: "3 + floor((wave - 1) / 3)",
-        baseSpeed: 1
+        hpAtWave(w) { return 4 + Math.floor((w - 1) / 3); },
+        hpScale: "4 + floor((wave - 1) / 3)",
+        baseSpeed: ENEMY_TYPES.tank.SPEED
     },
 
     archer: {
@@ -1445,9 +1436,9 @@ const BESTIARY = {
         isBoss: false,
         desc: "Keeps its distance and peppers you with arrows.",
         behavior: "Kites at range, firing arrows on cooldown.",
-        hpAtWave(w) { return 1 + Math.floor((w - 1) / 10); },
-        hpScale: "1 + floor((wave - 1) / 10)",
-        baseSpeed: 1.6
+        hpAtWave(w) { return 2 + Math.floor((w - 1) / 10); },
+        hpScale: "2 + floor((wave - 1) / 10)",
+        baseSpeed: ENEMY_TYPES.archer.SPEED
     },
 
     runner: {
@@ -1457,9 +1448,9 @@ const BESTIARY = {
         isBoss: false,
         desc: "Fast and fragile — closes gaps in a blink.",
         behavior: "Chases you, then periodically triples speed in a charge.",
-        hpAtWave(w) { return 1 + Math.floor((w - 1) / 10); },
-        hpScale: "1 + floor((wave - 1) / 10)",
-        baseSpeed: 3
+        hpAtWave(w) { return 2 + Math.floor((w - 1) / 10); },
+        hpScale: "2 + floor((wave - 1) / 10)",
+        baseSpeed: ENEMY_TYPES.runner.SPEED
     },
 
     boss: {
@@ -1472,7 +1463,7 @@ const BESTIARY = {
         lore: "Sworn to hold the arena gate long after the kingdom that built it crumbled to dust. He no longer remembers what he is guarding — only that no one may pass. The rusted weapons of a hundred fallen challengers litter the ground before his post.",
         hpAtWave(w) { return BOSS.BASE_HP + w * BOSS.HP_PER_WAVE; },
         hpScale: `${BOSS.BASE_HP} + wave × ${BOSS.HP_PER_WAVE}`,
-        baseSpeed: 1.2
+        baseSpeed: BOSS.SPEED
     },
 
     knight: {
@@ -1485,7 +1476,7 @@ const BESTIARY = {
         lore: "The arena's first champion, knighted by the King himself for surviving every wave. When he knelt and begged leave to rest, the King refused. Now he fights on without end — a mirror held up to every challenger who dreams the same dream he once did.",
         hpAtWave(w) { return KNIGHT.BASE_HP + w * KNIGHT.HP_PER_WAVE; },
         hpScale: `${KNIGHT.BASE_HP} + wave × ${KNIGHT.HP_PER_WAVE}`,
-        baseSpeed: 3
+        baseSpeed: KNIGHT.SPEED
     },
 
     fireMage: {
@@ -1496,9 +1487,9 @@ const BESTIARY = {
         emoji: "🔥",
         desc: "A pyromancer who turns the floor into lava.",
         behavior: "Holds range and casts burning ground hazards at you.",
-        hpAtWave(w) { return 1 + Math.floor((w - 1) / 10); },
-        hpScale: "1 + floor((wave - 1) / 10)",
-        baseSpeed: 1.4
+        hpAtWave(w) { return 2 + Math.floor((w - 1) / 10); },
+        hpScale: "2 + floor((wave - 1) / 10)",
+        baseSpeed: ENEMY_TYPES.fireMage.SPEED
     },
 
     necromancer: {
@@ -1509,9 +1500,9 @@ const BESTIARY = {
         emoji: "☠",
         desc: "Raises the dead to overwhelm you.",
         behavior: "Summons skeleton minions on cooldown.",
-        hpAtWave(w) { return 2 + Math.floor((w - 1) / 10); },
-        hpScale: "2 + floor((wave - 1) / 10)",
-        baseSpeed: 0.9
+        hpAtWave(w) { return 3 + Math.floor((w - 1) / 10); },
+        hpScale: "3 + floor((wave - 1) / 10)",
+        baseSpeed: ENEMY_TYPES.necromancer.SPEED
     },
 
     skeleton: {
@@ -1522,9 +1513,9 @@ const BESTIARY = {
         emoji: "💀",
         desc: "Undead fodder summoned by necromancers.",
         behavior: "Rushes the player quickly but dies easily.",
-        hpAtWave(w) { return Math.max(1, Math.floor((1 + Math.floor((w - 1) / 6)) / 2)); },
-        hpScale: "max(1, floor(grunt HP / 2))",
-        baseSpeed: 3.2
+        hpAtWave(w) { return Math.max(1, Math.floor((2 + Math.floor((w - 1) / 6)) / 2)) + 1; },
+        hpScale: "max(1, floor(grunt HP / 2)) + 1",
+        baseSpeed: ENEMY_TYPES.skeleton.SPEED
     },
 
     lancer: {
@@ -1534,9 +1525,9 @@ const BESTIARY = {
         isBoss: false,
         desc: "A disciplined knight with shield and lance.",
         behavior: "Blocks hits with a shield, then thrusts or lunges.",
-        hpAtWave(w) { return 1 + Math.floor((w - 1) / 6); },
-        hpScale: "1 + floor((wave - 1) / 6)",
-        baseSpeed: 2
+        hpAtWave(w) { return 2 + Math.floor((w - 1) / 6); },
+        hpScale: "2 + floor((wave - 1) / 6)",
+        baseSpeed: ENEMY_TYPES.lancer.SPEED
     },
 
     shade: {
@@ -1547,9 +1538,9 @@ const BESTIARY = {
         emoji: "🗡",
         desc: "A living shadow that strikes from behind.",
         behavior: "Vanishes, reappears behind you, then lunges after a telegraph.",
-        hpAtWave(w) { return 2 + Math.floor((w - 1) / 8); },
-        hpScale: "2 + floor((wave - 1) / 8)",
-        baseSpeed: 1.6
+        hpAtWave(w) { return 3 + Math.floor((w - 1) / 8); },
+        hpScale: "3 + floor((wave - 1) / 8)",
+        baseSpeed: ENEMY_TYPES.shade.SPEED
     },
 
     frostWeaver: {
@@ -1560,9 +1551,9 @@ const BESTIARY = {
         emoji: "❄",
         desc: "Freezes the ground beneath your feet.",
         behavior: "Casts frost zones that slow your movement and dash.",
-        hpAtWave(w) { return 2 + Math.floor((w - 1) / 10); },
-        hpScale: "2 + floor((wave - 1) / 10)",
-        baseSpeed: 1.2
+        hpAtWave(w) { return 3 + Math.floor((w - 1) / 10); },
+        hpScale: "3 + floor((wave - 1) / 10)",
+        baseSpeed: ENEMY_TYPES.frostWeaver.SPEED
     },
 
     powderKeg: {
@@ -1573,9 +1564,9 @@ const BESTIARY = {
         emoji: "💣",
         desc: "A walking bomb with a lit fuse.",
         behavior: "Chases you and explodes up close or on death - the blast hurts enemies too.",
-        hpAtWave(w) { return 1; },
-        hpScale: "1 (fixed)",
-        baseSpeed: 2.6
+        hpAtWave(w) { return 2; },
+        hpScale: "2 (fixed)",
+        baseSpeed: ENEMY_TYPES.powderKeg.SPEED
     },
 
     bloodCleric: {
@@ -1586,9 +1577,9 @@ const BESTIARY = {
         emoji: "✚",
         desc: "A field medic for the arena's horrors.",
         behavior: "Stays back and heals injured allies, or shields healthy ones.",
-        hpAtWave(w) { return 3 + Math.floor((w - 1) / 8); },
-        hpScale: "3 + floor((wave - 1) / 8)",
-        baseSpeed: 1
+        hpAtWave(w) { return 4 + Math.floor((w - 1) / 8); },
+        hpScale: "4 + floor((wave - 1) / 8)",
+        baseSpeed: ENEMY_TYPES.bloodCleric.SPEED
     },
 
     royalMagus: {
@@ -1601,7 +1592,7 @@ const BESTIARY = {
         lore: "Court wizard to three kings, and poisoner of at least two of them. The crown keeps him not out of trust but out of terror — no one else can command the storm, split the earth, or call fire from the sky. He duels from the center of the arena like a conductor, his honor guard of weavers and pyromancers chained to the walls by oaths only he can break.",
         hpAtWave(w) { return MAGUS.HP; },
         hpScale: `${MAGUS.HP} (fixed)`,
-        baseSpeed: 0.9
+        baseSpeed: MAGUS.SPEED
     },
 
     king: {
@@ -1614,7 +1605,7 @@ const BESTIARY = {
         lore: "The mad monarch who turned his own throne room into an arena for his amusement. Wave after wave he watches from above, bored of victories bought with other men's blood. Those his soldiers cannot break, he descends to break himself — greatsword in hand, crown ablaze.",
         hpAtWave(w) { return KING.HP; },
         hpScale: `${KING.HP} (fixed)`,
-        baseSpeed: 0.8
+        baseSpeed: KING.SPEED
     }
 
 };

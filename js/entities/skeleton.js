@@ -6,7 +6,7 @@ class Skeleton extends Enemy {
 
     constructor(x, y) {
 
-        const gruntHp = 1 + Math.floor((Game.wave - 1) / 6);
+        const gruntHp = 2 + Math.floor((Game.wave - 1) / 6);
 
         super(x, y, {
 
@@ -16,7 +16,7 @@ class Skeleton extends Enemy {
                 ENEMY_TYPES.skeleton.SPEED *
                 Game.enemySpeedMultiplier,
 
-            hp: Math.max(1, Math.floor(gruntHp / 2)),
+            hp: Math.max(1, Math.floor(gruntHp / 2)) + 1,
 
             color: ENEMY_TYPES.skeleton.COLOR
 

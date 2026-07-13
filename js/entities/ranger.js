@@ -148,7 +148,7 @@ class Ranger extends Player {
 
             let daggerText = "READY [E]";
             if (this.daggerCooldown > 0) {
-                const realDaggerSecs = (this.daggerCooldown / (1000 * GAME_SPEED)).toFixed(1);
+                const realDaggerSecs = (this.daggerCooldown / 1000).toFixed(1);
                 daggerText = `${realDaggerSecs}s`;
             }
 
@@ -163,7 +163,7 @@ class Ranger extends Player {
 
             let stormText = "READY [RMB]";
             if (this.stormCooldown > 0) {
-                const realStormSecs = (this.stormCooldown / (1000 * GAME_SPEED)).toFixed(1);
+                const realStormSecs = (this.stormCooldown / 1000).toFixed(1);
                 stormText = `${realStormSecs}s`;
             }
 
@@ -251,7 +251,7 @@ class Ranger extends Player {
                     damage: damage,
                     size: RANGER_BOW.SIZE,
                     color: storm ? STORMPIERCER.ARROW_COLOR : RANGER_BOW.COLOR,
-                    life: 120,
+                    life: 171,
                     crit: critical,
                     isArrow: true,
                     pierce: pierce
@@ -333,7 +333,7 @@ class Ranger extends Player {
 
             enemy.takeDamage(this.applyMark(damage, enemy), critical);
 
-            enemy.applyKnockback(px, py, 14);
+            enemy.applyKnockback(px, py, 9.8);
 
             if (venom)
                 this.addDot(
@@ -409,7 +409,7 @@ class Ranger extends Player {
 
                 enemy.takeDamage(this.applyMark(damage, enemy), critical);
 
-                enemy.applyKnockback(cx, cy, critical ? 16 : 12);
+                enemy.applyKnockback(cx, cy, critical ? 11.2 : 8.4);
 
                 if (enemy.isDead())
                     onEnemyKilled(enemy);

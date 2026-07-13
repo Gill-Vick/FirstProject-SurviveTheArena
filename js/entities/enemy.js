@@ -44,14 +44,16 @@ class Enemy {
 
         // Exponential decay via Math.pow so knockback fades
         // out at the same real-world rate at any frame rate.
-        const knockbackDecay = Math.pow(0.82, Game.timeScale);
+        // (0.87 ≈ the old 0.82-per-frame decay at the old 0.7
+        // game speed, so shove arcs feel identical.)
+        const knockbackDecay = Math.pow(0.87, Game.timeScale);
         this.knockbackX *= knockbackDecay;
         this.knockbackY *= knockbackDecay;
 
-        if (Math.abs(this.knockbackX) < 0.05)
+        if (Math.abs(this.knockbackX) < 0.035)
             this.knockbackX = 0;
 
-        if (Math.abs(this.knockbackY) < 0.05)
+        if (Math.abs(this.knockbackY) < 0.035)
             this.knockbackY = 0;
 
         if (this.flashTimer > 0)
@@ -166,7 +168,7 @@ class Enemy {
         // them bounce off.
         if (this.damageImmune || this.healShieldTimer > 0) {
 
-            this.flashTimer = 3;
+            this.flashTimer = 4;
 
             Particle.createHitBurst(
                 this.x + this.size / 2,
@@ -182,7 +184,7 @@ class Enemy {
         if (this.wardShield) {
 
             this.wardShield = false;
-            this.flashTimer = 5;
+            this.flashTimer = 7;
 
             Particle.createHitBurst(
                 this.x + this.size / 2,
@@ -195,7 +197,7 @@ class Enemy {
 
         this.hp -= amount;
 
-        this.flashTimer = 5;
+        this.flashTimer = 7;
 
         const centerX =
             this.x + this.size / 2;
@@ -226,7 +228,7 @@ class Enemy {
 
     }
 
-    applyKnockback(fromX, fromY, force = 12) {
+    applyKnockback(fromX, fromY, force = 8.4) {
 
         if (this.knockbackImmune)
             return;
@@ -451,13 +453,20 @@ class Enemy {
 
         ctx.fillStyle = "lime";
 
+        // Clamp the fill fraction to [0, 1] - an overkill hit
+        // drives hp negative, and units that linger past that
+        // (e.g. a fusing Powder Keg, whose isDead() is tied to
+        // its explosion, not its hp) would otherwise draw a
+        // negative-width bar extending off to the left.
+        const hpFraction = Math.max(0, Math.min(1, this.hp / this.maxHp));
+
         ctx.fillRect(
 
             this.x,
 
             this.y - 12,
 
-            this.size * (this.hp / this.maxHp),
+            this.size * hpFraction,
 
             6
 

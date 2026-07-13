@@ -31,7 +31,7 @@ class King extends Enemy {
         // by this King (see attack()/fireWallBarrage() below).
         // A short opening cooldown so the barrage can't hit the
         // player in the first instant of the fight.
-        this.wallLaserCooldown = 1000;
+        this.wallLaserCooldown = 1429;
         this.walls = [];
 
         this.summoned = false;
@@ -76,7 +76,7 @@ class King extends Enemy {
                 s.x + size / 2,
                 s.y + size / 2,
                 size / 2 + 14,
-                500,
+                714,
 
                 () => {
 

@@ -127,7 +127,7 @@ class Warrior extends Player {
 
             let bowText = "READY [E]";
             if (this.bowCooldown > 0) {
-                const realBowSecs = (this.bowCooldown / (1000 * GAME_SPEED)).toFixed(1);
+                const realBowSecs = (this.bowCooldown / 1000).toFixed(1);
                 bowText = `${realBowSecs}s`;
             }
 
@@ -144,7 +144,7 @@ class Warrior extends Player {
 
             let kbText = "READY [RMB]";
             if (this.kingsBladeCooldown > 0) {
-                const realKbSecs = (this.kingsBladeCooldown / (1000 * GAME_SPEED)).toFixed(1);
+                const realKbSecs = (this.kingsBladeCooldown / 1000).toFixed(1);
                 kbText = `${realKbSecs}s`;
             }
 
@@ -162,7 +162,7 @@ class Warrior extends Player {
             let stateText = this.shieldActive ? "ACTIVE" : "USED";
 
             if (!this.shieldActive && this.reforgeTimer > 0) {
-                const reforgeSecs = (this.reforgeTimer / (1000 * GAME_SPEED)).toFixed(1);
+                const reforgeSecs = (this.reforgeTimer / 1000).toFixed(1);
                 stateText = `REFORGING ${reforgeSecs}s`;
             }
 
@@ -400,7 +400,7 @@ class Warrior extends Player {
                     damage: damage,
                     size: BOW.SIZE,
                     color: BOW.COLOR,
-                    life: 120,
+                    life: 171,
                     crit: critical,
                     isArrow: true
                 }
@@ -478,7 +478,7 @@ class Warrior extends Player {
 
                 enemy.takeDamage(damage, critical);
 
-                enemy.applyKnockback(cx, cy, critical ? 16 : 12);
+                enemy.applyKnockback(cx, cy, critical ? 11.2 : 8.4);
 
                 this.tryCharmOnHit(enemy);
 
@@ -592,7 +592,7 @@ class Warrior extends Player {
                 enemy.applyKnockback(
                     playerCenterX,
                     playerCenterY,
-                    critical ? 18 : 12
+                    critical ? 12.6 : 8.4
                 );
 
                 enemy.hitThisSwing = true;
