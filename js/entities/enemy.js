@@ -252,6 +252,9 @@ class Enemy {
 
     draw() {
 
+        if (this.projectileRingRadius)
+            this.drawProjectileRing();
+
         if (this.isElite)
             this.drawEliteRing();
 
@@ -287,6 +290,41 @@ class Enemy {
         ctx.shadowBlur = 0;
 
         this.drawHealthBar();
+
+    }
+
+    // Boss projectile ward - the big ring every boss projects
+    // that stops player projectiles fired from outside it
+    // (see Projectile.checkBossRing). Drawn as a slowly
+    // pulsing dashed circle so it reads as a standing barrier
+    // rather than an attack telegraph.
+
+    drawProjectileRing() {
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+        const pulse = 0.35 + Math.sin(Date.now() / 400) * 0.12;
+
+        ctx.save();
+
+        // Faint fill so the protected zone is readable.
+        ctx.fillStyle = `rgba(155, 108, 255, ${pulse * 0.12})`;
+        ctx.beginPath();
+        ctx.arc(cx, cy, this.projectileRingRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = `rgba(155, 108, 255, ${pulse + 0.25})`;
+        ctx.lineWidth = 4;
+        ctx.shadowBlur = 16;
+        ctx.shadowColor = BOSS_RING.COLOR;
+        ctx.setLineDash([18, 12]);
+        ctx.lineDashOffset = -Date.now() / 40;
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, this.projectileRingRadius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.restore();
 
     }
 

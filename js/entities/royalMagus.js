@@ -2,16 +2,18 @@
 // Royal Magus (Wave 15 Boss)
 // =====================================
 //
-// The court's archmage. Keeps to mid-range like his mages and
-// cycles through four elemental skills on a fixed rotation:
+// The court's archmage. Keeps to mid-range like his mages.
+// A Lightning Shower - telegraphed strikes raining down
+// across the entire arena - runs with NO cooldown for the
+// whole fight (a fresh shower starts the moment the last one
+// ends), while he cycles through three elemental skills on a
+// fixed rotation in parallel:
 //
-//   1. Lightning Shower - telegraphed strikes rain down
-//      across the entire arena.
-//   2. Earth Wall      - a full-span stone wall raised just
+//   1. Earth Wall - a full-span stone wall raised just
 //      behind the player; can't be moved or dashed past.
-//   3. Wind Gust       - arena-wide, no damage, shoves the
+//   2. Wind Gust  - arena-wide, no damage, shoves the
 //      player along the gust for its duration.
-//   4. Meteor          - huge telegraphed impact that leaves
+//   3. Meteor     - huge telegraphed impact that leaves
 //      a firestorm denying a big chunk of the map.
 //
 // His honor guard (4 frost weavers on the left wall, 4 fire
@@ -38,8 +40,13 @@ class RoyalMagus extends Enemy {
         this.skillCooldown = MAGUS.OPENING_COOLDOWN;
         this.skillIndex = 0;
 
+        // The perpetual storm - see checkLightning().
+        this.lightningShower = null;
+
         // Close-range defense - see checkNova()/ArcaneNova.
         this.novaCooldown = 0;
+
+        this.projectileRingRadius = BOSS_RING.RADIUS;
 
         // Brief staff-raise glow whenever a skill is cast.
         this.castFlash = 0;
@@ -132,12 +139,31 @@ class RoyalMagus extends Enemy {
 
     }
 
+    // Lightning has no cooldown at all: the instant the
+    // current shower finishes spawning its strikes, the next
+    // one begins, so the storm never lets up for the whole
+    // fight. Runs alongside (never instead of) the skill
+    // rotation and the nova.
+
+    checkLightning() {
+
+        if (this.lightningShower && !this.lightningShower.isDead())
+            return;
+
+        this.lightningShower = new LightningShower();
+
+        Game.hazards.push(this.lightningShower);
+
+    }
+
     attack() {
 
         if (this.castFlash > 0)
             this.castFlash -= Game.dt;
 
         this.checkNova();
+
+        this.checkLightning();
 
         if (this.skillCooldown > 0) {
 
@@ -147,17 +173,14 @@ class RoyalMagus extends Enemy {
 
         }
 
-        const rotation = ["lightning", "wall", "wind", "meteor"];
+        const rotation = ["wall", "wind", "meteor"];
         const skill = rotation[this.skillIndex % rotation.length];
 
         this.skillIndex++;
         this.skillCooldown = MAGUS.SKILL_COOLDOWN;
         this.castFlash = 400;
 
-        if (skill === "lightning")
-            Game.hazards.push(new LightningShower());
-
-        else if (skill === "wall")
+        if (skill === "wall")
             Game.hazards.push(new EarthWall(this));
 
         else if (skill === "wind")

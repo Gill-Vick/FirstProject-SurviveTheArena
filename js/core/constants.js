@@ -1084,6 +1084,23 @@ const ELITE = {
 };
 
 // =====================================
+// Boss Projectile Ward
+// =====================================
+//
+// Every boss projects a large ward ring around itself that
+// stops the player's projectiles at the boundary - shots
+// fired from outside the ring fizzle on it, so ranged
+// classes have to step inside the ring to land hits. Shots
+// fired from within (and sword swings) pass freely.
+
+const BOSS_RING = {
+
+    RADIUS: 300,
+    COLOR: "#9b6cff"
+
+};
+
+// =====================================
 // Boss
 // =====================================
 
@@ -1152,11 +1169,11 @@ const KNIGHT = {
 // Royal Magus (Wave 15 Boss)
 // =====================================
 //
-// The court's archmage. Fights from mid-range and cycles
-// through four elemental skills (see royalMagus.js):
-// lightning shower, meteor, earth wall, wind gust. Spawns
-// with an honor guard of stationed frost weavers (left wall)
-// and fire mages (right wall).
+// The court's archmage. Fights from mid-range under a
+// never-ending lightning shower and cycles through three
+// elemental skills (see royalMagus.js): meteor, earth wall,
+// wind gust. Spawns with an honor guard of stationed frost
+// weavers (left wall) and fire mages (right wall).
 
 const MAGUS = {
 
@@ -1168,9 +1185,10 @@ const MAGUS = {
     // Keep-at-range drift, same scheme as the fire mage.
     PREFERRED_RANGE: 380,
 
-    // Skills fire on a fixed rotation: lightning -> wall ->
-    // wind -> meteor. One shared cooldown between casts, plus
-    // a grace period at the start of the fight.
+    // Skills fire on a fixed rotation: wall -> wind ->
+    // meteor. One shared cooldown between casts, plus a
+    // grace period at the start of the fight. (Lightning is
+    // no longer part of the rotation - see below.)
     OPENING_COOLDOWN: 1500,
     SKILL_COOLDOWN: 2000,
 
@@ -1187,6 +1205,9 @@ const MAGUS = {
 
     // Lightning Shower - strikes scattered across the whole
     // arena like rain, each with its own telegraph circle.
+    // Has NO cooldown: the moment one shower finishes, the
+    // next begins, so lightning rains for the entire fight,
+    // in parallel with the skill rotation above.
     LIGHTNING_COUNT: 16,
     LIGHTNING_SPAN: 2600,
     LIGHTNING_TELEGRAPH: 750,

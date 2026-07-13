@@ -16,6 +16,7 @@ class Boss extends Enemy {
         this.type = "boss";
         this.isBoss = true;
         this.knockbackImmune = true;
+        this.projectileRingRadius = BOSS_RING.RADIUS;
         this.attackCooldown = BOSS.ATTACK_COOLDOWN;
 
         // Dash Attack Setup

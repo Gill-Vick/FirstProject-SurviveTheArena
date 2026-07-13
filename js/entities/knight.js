@@ -32,6 +32,7 @@ class Knight extends Enemy {
         this.type = "knight";
         this.isBoss = true;
         this.knockbackImmune = true;
+        this.projectileRingRadius = BOSS_RING.RADIUS;
 
         // Sword
         this.swordSwing = false;

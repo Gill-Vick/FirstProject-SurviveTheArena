@@ -54,15 +54,64 @@ class Projectile {
 
     update() {
 
+        const prevX = this.x;
+        const prevY = this.y;
+
         this.x += Math.cos(this.angle) * this.speed * Game.timeScale;
         this.y += Math.sin(this.angle) * this.speed * Game.timeScale;
 
         this.life -= Game.timeScale;
 
-        if (this.owner === "player")
+        if (this.owner === "player") {
+
+            if (this.checkBossRing(prevX, prevY))
+                return;
+
             this.checkEnemyCollision();
-        else
+
+        } else {
+
             this.checkPlayerCollision();
+
+        }
+
+    }
+
+    // Boss projectile ward: a player projectile that crosses
+    // a boss's ring from the outside fizzles at the boundary.
+    // Shots fired from inside the ring (already within it on
+    // the previous frame) are unaffected, so getting in close
+    // is how ranged classes land hits on bosses.
+
+    checkBossRing(prevX, prevY) {
+
+        for (const enemy of Game.enemies) {
+
+            if (!enemy.projectileRingRadius || enemy.isDead())
+                continue;
+
+            const cx = enemy.x + enemy.size / 2;
+            const cy = enemy.y + enemy.size / 2;
+            const r = enemy.projectileRingRadius;
+
+            const wasOutside = Math.hypot(prevX - cx, prevY - cy) > r;
+            const nowInside = Math.hypot(this.x - cx, this.y - cy) <= r;
+
+            if (wasOutside && nowInside) {
+
+                this.life = 0;
+
+                Particle.createHitBurst(this.x, this.y);
+
+                this.resolve(this.x, this.y, null);
+
+                return true;
+
+            }
+
+        }
+
+        return false;
 
     }
 
