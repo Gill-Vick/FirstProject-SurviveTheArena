@@ -339,6 +339,9 @@ function onEnemyKilled(enemy) {
     if (enemy.type === "knight")
         Save.markKnightKilled();
 
+    if (enemy.type === "royalMagus")
+        Save.markMagusKilled();
+
     if (enemy.type === "king")
         Save.markKingKilled();
 

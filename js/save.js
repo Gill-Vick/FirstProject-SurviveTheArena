@@ -16,6 +16,8 @@ const Save = {
 
     knightKilled: false,
 
+    magusKilled: false,
+
     kingKilled: false,
 
     critRateLevel: 0,
@@ -69,6 +71,8 @@ const Save = {
         swiftdrawGloves: false,
         huntersMark: false,
         galeRecurve: false,
+        stormfletch: false,
+        cycloneVeil: false,
         stormpiercer: false,
         bracelet: false,
         throwingKnife: false,
@@ -77,6 +81,8 @@ const Save = {
         masterOfBlade: false,
         serratedBlade: false,
         pocketWatch: false,
+        voltaicFang: false,
+        leylineSnare: false,
         moonlightDaggers: false
     },
 
@@ -97,6 +103,8 @@ const Save = {
         swiftdrawGloves: false,
         huntersMark: false,
         galeRecurve: false,
+        stormfletch: false,
+        cycloneVeil: false,
         stormpiercer: false,
         bracelet: false,
         throwingKnife: false,
@@ -105,6 +113,8 @@ const Save = {
         masterOfBlade: false,
         serratedBlade: false,
         pocketWatch: false,
+        voltaicFang: false,
+        leylineSnare: false,
         moonlightDaggers: false
     },
 
@@ -124,6 +134,7 @@ const Save = {
             this.coins = data.coins ?? 0;
             this.firstBossKilled = !!data.firstBossKilled;
             this.knightKilled = !!data.knightKilled;
+            this.magusKilled = !!data.magusKilled;
             this.kingKilled = !!data.kingKilled;
             this.critRateLevel = data.critRateLevel ?? 0;
             this.equippedCritLevel = data.equippedCritLevel ?? this.critRateLevel;
@@ -177,6 +188,7 @@ const Save = {
             selectedClass: this.selectedClass,
             firstBossKilled: this.firstBossKilled,
             knightKilled: this.knightKilled,
+            magusKilled: this.magusKilled,
             kingKilled: this.kingKilled,
             critRateLevel: this.critRateLevel,
             equippedCritLevel: this.equippedCritLevel,
@@ -332,6 +344,9 @@ const Save = {
 
         if (item.requiresKnightKilled && !this.knightKilled)
             return "Defeat the Knight";
+
+        if (item.requiresMagusKilled && !this.magusKilled)
+            return "Defeat the Royal Magus";
 
         if ((itemId === "bow" || itemId === "dagger" || itemId === "throwingKnife") && this.getStage(itemId) >= this.getMaxStage(itemId))
             return "Maxed out";
@@ -618,6 +633,16 @@ const Save = {
             return;
 
         this.knightKilled = true;
+        this.persist();
+
+    },
+
+    markMagusKilled() {
+
+        if (this.magusKilled)
+            return;
+
+        this.magusKilled = true;
         this.persist();
 
     },

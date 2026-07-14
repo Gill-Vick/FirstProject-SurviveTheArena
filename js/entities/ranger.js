@@ -99,6 +99,34 @@ class Ranger extends Player {
 
     }
 
+    // Cyclone Veil - the dash releases an outward gust that
+    // shoves nearby enemies back (respecting knockback immunity,
+    // so heavy/anchored foes ignore it). Pure disengage, no
+    // damage.
+    onDash(dx, dy, startX, startY) {
+
+        if (!Save.isEquipped("cycloneVeil"))
+            return;
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        Game.enemies.forEach(enemy => {
+
+            const ex = enemy.x + enemy.size / 2;
+            const ey = enemy.y + enemy.size / 2;
+
+            if (Math.hypot(ex - cx, ey - cy) > CYCLONE_VEIL.RADIUS)
+                return;
+
+            enemy.applyKnockback(cx, cy, CYCLONE_VEIL.KNOCKBACK_FORCE);
+
+        });
+
+        Game.hazards.push(new CycloneBurst(cx, cy, CYCLONE_VEIL.RADIUS));
+
+    }
+
     onAbilityKey() {
 
         this.daggerStrike();
@@ -124,6 +152,9 @@ class Ranger extends Player {
 
         if (Save.isEquipped("huntersMark"))
             enemy.hunterMarkUntil = Game.elapsedTime + HUNTERS_MARK.DURATION_MS;
+
+        if (Save.isEquipped("stormfletch"))
+            this.stormfletchProc(enemy);
 
     }
 
@@ -655,8 +686,222 @@ class Ranger extends Player {
 
     }
 
+    // =====================================
+    // Stormfletch Arrows
+    // =====================================
+    //
+    // On each arrow hit, arc lightning to the nearest OTHER
+    // enemy for a little damage. If the struck target is under
+    // a Hunter's Mark, escalate into a small AOE strike centered
+    // on it instead - the Knight-tier mark's payoff.
+
+    stormfletchProc(hitEnemy) {
+
+        const ex = hitEnemy.x + hitEnemy.size / 2;
+        const ey = hitEnemy.y + hitEnemy.size / 2;
+
+        if (this.isMarked(hitEnemy)) {
+
+            Game.enemies.forEach(e => {
+
+                if (e.isDead())
+                    return;
+
+                const cx = e.x + e.size / 2;
+                const cy = e.y + e.size / 2;
+
+                if (Math.hypot(cx - ex, cy - ey) > STORMFLETCH.STRIKE_RADIUS)
+                    return;
+
+                e.takeDamage(this.applyMark(STORMFLETCH.STRIKE_DAMAGE, e));
+
+                if (e.isDead())
+                    onEnemyKilled(e);
+
+            });
+
+            Game.hazards.push(new StormfletchZap(
+                ex, ey - 170, ex, ey, STORMFLETCH.STRIKE_RADIUS
+            ));
+
+            return;
+
+        }
+
+        // Unmarked -> single chain to the nearest other enemy.
+        let target = null;
+        let best = STORMFLETCH.CHAIN_RANGE;
+
+        Game.enemies.forEach(e => {
+
+            if (e === hitEnemy || e.isDead())
+                return;
+
+            const cx = e.x + e.size / 2;
+            const cy = e.y + e.size / 2;
+            const d = Math.hypot(cx - ex, cy - ey);
+
+            if (d < best) {
+                best = d;
+                target = e;
+            }
+
+        });
+
+        if (!target)
+            return;
+
+        const tx = target.x + target.size / 2;
+        const ty = target.y + target.size / 2;
+
+        target.takeDamage(this.applyMark(STORMFLETCH.CHAIN_DAMAGE, target));
+
+        if (target.isDead())
+            onEnemyKilled(target);
+
+        Game.hazards.push(new StormfletchZap(ex, ey, tx, ty));
+
+    }
+
 }
 
 // Register with the class selector (see PLAYER_CLASSES in
 // game.js and CLASSES in constants.js).
 PLAYER_CLASSES.ranger = Ranger;
+
+// =====================================
+// Stormfletch Arrows - lightning FX
+// =====================================
+//
+// Visual only (damage is dealt in Ranger.stormfletchProc): a
+// jagged bolt from (from) to (to), plus an optional AOE ring at
+// the target for the marked-strike variant.
+
+class StormfletchZap {
+
+    constructor(fromX, fromY, toX, toY, radius = 0) {
+
+        this.fromX = fromX;
+        this.fromY = fromY;
+        this.toX = toX;
+        this.toY = toY;
+        this.radius = radius;
+        this.life = 10;
+        this.maxLife = 10;
+
+    }
+
+    update() {
+        this.life -= Game.timeScale;
+    }
+
+    isDead() {
+        return this.life <= 0;
+    }
+
+    draw() {
+
+        const fade = Math.max(0, this.life / this.maxLife);
+
+        ctx.save();
+
+        ctx.strokeStyle = `rgba(210, 225, 255, ${fade})`;
+        ctx.lineWidth = 2.5;
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = STORMFLETCH.COLOR;
+
+        ctx.beginPath();
+        ctx.moveTo(this.fromX, this.fromY);
+
+        const segs = 5;
+        for (let i = 1; i < segs; i++) {
+
+            const t = i / segs;
+
+            ctx.lineTo(
+                this.fromX + (this.toX - this.fromX) * t + (Math.random() - 0.5) * 16,
+                this.fromY + (this.toY - this.fromY) * t + (Math.random() - 0.5) * 16
+            );
+
+        }
+
+        ctx.lineTo(this.toX, this.toY);
+        ctx.stroke();
+
+        if (this.radius > 0) {
+
+            ctx.fillStyle = `rgba(180, 205, 255, ${fade * 0.28})`;
+            ctx.beginPath();
+            ctx.arc(this.toX, this.toY, this.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+        }
+
+        ctx.restore();
+
+    }
+
+}
+
+// =====================================
+// Cyclone Veil - wind gust FX
+// =====================================
+//
+// Visual only (the knockback is applied in Ranger.onDash): an
+// expanding ring with a few swirl arcs so it reads as wind
+// rather than a shockwave.
+
+class CycloneBurst {
+
+    constructor(x, y, radius) {
+
+        this.x = x;
+        this.y = y;
+        this.maxRadius = radius;
+        this.life = 14;
+        this.maxLife = 14;
+
+    }
+
+    update() {
+        this.life -= Game.timeScale;
+    }
+
+    isDead() {
+        return this.life <= 0;
+    }
+
+    draw() {
+
+        const progress = 1 - this.life / this.maxLife;
+        const fade = this.life / this.maxLife;
+        const r = this.maxRadius * progress;
+
+        ctx.save();
+
+        ctx.strokeStyle = `rgba(220, 240, 255, ${0.6 * fade})`;
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = "#daf0ff";
+
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.lineWidth = 2;
+
+        for (let i = 0; i < 4; i++) {
+
+            const a = (Math.PI / 2) * i + progress * 2;
+
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, r * 0.7, a, a + 0.8);
+            ctx.stroke();
+
+        }
+
+        ctx.restore();
+
+    }
+
+}

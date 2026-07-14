@@ -375,12 +375,14 @@ const SHOP_ITEM_IDS = [
     // Ranger
     "bracelet", "dagger", "emberArrows",
     "falconQuiver", "swiftdrawGloves",
-    "huntersMark", "galeRecurve", "stormpiercer",
+    "huntersMark", "galeRecurve",
+    "stormfletch", "cycloneVeil", "stormpiercer",
 
     // Thief
     "cloak", "throwingKnife", "thiefsWit",
     "voidEnchant", "masterOfBlade",
-    "serratedBlade", "pocketWatch", "moonlightDaggers",
+    "serratedBlade", "pocketWatch",
+    "voltaicFang", "leylineSnare", "moonlightDaggers",
 
     // Shared
     "critRate"

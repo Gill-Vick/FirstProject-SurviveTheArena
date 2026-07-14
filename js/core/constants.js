@@ -290,6 +290,41 @@ const GALE_RECURVE = {
 };
 
 // =====================================
+// Ranger - Stormfletch Arrows (Royal Magus tier)
+// =====================================
+//
+// Splinters of the Magus' own lightning bound to the
+// arrowheads. Every arrow hit arcs a bolt to the nearest
+// OTHER enemy for a little damage - the swarm-clear the
+// single-target bow lacks. If the struck target is under a
+// Hunter's Mark, the bolt escalates into a small AOE strike
+// on it instead (a payoff for the Knight-tier mark).
+
+const STORMFLETCH = {
+    CHAIN_DAMAGE: 1,
+    CHAIN_RANGE: 230,
+    STRIKE_DAMAGE: 2,
+    STRIKE_RADIUS: 70,
+    COLOR: "#bcd0ff"
+};
+
+// =====================================
+// Ranger - Cyclone Veil (Royal Magus tier)
+// =====================================
+//
+// The Magus' Wind Gust bottled into a charm. Dashing
+// releases an outward gust that shoves nearby enemies away -
+// the disengage a cornered kiter otherwise lacks. Pure
+// displacement, no damage; anchored foes (tanks, casters,
+// bosses - anything knockback-immune) plant their feet and
+// ignore it.
+
+const CYCLONE_VEIL = {
+    RADIUS: 190,
+    KNOCKBACK_FORCE: 20
+};
+
+// =====================================
 // Ranger - Stormpiercer (King-gated)
 // =====================================
 //
@@ -445,6 +480,42 @@ const SERRATED_BLADE = {
 
 const POCKET_WATCH = {
     COOLDOWN_REDUCTION_MS: 71
+};
+
+// =====================================
+// Thief - Voltaic Fang (Royal Magus tier)
+// =====================================
+//
+// The daggers are strung with the Magus' storm: EVERY dagger
+// swing that connects fires a lightning chain from the struck
+// foe, leaping through up to JUMPS more nearby enemies for
+// CHAIN_DAMAGE each. No charge, no cooldown, no RNG - it goes
+// off on every hit. Jumps only to OTHER enemies, so a lone
+// boss gains it nothing (no single-target creep) while a
+// packed wave melts.
+
+const VOLTAIC_FANG = {
+    JUMPS: 3,
+    CHAIN_DAMAGE: 2,
+    JUMP_RANGE: 175,
+    COLOR: "#bcd0ff"
+};
+
+// =====================================
+// Thief - Leyline Snare (Royal Magus tier)
+// =====================================
+//
+// Etched onto the throwing knife: where it lands it tears
+// open a short-lived gravity well that drags nearby enemies
+// toward its heart, clustering the pack for a Void Enchant
+// detonation, a dagger flurry, or a Heart Stealer blink into
+// the middle of them. Bosses are too heavy to drag.
+
+const LEYLINE_SNARE = {
+    RADIUS: 155,
+    PULL_STRENGTH: 1.6,
+    DURATION_MS: 1286,
+    COLOR: "#7b5cd6"
 };
 
 // =====================================
@@ -701,6 +772,24 @@ const SHOP_ITEMS = {
         equippable: true
     },
 
+    stormfletch: {
+        classId: "ranger",
+        price: 0,
+        name: "Stormfletch Arrows",
+        desc: "Arrow hits arc lightning to a nearby enemy; marked targets take a small AOE strike",
+        requiresMagusKilled: false,
+        equippable: true
+    },
+
+    cycloneVeil: {
+        classId: "ranger",
+        price: 0,
+        name: "Cyclone Veil",
+        desc: "Dashing shoves nearby (non-heavy) enemies away",
+        requiresMagusKilled: false,
+        equippable: true
+    },
+
     stormpiercer: {
         classId: "ranger",
         price: 0,
@@ -789,6 +878,24 @@ const SHOP_ITEMS = {
         name: "Thief's Pocket Watch",
         desc: "Landing a hit shaves 0.07s off your active cooldowns",
         requiresKnightKilled: false,
+        equippable: true
+    },
+
+    voltaicFang: {
+        classId: "thief",
+        price: 0,
+        name: "Voltaic Fang",
+        desc: "Every dagger hit chains lightning through up to 3 nearby enemies (2 dmg each)",
+        requiresMagusKilled: false,
+        equippable: true
+    },
+
+    leylineSnare: {
+        classId: "thief",
+        price: 0,
+        name: "Leyline Snare",
+        desc: "Your thrown knife tears a vortex that pulls enemies together",
+        requiresMagusKilled: false,
         equippable: true
     },
 

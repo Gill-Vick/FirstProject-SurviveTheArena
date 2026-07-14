@@ -320,6 +320,7 @@ class Thief extends Player {
             this.spawnFlameTrail(px, py);
 
         let landedHit = false;
+        let firstHit = null;
 
         Game.enemies.forEach(enemy => {
 
@@ -353,6 +354,9 @@ class Thief extends Player {
 
             landedHit = true;
 
+            if (!firstHit)
+                firstHit = enemy;
+
             this.onHitLanded(enemy, damage);
 
             if (enemy.isDead())
@@ -362,6 +366,11 @@ class Thief extends Player {
 
         if (landedHit)
             this.refreshWit();
+
+        // Voltaic Fang - one lightning chain per connecting
+        // swing, leaping out from the first foe struck.
+        if (firstHit && Save.isEquipped("voltaicFang"))
+            this.arcFang(firstHit);
 
         // Master of the Blade - every 3rd swing (whether it
         // connected or not) unleashes a separate flurry.
@@ -427,9 +436,11 @@ class Thief extends Player {
                 crit: critical,
                 isKnife: true,
 
-                onResolve: heartStealer
-                    ? (x, y, enemy) => this.armTeleport(x, y, enemy)
-                    : null
+                // Always routed through onKnifeResolve so a
+                // single knife can both arm a Heart Stealer blink
+                // AND drop a Leyline Snare vortex if both are
+                // equipped.
+                onResolve: (x, y, enemy) => this.onKnifeResolve(x, y, enemy)
             }
 
         );
@@ -465,6 +476,26 @@ class Thief extends Player {
     // =====================================
     // Heart Stealer Teleport
     // =====================================
+
+    // Fired once when a thrown knife resolves (hit or expired).
+    // Handles both knife-tier effects that key off the landing
+    // point: Heart Stealer's blink arming and Leyline Snare's
+    // gravity vortex.
+    onKnifeResolve(x, y, enemy) {
+
+        if (this.pendingTeleport)
+            this.armTeleport(x, y, enemy);
+
+        if (Save.isEquipped("leylineSnare")) {
+
+            const vx = enemy ? enemy.x + enemy.size / 2 : x;
+            const vy = enemy ? enemy.y + enemy.size / 2 : y;
+
+            Game.hazards.push(new LeylineVortex(vx, vy));
+
+        }
+
+    }
 
     // Called from the thrown knife's Projectile once it
     // resolves (hit or expired) - captures where to blink to.
@@ -682,6 +713,8 @@ class Thief extends Player {
         const px = this.x + this.size / 2;
         const py = this.y + this.size / 2;
 
+        let firstHit = null;
+
         Game.enemies.forEach(enemy => {
 
             const closestX = Math.max(enemy.x, Math.min(px, enemy.x + enemy.size));
@@ -708,10 +741,76 @@ class Thief extends Player {
 
             this.onHitLanded(enemy, MASTER_OF_BLADE.TICK_DAMAGE);
 
+            if (!firstHit)
+                firstHit = enemy;
+
             if (enemy.isDead())
                 onEnemyKilled(enemy);
 
         });
+
+        if (firstHit && Save.isEquipped("voltaicFang"))
+            this.arcFang(firstHit);
+
+    }
+
+    // =====================================
+    // Voltaic Fang
+    // =====================================
+    //
+    // Fired on every connecting dagger swing (and Master of the
+    // Blade flurry tick): a lightning chain that starts at the
+    // struck enemy and leaps to the nearest fresh enemy up to
+    // JUMPS times, dealing CHAIN_DAMAGE at each hop. Consistent
+    // per-swing AOE - and since it only jumps to OTHER enemies,
+    // a lone boss gains nothing from it.
+
+    arcFang(originEnemy) {
+
+        const visited = new Set([originEnemy]);
+
+        let cx = originEnemy.x + originEnemy.size / 2;
+        let cy = originEnemy.y + originEnemy.size / 2;
+
+        for (let j = 0; j < VOLTAIC_FANG.JUMPS; j++) {
+
+            let next = null;
+            let best = VOLTAIC_FANG.JUMP_RANGE;
+
+            Game.enemies.forEach(e => {
+
+                if (visited.has(e) || e.isDead())
+                    return;
+
+                const ex = e.x + e.size / 2;
+                const ey = e.y + e.size / 2;
+                const d = Math.hypot(ex - cx, ey - cy);
+
+                if (d < best) {
+                    best = d;
+                    next = e;
+                }
+
+            });
+
+            if (!next)
+                break;
+
+            const nx = next.x + next.size / 2;
+            const ny = next.y + next.size / 2;
+
+            next.takeDamage(VOLTAIC_FANG.CHAIN_DAMAGE);
+
+            if (next.isDead())
+                onEnemyKilled(next);
+
+            Game.hazards.push(new VoltaicArc(cx, cy, nx, ny));
+
+            visited.add(next);
+            cx = nx;
+            cy = ny;
+
+        }
 
     }
 
@@ -884,3 +983,167 @@ class Thief extends Player {
 // Register with the class selector (see PLAYER_CLASSES in
 // game.js and CLASSES in constants.js).
 PLAYER_CLASSES.thief = Thief;
+
+// =====================================
+// Voltaic Fang - lightning arc FX
+// =====================================
+//
+// Visual only (damage is dealt in Thief.arcFang): a jagged
+// bolt drawn along one hop of the chain, from one enemy to the
+// next.
+
+class VoltaicArc {
+
+    constructor(fromX, fromY, toX, toY) {
+
+        this.fromX = fromX;
+        this.fromY = fromY;
+        this.toX = toX;
+        this.toY = toY;
+        this.life = 9;
+        this.maxLife = 9;
+
+    }
+
+    update() {
+        this.life -= Game.timeScale;
+    }
+
+    isDead() {
+        return this.life <= 0;
+    }
+
+    draw() {
+
+        const fade = Math.max(0, this.life / this.maxLife);
+
+        ctx.save();
+
+        ctx.strokeStyle = `rgba(210, 225, 255, ${fade})`;
+        ctx.lineWidth = 2.5;
+        ctx.shadowBlur = 14;
+        ctx.shadowColor = VOLTAIC_FANG.COLOR;
+
+        ctx.beginPath();
+        ctx.moveTo(this.fromX, this.fromY);
+
+        const segs = 4;
+        for (let i = 1; i < segs; i++) {
+
+            const t = i / segs;
+
+            ctx.lineTo(
+                this.fromX + (this.toX - this.fromX) * t + (Math.random() - 0.5) * 14,
+                this.fromY + (this.toY - this.fromY) * t + (Math.random() - 0.5) * 14
+            );
+
+        }
+
+        ctx.lineTo(this.toX, this.toY);
+        ctx.stroke();
+
+        ctx.restore();
+
+    }
+
+}
+
+// =====================================
+// Leyline Snare - gravity vortex
+// =====================================
+//
+// A short-lived well dropped where a thrown knife lands. Each
+// frame it drags nearby non-boss enemies toward its center,
+// clustering the pack. No damage - it's pure setup.
+
+class LeylineVortex {
+
+    constructor(x, y) {
+
+        this.x = x;
+        this.y = y;
+        this.radius = LEYLINE_SNARE.RADIUS;
+        this.life = LEYLINE_SNARE.DURATION_MS;
+        this.maxLife = LEYLINE_SNARE.DURATION_MS;
+
+    }
+
+    update() {
+
+        this.life -= Game.dt;
+
+        Game.enemies.forEach(enemy => {
+
+            if (enemy.isBoss || enemy.isDead())
+                return;
+
+            const ex = enemy.x + enemy.size / 2;
+            const ey = enemy.y + enemy.size / 2;
+
+            const dx = this.x - ex;
+            const dy = this.y - ey;
+            const d = Math.hypot(dx, dy);
+
+            if (d > this.radius || d < 1)
+                return;
+
+            enemy.x += (dx / d) * LEYLINE_SNARE.PULL_STRENGTH * Game.timeScale;
+            enemy.y += (dy / d) * LEYLINE_SNARE.PULL_STRENGTH * Game.timeScale;
+
+        });
+
+    }
+
+    isDead() {
+        return this.life <= 0;
+    }
+
+    draw() {
+
+        const fade = Math.min(1, this.life / 300);
+        const spin = Date.now() / 200;
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        // Pull field.
+        ctx.fillStyle = `rgba(123, 92, 214, ${0.12 * fade})`;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Swirl arms spiraling inward.
+        ctx.strokeStyle = `rgba(165, 125, 255, ${0.55 * fade})`;
+        ctx.lineWidth = 2;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = LEYLINE_SNARE.COLOR;
+
+        for (let i = 0; i < 3; i++) {
+
+            const a0 = spin + i * (Math.PI * 2 / 3);
+
+            ctx.beginPath();
+
+            for (let s = 0; s <= 20; s++) {
+
+                const rr = this.radius * (s / 20);
+                const aa = a0 + s * 0.35;
+                const x = Math.cos(aa) * rr;
+                const y = Math.sin(aa) * rr;
+
+                if (s === 0)
+                    ctx.moveTo(x, y);
+                else
+                    ctx.lineTo(x, y);
+
+            }
+
+            ctx.stroke();
+
+        }
+
+        ctx.restore();
+
+    }
+
+}
