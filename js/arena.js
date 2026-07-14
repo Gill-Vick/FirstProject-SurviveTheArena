@@ -1061,6 +1061,78 @@ function drawPillars() {
     });
 }
 
+// =====================================
+// X-RAY OUTLINES (entities behind pillars)
+// =====================================
+//
+// Foreground pillars are painted on top of the entities so
+// characters can walk behind them - which means an enemy, or
+// you, can end up fully hidden by a column. So nothing can
+// vanish (or ambush you) behind one, any entity overlapping a
+// pillar shaft is re-drawn as a glowing outline clipped to that
+// shaft: red for enemies, blue for the player. The clip keeps
+// the silhouette confined to the pillar, so it reads as a true
+// x-ray only where the column actually covers the entity.
+//
+// Called after drawPillars()/drawTorches() (see game.js), so
+// the outlines sit on top of the columns.
+
+function drawOccludedOutlines() {
+
+    const targets = [];
+
+    if (player)
+        targets.push({ ent: player, color: "#4da6ff" });
+
+    Game.enemies.forEach(ent => targets.push({ ent, color: "#ff3b30" }));
+
+    if (targets.length === 0)
+        return;
+
+    Arena.pillars.forEach(p => {
+
+        const left = p.x - p.width / 2;
+        const bottom = p.y + 40;
+
+        targets.forEach(({ ent, color }) => {
+
+            // Quick reject: entity box vs the pillar shaft rect.
+            if (
+                ent.x + ent.size < left ||
+                ent.x > left + p.width ||
+                ent.y + ent.size < 0 ||
+                ent.y > bottom
+            )
+                return;
+
+            ctx.save();
+
+            // Clip to the shaft so the silhouette only shows
+            // where the pillar actually covers the entity.
+            ctx.beginPath();
+            ctx.rect(left, 0, p.width, bottom);
+            ctx.clip();
+
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = color;
+
+            ctx.globalAlpha = 0.15;
+            ctx.fillStyle = color;
+            ctx.fillRect(ent.x, ent.y, ent.size, ent.size);
+
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2.5;
+            ctx.strokeRect(ent.x, ent.y, ent.size, ent.size);
+
+            ctx.restore();
+
+        });
+
+    });
+
+}
+
 // Throne pillar: same silhouette and plinth as the coliseum
 // pillar (same x/width/height), rendered as polished marble -
 // smoother multi-stop gradient, a bright edge highlight,

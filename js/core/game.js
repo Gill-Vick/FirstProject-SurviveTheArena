@@ -623,6 +623,12 @@ function drawPlayingScene() {
     drawPillars();
     drawTorches();
 
+    // 6.5 X-RAY PASS: entities hidden behind a pillar are shown
+    // as a colored outline over it (red enemies / blue player)
+    // so nothing can hide or ambush from behind a column.
+
+    drawOccludedOutlines();
+
     // 7. UI PASS: always on top, always readable
 
     Game.damageNumbers.forEach(number => number.draw());
