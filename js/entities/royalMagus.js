@@ -35,7 +35,8 @@ class RoyalMagus extends Enemy {
         this.isBoss = true;
         this.knockbackImmune = true;
         this.charmImmune = true;
-        this.maxHp = MAGUS.HP;
+        // Mirror the (possibly Endless-scaled) hp set by super().
+        this.maxHp = this.hp;
 
         this.skillCooldown = MAGUS.OPENING_COOLDOWN;
         this.skillIndex = 0;

@@ -580,7 +580,7 @@ const SHOP_ITEMS = {
     shield: {
         classId: "warrior",
         get price() {
-            return 0;
+            return [70, 180, 360][Save.shieldStage] ?? 0;
         },
         get name() {
             if (Save.equippedShieldStage >= 3) return "Bulwark Shield";
@@ -599,9 +599,7 @@ const SHOP_ITEMS = {
         classId: "warrior",
         equippable: true,
         get price() {
-            if (Save.bowStage === 1) return 0;
-            if (Save.bowStage === 2) return 0;
-            return 0;
+            return [90, 200, 340][Save.bowStage] ?? 0;
         },
         get name() {
             if (Save.equippedBowStage >= 3) return "Multishot II";
@@ -617,7 +615,7 @@ const SHOP_ITEMS = {
 
     wetStone: {
         classId: "warrior",
-        price: 0,
+        price: 90,
         name: "Wet Stone",
         desc: "Sword deals +1 damage",
         equippable: true
@@ -625,68 +623,70 @@ const SHOP_ITEMS = {
 
     circleStrike: {
         classId: "warrior",
-        price: 0,
+        price: 150,
         name: "Circle Strike",
         desc: "Sword goes around you",
-        requiresFirstBoss: false,
+        requiresFirstBoss: true,
         equippable: true
     },
 
     hermesShoes: {
         classId: "warrior",
-        price: 0,
+        price: 160,
         name: "Hermes Shoes",
         desc: "Second dash charge",
-        requiresFirstBoss: false,
+        requiresFirstBoss: true,
         equippable: true
     },
 
     berserkerMedallion: {
         classId: "warrior",
-        price: 0,
+        price: 240,
         name: "Berserker Medallion",
         desc: "Sword hits build Rage — +1 sword dmg per stack (max +3), fades after ~2.9s",
-        requiresKnightKilled: false,
+        requiresKnightKilled: true,
         equippable: true
     },
 
     forgeSigil: {
         classId: "warrior",
-        price: 0,
+        price: 240,
         name: "Forgemaster's Sigil",
         desc: "A broken shield reforges itself after ~11.4s",
-        requiresKnightKilled: false,
+        requiresKnightKilled: true,
         equippable: true
     },
 
     kingsBlade: {
         classId: "warrior",
-        price: 0,
+        price: 750,
         name: "King's Blade",
         desc: "3 dmg sword + right-click laser (5 dmg, 5.7s cd)",
-        requiresKingKilled: false,
+        requiresKingKilled: true,
         equippable: true
     },
 
     knightLocket: {
         classId: "warrior",
-        price: 0,
+        get price() {
+            return 120 + Save.knightLocketLevel * 60;
+        },
         get name() {
             return "Knight's Locket";
         },
         get desc() {
             return `${Math.round(Save.getCharmChance() * 100)}% chance to charm enemies for ~2.1s (silences their attack)`;
         },
-        requiresKnightKilled: false,
+        requiresKnightKilled: true,
         repeatable: true
     },
 
     windrunnerAnklet: {
         classId: "warrior",
-        price: 0,
+        price: 220,
         name: "Windrunner Anklet",
         desc: "+20% movement speed",
-        requiresKnightKilled: false,
+        requiresKnightKilled: true,
         equippable: true
     },
 
@@ -695,7 +695,7 @@ const SHOP_ITEMS = {
     bracelet: {
         classId: "ranger",
         get price() {
-            return 0;
+            return [80, 190, 360][Save.braceletStage] ?? 0;
         },
         get name() {
             if (Save.equippedBraceletStage >= 3) return "Sylph's Bracelet";
@@ -714,7 +714,7 @@ const SHOP_ITEMS = {
         classId: "ranger",
         equippable: true,
         get price() {
-            return 0;
+            return [90, 200, 340][Save.daggerStage] ?? 0;
         },
         get name() {
             if (Save.equippedDaggerStage >= 3) return "Venom Blade";
@@ -730,7 +730,7 @@ const SHOP_ITEMS = {
 
     emberArrows: {
         classId: "ranger",
-        price: 0,
+        price: 90,
         name: "Emberweave Arrows",
         desc: "Arrow hits ignite enemies — 2 burn dmg over ~2.3s",
         equippable: true
@@ -738,64 +738,64 @@ const SHOP_ITEMS = {
 
     falconQuiver: {
         classId: "ranger",
-        price: 0,
+        price: 150,
         name: "Falcon Quiver",
         desc: "Arrows pierce through 1 enemy",
-        requiresFirstBoss: false,
+        requiresFirstBoss: true,
         equippable: true
     },
 
     swiftdrawGloves: {
         classId: "ranger",
-        price: 0,
+        price: 150,
         name: "Swiftdraw Gloves",
         desc: "Bow fires ~43% faster",
-        requiresFirstBoss: false,
+        requiresFirstBoss: true,
         equippable: true
     },
 
     huntersMark: {
         classId: "ranger",
-        price: 0,
+        price: 240,
         name: "Hunter's Mark",
         desc: "Arrow hits mark enemies — marked take +50% damage for ~5.7s",
-        requiresKnightKilled: false,
+        requiresKnightKilled: true,
         equippable: true
     },
 
     galeRecurve: {
         classId: "ranger",
-        price: 0,
+        price: 220,
         name: "Gale Recurve",
         desc: "Bow fires 2 arrows in a fan",
-        requiresKnightKilled: false,
+        requiresKnightKilled: true,
         equippable: true
     },
 
     stormfletch: {
         classId: "ranger",
-        price: 0,
+        price: 400,
         name: "Stormfletch Arrows",
         desc: "Arrow hits arc lightning to a nearby enemy; marked targets take a small AOE strike",
-        requiresMagusKilled: false,
+        requiresMagusKilled: true,
         equippable: true
     },
 
     cycloneVeil: {
         classId: "ranger",
-        price: 0,
+        price: 380,
         name: "Cyclone Veil",
         desc: "Dashing shoves nearby (non-heavy) enemies away",
-        requiresMagusKilled: false,
+        requiresMagusKilled: true,
         equippable: true
     },
 
     stormpiercer: {
         classId: "ranger",
-        price: 0,
+        price: 750,
         name: "Stormpiercer",
         desc: "2 dmg arrows + right-click storm lance (5 dmg, 5.7s cd)",
-        requiresKingKilled: false,
+        requiresKingKilled: true,
         equippable: true
     },
 
@@ -804,7 +804,7 @@ const SHOP_ITEMS = {
     cloak: {
         classId: "thief",
         get price() {
-            return 0;
+            return [80, 190, 360][Save.cloakStage] ?? 0;
         },
         get name() {
             if (Save.equippedCloakStage >= 3) return "Phantom Cloak";
@@ -823,7 +823,7 @@ const SHOP_ITEMS = {
         classId: "thief",
         equippable: true,
         get price() {
-            return 0;
+            return [90, 200, 340][Save.throwingKnifeStage] ?? 0;
         },
         get name() {
             if (Save.equippedThrowingKnifeStage >= 3) return "Heart Stealer";
@@ -839,7 +839,7 @@ const SHOP_ITEMS = {
 
     thiefsWit: {
         classId: "thief",
-        price: 0,
+        price: 90,
         name: "Thief's Wit",
         desc: "Hits grant +30% move speed, +20% attack speed for ~2.9s",
         equippable: true
@@ -847,64 +847,64 @@ const SHOP_ITEMS = {
 
     voidEnchant: {
         classId: "thief",
-        price: 0,
+        price: 160,
         name: "Void Enchant",
         desc: "Hits mark enemies - stored damage explodes in an AOE after ~1.4s",
-        requiresFirstBoss: false,
+        requiresFirstBoss: true,
         equippable: true
     },
 
     masterOfBlade: {
         classId: "thief",
-        price: 0,
+        price: 160,
         name: "Master of the Blade",
         desc: "Every 3rd dagger swing unleashes 4 cuts (2 dmg each) in ~0.6s",
-        requiresFirstBoss: false,
+        requiresFirstBoss: true,
         equippable: true
     },
 
     serratedBlade: {
         classId: "thief",
-        price: 0,
+        price: 220,
         name: "Serrated Blade",
         desc: "Dagger deals 1 more base damage",
-        requiresKnightKilled: false,
+        requiresKnightKilled: true,
         equippable: true
     },
 
     pocketWatch: {
         classId: "thief",
-        price: 0,
+        price: 220,
         name: "Thief's Pocket Watch",
         desc: "Landing a hit shaves 0.07s off your active cooldowns",
-        requiresKnightKilled: false,
+        requiresKnightKilled: true,
         equippable: true
     },
 
     voltaicFang: {
         classId: "thief",
-        price: 0,
+        price: 400,
         name: "Voltaic Fang",
         desc: "Every dagger hit chains lightning through up to 3 nearby enemies (2 dmg each)",
-        requiresMagusKilled: false,
+        requiresMagusKilled: true,
         equippable: true
     },
 
     leylineSnare: {
         classId: "thief",
-        price: 0,
+        price: 380,
         name: "Leyline Snare",
         desc: "Your thrown knife tears a vortex that pulls enemies together",
-        requiresMagusKilled: false,
+        requiresMagusKilled: true,
         equippable: true
     },
 
     moonlightDaggers: {
         classId: "thief",
-        price: 0,
+        price: 750,
         name: "Moonlight Daggers",
         desc: "+1 dagger dmg, a 2nd dash charge, and swings leave a flame trail (1 dmg per ~1.4s)",
-        requiresKingKilled: false,
+        requiresKingKilled: true,
         equippable: true
     },
 
@@ -912,7 +912,9 @@ const SHOP_ITEMS = {
 
     critRate: {
         classId: "shared",
-        price: 0,
+        get price() {
+            return 40 + Save.critRateLevel * 25;
+        },
         name: "Critical Training",
         desc: "Permanently +1% crit chance",
         repeatable: true
@@ -1474,6 +1476,36 @@ const WAVES = {
     // as distinct "tanks, then archers, then runners" beats
     // instead of one continuous blur.
     TYPE_TRANSITION_GAP: 700
+
+};
+
+// =====================================
+// Endless Mode
+// =====================================
+//
+// A menu-only survival mode: play the normal wave progression
+// (bosses recur every 5 waves via a modulo-20 cycle - see
+// startWave in wave.js) but there is no victory. Past the King
+// (wave 20) the difficulty ramps: every wave beyond 20 adds a
+// little enemy HP and speed, and elites roll far more often, so
+// how far you get is the score. RAMP_START is WAVES.KING_WAVE.
+
+const ENDLESS = {
+
+    RAMP_START: 20,
+
+    // Enemy HP multiplier: +HP_PER_WAVE per wave past 20, on top
+    // of the normal per-wave HP formulas, capped at HP_MAX.
+    HP_PER_WAVE: 0.06,
+    HP_MAX: 4.0,
+
+    // Enemy speed: added to the flat 1.2 combat multiplier per
+    // wave past 20, capped at SPEED_MAX.
+    SPEED_PER_WAVE: 0.015,
+    SPEED_MAX: 1.9,
+
+    // Elites roll much more often than the normal 15%.
+    ELITE_CHANCE: 0.28
 
 };
 

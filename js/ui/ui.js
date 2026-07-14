@@ -114,50 +114,31 @@ function getModeSelectCardMetrics() {
 
 }
 
-function getCampaignCardButton() {
+// The four trials are laid out as a 2x2 grid: Campaign and
+// Boss Rush on top, Endless and Custom beneath them. col 0 =
+// left of center, col 1 = right; row 0 = top, row 1 = bottom.
+
+function getModeCardRect(col, row) {
 
     const m = getModeSelectCardMetrics();
+    const rowGap = ph(0.02);
+    const cardHeight = (m.height - rowGap) / 2;
 
     return {
-        x: canvas.width / 2 - m.gap / 2 - m.width,
-        y: m.y,
+        x: col === 0
+            ? canvas.width / 2 - m.gap / 2 - m.width
+            : canvas.width / 2 + m.gap / 2,
+        y: m.y + row * (cardHeight + rowGap),
         width: m.width,
-        height: m.height
+        height: cardHeight
     };
 
 }
 
-// Boss Rush and Custom split the right column: Boss Rush on
-// top at half height, Custom connected directly beneath it.
-
-function getBossRushCardButton() {
-
-    const m = getModeSelectCardMetrics();
-    const stackGap = ph(0.015);
-
-    return {
-        x: canvas.width / 2 + m.gap / 2,
-        y: m.y,
-        width: m.width,
-        height: (m.height - stackGap) / 2
-    };
-
-}
-
-function getCustomCardButton() {
-
-    const m = getModeSelectCardMetrics();
-    const stackGap = ph(0.015);
-    const half = (m.height - stackGap) / 2;
-
-    return {
-        x: canvas.width / 2 + m.gap / 2,
-        y: m.y + half + stackGap,
-        width: m.width,
-        height: half
-    };
-
-}
+function getCampaignCardButton() { return getModeCardRect(0, 0); }
+function getBossRushCardButton() { return getModeCardRect(1, 0); }
+function getEndlessCardButton()  { return getModeCardRect(0, 1); }
+function getCustomCardButton()   { return getModeCardRect(1, 1); }
 
 function getModeSelectBackButton() {
 
@@ -905,20 +886,27 @@ function drawModeSelect() {
     drawModeCard(
         getCampaignCardButton(),
         "CAMPAIGN",
-        "The arena as it's always been. Survive the horde " +
-        "wave by wave, and face a boss every five - the " +
-        "Boss, the Knight, the King - as the ranks behind " +
-        "them grow deadlier still.",
-        "lime"
+        "Survive wave by wave and face a boss every five - " +
+        "Guard, Knight, Magus, King. Fell the King to win.",
+        "lime",
+        true
     );
 
     drawModeCard(
         getBossRushCardButton(),
         "BOSS RUSH",
-        "The Boss, the Knight, the King - no filler, one " +
-        "after another, and the cycle repeats harder each " +
-        "time.",
+        "The four bosses back to back, no filler - and the " +
+        "cycle repeats, harder each time.",
         "#c0392b",
+        true
+    );
+
+    drawModeCard(
+        getEndlessCardButton(),
+        "ENDLESS",
+        "No end, no mercy. Past the King the horde only grows " +
+        "faster and tougher. How far can you get?",
+        "#3498db",
         true
     );
 
@@ -926,7 +914,7 @@ function drawModeSelect() {
         getCustomCardButton(),
         "CUSTOM",
         "Your arena, your rules. Begin at any wave, bend " +
-        "time with a pause, and cheat death itself.",
+        "time, and cheat death itself.",
         "#f1c40f",
         true
     );
@@ -1511,6 +1499,11 @@ function handleMenuClick(x, y) {
             return;
         }
 
+        if (hitRect(getEndlessCardButton(), x, y)) {
+            startGame("endless");
+            return;
+        }
+
         if (hitRect(getCustomCardButton(), x, y)) {
             startGame("custom");
             return;
@@ -1863,6 +1856,55 @@ function drawGameOver() {
         `Total Coins: ${Save.coins}`,
         canvas.width / 2,
         ph(0.5)
+    );
+
+    drawButton(getHomeButton(), "RETURN HOME", "lime", "black", ph(0.028));
+
+}
+
+// =====================================
+// Victory (Campaign cleared)
+// =====================================
+//
+// Shown when the King falls in Campaign. Boss Rush and Endless
+// never reach here (see onEnemyKilled in game.js).
+
+function drawVictory() {
+
+    ctx.save();
+
+    ctx.fillStyle = "gold";
+    ctx.font = `${ph(0.1)}px Arial`;
+    ctx.textAlign = "center";
+    ctx.shadowBlur = 24;
+    ctx.shadowColor = "rgba(255, 215, 0, 0.7)";
+    ctx.fillText("VICTORY", canvas.width / 2, ph(0.3));
+
+    ctx.restore();
+
+    ctx.fillStyle = "white";
+    ctx.font = `${ph(0.04)}px Arial`;
+    ctx.textAlign = "center";
+    ctx.fillText(
+        "The King has fallen. The arena is yours.",
+        canvas.width / 2,
+        ph(0.42)
+    );
+
+    ctx.fillStyle = "#c9a227";
+    ctx.font = `${ph(0.03)}px Arial`;
+    ctx.fillText(
+        "Seek an endless trial for a sterner test.",
+        canvas.width / 2,
+        ph(0.48)
+    );
+
+    ctx.fillStyle = "gold";
+    ctx.font = `${ph(0.036)}px Arial`;
+    ctx.fillText(
+        `Total Coins: ${Save.coins}`,
+        canvas.width / 2,
+        ph(0.56)
     );
 
     drawButton(getHomeButton(), "RETURN HOME", "lime", "black", ph(0.028));

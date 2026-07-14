@@ -12,8 +12,12 @@ class Enemy {
         this.size = stats.size;
         this.speed = stats.speed;
 
-        this.hp = stats.hp;
-        this.maxHp = stats.hp;
+        // Game.enemyHpMultiplier is 1 everywhere except Endless
+        // (see startWave), so this is a no-op in normal play.
+        // Bosses that re-set maxHp after super() must mirror
+        // this.hp, not their raw constant (see Magus/King).
+        this.hp = Math.round(stats.hp * Game.enemyHpMultiplier);
+        this.maxHp = this.hp;
 
         this.color = stats.color;
 

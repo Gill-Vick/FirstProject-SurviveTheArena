@@ -94,13 +94,24 @@ function startWave() {
 
     updateArenaForWave();
 
-    // Boss Rush skips straight from one boss fight to the
-    // next (Game.wave goes 5, 10, 15, 20, ...) - fold it back
-    // onto the same 1-20 cycle Campaign uses so it keeps
-    // landing on BOSS_WAVE/KNIGHT_WAVE/MAGUS_WAVE/KING_WAVE
-    // and just repeats (with HP still scaling off the real
-    // Game.wave).
-    const cycleWave = Game.bossRush
+    // Endless ramps enemy HP once past the King (wave 20); every
+    // other mode leaves it at 1 (a no-op in the Enemy ctor).
+    Game.enemyHpMultiplier =
+        (Game.mode === "endless" && Game.wave > ENDLESS.RAMP_START)
+            ? Math.min(
+                ENDLESS.HP_MAX,
+                1 + (Game.wave - ENDLESS.RAMP_START) * ENDLESS.HP_PER_WAVE
+            )
+            : 1;
+
+    // Boss Rush skips straight from one boss fight to the next
+    // (Game.wave goes 5, 10, 15, 20, ...); Endless plays every
+    // wave but wants the bosses to recur too. Both fold onto the
+    // same 1-20 cycle Campaign uses so they keep landing on
+    // BOSS_WAVE/KNIGHT_WAVE/MAGUS_WAVE/KING_WAVE (with HP still
+    // scaling off the real Game.wave). Campaign uses the wave
+    // as-is, so it stops having bosses after the King at 20.
+    const cycleWave = (Game.bossRush || Game.mode === "endless")
         ? ((Game.wave - 1) % WAVES.KING_WAVE) + 1
         : Game.wave;
 
@@ -650,11 +661,14 @@ function spawnEnemy(type = "grunt") {
     const EnemyClass = ENEMY_CLASSES[type] || Grunt;
     const enemy = new EnemyClass(x, y);
 
+    const eliteChance =
+        Game.mode === "endless" ? ENDLESS.ELITE_CHANCE : ELITE.CHANCE;
+
     if (
 
         !NO_ELITE.has(type) &&
         Game.wave >= ELITE.UNLOCK_WAVE &&
-        Math.random() < ELITE.CHANCE
+        Math.random() < eliteChance
 
     ) {
 

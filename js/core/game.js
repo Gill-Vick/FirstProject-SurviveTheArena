@@ -160,6 +160,11 @@ const Game = {
 
     enemySpeedMultiplier: 1,
 
+    // Flat HP multiplier applied to every enemy at spawn (see
+    // Enemy constructor). 1 in every mode except Endless, where
+    // startWave ramps it up past wave 20.
+    enemyHpMultiplier: 1,
+
     lastSpawn: 0,
 
     enemies: [],
@@ -291,6 +296,8 @@ function startGame(mode = "campaign") {
 
     Game.enemySpeedMultiplier = 1;
 
+    Game.enemyHpMultiplier = 1;
+
     Game.enemies = [];
 
     Game.projectiles = [];
@@ -342,8 +349,17 @@ function onEnemyKilled(enemy) {
     if (enemy.type === "royalMagus")
         Save.markMagusKilled();
 
-    if (enemy.type === "king")
+    if (enemy.type === "king") {
+
         Save.markKingKilled();
+
+        // Beating the King clears Campaign - roll the Victory
+        // screen. Boss Rush loops and Endless never ends, so
+        // they just carry on. (Custom is a sandbox, no win.)
+        if (Game.mode === "campaign")
+            Game.state = "victory";
+
+    }
 
     Save.markBestiaryKill(enemy.type);
 
@@ -443,12 +459,22 @@ function resetGame() {
 
 function getWaveSpeedMultiplier() {
 
-    // No more wave-over-wave speed scaling - it's a flat
-    // multiplier now, just nudged up 20% over the old
-    // wave-1 baseline so combat still feels lively without
-    // enemies snowballing into an unfair speed race by the
-    // late waves.
-    return 1.2;
+    // Flat 1.2 over the old wave-1 baseline for every mode -
+    // except Endless, where enemies speed up a little each wave
+    // past the King (wave 20), capped so it never becomes an
+    // unplayable race.
+    let mult = 1.2;
+
+    if (Game.mode === "endless" && Game.wave > ENDLESS.RAMP_START) {
+
+        mult = Math.min(
+            ENDLESS.SPEED_MAX,
+            mult + (Game.wave - ENDLESS.RAMP_START) * ENDLESS.SPEED_PER_WAVE
+        );
+
+    }
+
+    return mult;
 
 }
 
@@ -589,6 +615,10 @@ function draw() {
 
         case "gameover":
             drawGameOver();
+            break;
+
+        case "victory":
+            drawVictory();
             break;
     }
 

@@ -83,6 +83,7 @@ canvas.addEventListener("mousedown", (e) => {
                 break;
 
             case "gameover":
+            case "victory": {
 
                 const homeBtn = getHomeButton();
 
@@ -95,6 +96,7 @@ canvas.addEventListener("mousedown", (e) => {
                     resetGame();
                 }
                 break;
+            }
 
         }
     }
