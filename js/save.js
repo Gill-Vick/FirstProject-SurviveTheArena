@@ -20,6 +20,11 @@ const Save = {
 
     kingKilled: false,
 
+    // Furthest wave reached in the score modes (0 = never played).
+    bestEndlessWave: 0,
+
+    bestBossRushWave: 0,
+
     critRateLevel: 0,
 
     equippedCritLevel: 0,
@@ -136,6 +141,8 @@ const Save = {
             this.knightKilled = !!data.knightKilled;
             this.magusKilled = !!data.magusKilled;
             this.kingKilled = !!data.kingKilled;
+            this.bestEndlessWave = data.bestEndlessWave ?? 0;
+            this.bestBossRushWave = data.bestBossRushWave ?? 0;
             this.critRateLevel = data.critRateLevel ?? 0;
             this.equippedCritLevel = data.equippedCritLevel ?? this.critRateLevel;
             this.shieldStage = data.shieldStage ?? 0;
@@ -190,6 +197,8 @@ const Save = {
             knightKilled: this.knightKilled,
             magusKilled: this.magusKilled,
             kingKilled: this.kingKilled,
+            bestEndlessWave: this.bestEndlessWave,
+            bestBossRushWave: this.bestBossRushWave,
             critRateLevel: this.critRateLevel,
             equippedCritLevel: this.equippedCritLevel,
             shieldStage: this.shieldStage,
@@ -654,6 +663,37 @@ const Save = {
 
         this.kingKilled = true;
         this.persist();
+
+    },
+
+    // High scores for the score modes: the furthest wave reached.
+    // Called on death (see Player.takeHit). Returns true if this
+    // run set a new record, so the game-over screen can call it
+    // out. Campaign/Custom aren't scored.
+
+    recordRunWave(mode, wave) {
+
+        const key =
+            mode === "endless" ? "bestEndlessWave" :
+            mode === "bossRush" ? "bestBossRushWave" :
+            null;
+
+        if (!key || wave <= this[key])
+            return false;
+
+        this[key] = wave;
+        this.persist();
+
+        return true;
+
+    },
+
+    getBestWave(mode) {
+
+        if (mode === "endless") return this.bestEndlessWave;
+        if (mode === "bossRush") return this.bestBossRushWave;
+
+        return 0;
 
     },
 

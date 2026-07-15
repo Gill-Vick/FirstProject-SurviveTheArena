@@ -156,6 +156,10 @@ class Player {
 
         Game.killedBy = source;
 
+        // Log the run's distance for the score modes (no-op in
+        // Campaign/Custom); remember if it was a new record.
+        Game.newBest = Save.recordRunWave(Game.mode, Game.wave);
+
         return true;
 
     }

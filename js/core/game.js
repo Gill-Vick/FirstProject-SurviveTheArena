@@ -110,6 +110,10 @@ const Game = {
     // screen (e.g. "a Grunt", "the King").
     killedBy: null,
 
+    // True when the run that just ended set a new Endless/Boss
+    // Rush high score - read by the game-over screen.
+    newBest: false,
+
     wave: 1,
 
     // Which mode the current/next run is playing:
@@ -281,6 +285,8 @@ function startGame(mode = "campaign") {
     Game.runToken++;
 
     Game.killedBy = null;
+
+    Game.newBest = false;
 
     Game.wave = Game.bossRush ? WAVES.BOSS_WAVE : 1;
 

@@ -898,7 +898,8 @@ function drawModeSelect() {
         "The four bosses back to back, no filler - and the " +
         "cycle repeats, harder each time.",
         "#c0392b",
-        true
+        true,
+        Save.bestBossRushWave > 0 ? `Best: Wave ${Save.bestBossRushWave}` : null
     );
 
     drawModeCard(
@@ -907,7 +908,8 @@ function drawModeSelect() {
         "No end, no mercy. Past the King the horde only grows " +
         "faster and tougher. How far can you get?",
         "#3498db",
-        true
+        true,
+        Save.bestEndlessWave > 0 ? `Best: Wave ${Save.bestEndlessWave}` : null
     );
 
     drawModeCard(
@@ -921,7 +923,7 @@ function drawModeSelect() {
 
 }
 
-function drawModeCard(card, title, lore, accent, compact = false) {
+function drawModeCard(card, title, lore, accent, compact = false, footer = null) {
 
     ctx.fillStyle = "rgba(15, 15, 15, 0.7)";
     ctx.fillRect(card.x, card.y, card.width, card.height);
@@ -961,6 +963,18 @@ function drawModeCard(card, title, lore, accent, compact = false) {
         card.width - pw(0.04),
         loreLine
     );
+
+    // Optional high-score line pinned to the card's bottom edge.
+    if (footer) {
+        ctx.fillStyle = accent;
+        ctx.font = `bold ${compact ? ph(0.02) : ph(0.024)}px Arial`;
+        ctx.textAlign = "center";
+        ctx.fillText(
+            footer,
+            card.x + card.width / 2,
+            card.y + card.height - ph(0.028)
+        );
+    }
 
 }
 
@@ -1850,12 +1864,29 @@ function drawGameOver() {
         ph(0.42)
     );
 
+    // Score modes report the run's distance vs. the record.
+    if (Game.mode === "endless" || Game.mode === "bossRush") {
+
+        const best = Save.getBestWave(Game.mode);
+
+        ctx.fillStyle = Game.newBest ? "gold" : "#ddd";
+        ctx.font = `${ph(0.038)}px Arial`;
+        ctx.fillText(
+            Game.newBest
+                ? `New Best — Wave ${Game.wave}!`
+                : `Reached Wave ${Game.wave}   (Best: ${best})`,
+            canvas.width / 2,
+            ph(0.49)
+        );
+
+    }
+
     ctx.fillStyle = "gold";
     ctx.font = `${ph(0.036)}px Arial`;
     ctx.fillText(
         `Total Coins: ${Save.coins}`,
         canvas.width / 2,
-        ph(0.5)
+        ph(0.55)
     );
 
     drawButton(getHomeButton(), "RETURN HOME", "lime", "black", ph(0.028));
