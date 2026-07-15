@@ -67,6 +67,8 @@ class Archer extends Enemy {
 
         }
 
+        this.keepInArenaOnceEntered();
+
     }
 
     // =====================================

@@ -60,6 +60,8 @@ class FrostWeaver extends Enemy {
 
         }
 
+        this.keepInArenaOnceEntered();
+
     }
 
     attack() {

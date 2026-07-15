@@ -580,7 +580,7 @@ const SHOP_ITEMS = {
     shield: {
         classId: "warrior",
         get price() {
-            return [70, 180, 360][Save.shieldStage] ?? 0;
+            return [25, 60, 360][Save.shieldStage] ?? 0;
         },
         get name() {
             if (Save.equippedShieldStage >= 3) return "Bulwark Shield";
@@ -599,7 +599,7 @@ const SHOP_ITEMS = {
         classId: "warrior",
         equippable: true,
         get price() {
-            return [90, 200, 340][Save.bowStage] ?? 0;
+            return [25, 60, 120][Save.bowStage] ?? 0;
         },
         get name() {
             if (Save.equippedBowStage >= 3) return "Multishot II";
@@ -615,7 +615,7 @@ const SHOP_ITEMS = {
 
     wetStone: {
         classId: "warrior",
-        price: 90,
+        price: 30,
         name: "Wet Stone",
         desc: "Sword deals +1 damage",
         equippable: true
@@ -695,7 +695,7 @@ const SHOP_ITEMS = {
     bracelet: {
         classId: "ranger",
         get price() {
-            return [80, 190, 360][Save.braceletStage] ?? 0;
+            return [25, 60, 360][Save.braceletStage] ?? 0;
         },
         get name() {
             if (Save.equippedBraceletStage >= 3) return "Sylph's Bracelet";
@@ -714,7 +714,7 @@ const SHOP_ITEMS = {
         classId: "ranger",
         equippable: true,
         get price() {
-            return [90, 200, 340][Save.daggerStage] ?? 0;
+            return [25, 60, 120][Save.daggerStage] ?? 0;
         },
         get name() {
             if (Save.equippedDaggerStage >= 3) return "Venom Blade";
@@ -730,7 +730,7 @@ const SHOP_ITEMS = {
 
     emberArrows: {
         classId: "ranger",
-        price: 90,
+        price: 30,
         name: "Emberweave Arrows",
         desc: "Arrow hits ignite enemies — 2 burn dmg over ~2.3s",
         equippable: true
@@ -804,7 +804,7 @@ const SHOP_ITEMS = {
     cloak: {
         classId: "thief",
         get price() {
-            return [80, 190, 360][Save.cloakStage] ?? 0;
+            return [25, 60, 360][Save.cloakStage] ?? 0;
         },
         get name() {
             if (Save.equippedCloakStage >= 3) return "Phantom Cloak";
@@ -823,7 +823,7 @@ const SHOP_ITEMS = {
         classId: "thief",
         equippable: true,
         get price() {
-            return [90, 200, 340][Save.throwingKnifeStage] ?? 0;
+            return [25, 60, 120][Save.throwingKnifeStage] ?? 0;
         },
         get name() {
             if (Save.equippedThrowingKnifeStage >= 3) return "Heart Stealer";
@@ -839,7 +839,7 @@ const SHOP_ITEMS = {
 
     thiefsWit: {
         classId: "thief",
-        price: 90,
+        price: 30,
         name: "Thief's Wit",
         desc: "Hits grant +30% move speed, +20% attack speed for ~2.9s",
         equippable: true

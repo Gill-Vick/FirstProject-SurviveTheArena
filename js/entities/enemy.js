@@ -39,6 +39,10 @@ class Enemy {
         // While > 0 this enemy cannot be damaged.
         this.healShieldTimer = 0;
 
+        // Flips true once this enemy has fully walked onto the
+        // screen - see keepInArenaOnceEntered(), used by kiters.
+        this.hasEnteredArena = false;
+
     }
 
     update() {
@@ -122,6 +126,34 @@ class Enemy {
         this.y += (dy / dist) * step;
 
         return true;
+
+    }
+
+    // Kiting enemies (archer, fire mage, frost weaver, Royal
+    // Magus) back away from the player and would otherwise
+    // reverse straight off the map. Clamp them to the arena -
+    // but only ONCE they've fully entered it, so their walk-in
+    // from off-screen at spawn still reads instead of popping to
+    // the edge. Call at the end of a kiting move().
+    keepInArenaOnceEntered() {
+
+        if (!this.hasEnteredArena) {
+
+            if (
+                this.x >= 0 &&
+                this.x <= canvas.width - this.size &&
+                this.y >= 0 &&
+                this.y <= canvas.height - this.size
+            ) {
+                this.hasEnteredArena = true;
+            }
+
+            return;
+
+        }
+
+        this.x = Math.max(0, Math.min(canvas.width - this.size, this.x));
+        this.y = Math.max(0, Math.min(canvas.height - this.size, this.y));
 
     }
 

@@ -53,6 +53,8 @@ class FireMage extends Enemy {
 
         }
 
+        this.keepInArenaOnceEntered();
+
     }
 
     attack() {

@@ -109,6 +109,8 @@ class RoyalMagus extends Enemy {
 
         }
 
+        this.keepInArenaOnceEntered();
+
     }
 
     // Close-range defense: anyone who gets inside
