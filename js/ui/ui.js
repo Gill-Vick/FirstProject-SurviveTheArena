@@ -365,6 +365,12 @@ const SHOP_ITEM_IDS = [
     "serratedBlade", "pocketWatch",
     "voltaicFang", "leylineSnare", "moonlightDaggers",
 
+    // Mage
+    "halo", "sunburst", "sunstone",
+    "refraction", "solarAttunement",
+    "radiantOverload", "radiantBloom",
+    "sanctuary", "corona", "sovereignScepter",
+
     // Shared
     "critRate"
 
@@ -1778,25 +1784,33 @@ function drawHUD() {
 
     ctx.fillText(timeText, pw(0.015), ph(0.095));
 
-    const getDashText = (cd) => {
-        if (cd <= 0)
-            return "READY";
-        const realDashSecs = (cd / 1000).toFixed(1);
-        return `${realDashSecs}s`;
-    };
+    // The Mage has no dash (getDashSlotCount 0) - skip the line
+    // entirely so the HUD doesn't show a phantom "Dash: READY".
+    const dashSlots = player.getDashSlotCount();
 
-    const dash1 = getDashText(player.dashCooldowns[0]);
-    const dash2 = player.getDashSlotCount() >= 2
-        ? getDashText(player.dashCooldowns[1])
-        : null;
+    if (dashSlots > 0) {
 
-    ctx.fillText(
-        dash2
-            ? `Dash: ${dash1} | ${dash2}`
-            : `Dash: ${dash1}`,
-        pw(0.015),
-        ph(0.14)
-    );
+        const getDashText = (cd) => {
+            if (cd <= 0)
+                return "READY";
+            const realDashSecs = (cd / 1000).toFixed(1);
+            return `${realDashSecs}s`;
+        };
+
+        const dash1 = getDashText(player.dashCooldowns[0]);
+        const dash2 = dashSlots >= 2
+            ? getDashText(player.dashCooldowns[1])
+            : null;
+
+        ctx.fillText(
+            dash2
+                ? `Dash: ${dash1} | ${dash2}`
+                : `Dash: ${dash1}`,
+            pw(0.015),
+            ph(0.14)
+        );
+
+    }
 
     drawCoinDisplay(pw(0.015), ph(0.185), ph(0.03));
 

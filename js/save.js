@@ -59,6 +59,15 @@ const Save = {
 
     equippedThrowingKnifeStage: 0,
 
+    // Mage staged items.
+    haloStage: 0,
+
+    equippedHaloStage: 0,
+
+    sunburstStage: 0,
+
+    equippedSunburstStage: 0,
+
     inventory: {
         shield: false,
         bow: false,
@@ -88,7 +97,17 @@ const Save = {
         pocketWatch: false,
         voltaicFang: false,
         leylineSnare: false,
-        moonlightDaggers: false
+        moonlightDaggers: false,
+        halo: false,
+        sunburst: false,
+        sunstone: false,
+        refraction: false,
+        solarAttunement: false,
+        radiantOverload: false,
+        radiantBloom: false,
+        sanctuary: false,
+        corona: false,
+        sovereignScepter: false
     },
 
     equipped: {
@@ -120,7 +139,17 @@ const Save = {
         pocketWatch: false,
         voltaicFang: false,
         leylineSnare: false,
-        moonlightDaggers: false
+        moonlightDaggers: false,
+        halo: false,
+        sunburst: false,
+        sunstone: false,
+        refraction: false,
+        solarAttunement: false,
+        radiantOverload: false,
+        radiantBloom: false,
+        sanctuary: false,
+        corona: false,
+        sovereignScepter: false
     },
 
     bestiaryUnlocked: {},
@@ -159,6 +188,10 @@ const Save = {
             this.equippedThrowingKnifeStage = data.equippedThrowingKnifeStage ?? this.throwingKnifeStage;
             this.braceletStage = data.braceletStage ?? 0;
             this.equippedBraceletStage = data.equippedBraceletStage ?? this.braceletStage;
+            this.haloStage = data.haloStage ?? 0;
+            this.equippedHaloStage = data.equippedHaloStage ?? this.haloStage;
+            this.sunburstStage = data.sunburstStage ?? 0;
+            this.equippedSunburstStage = data.equippedSunburstStage ?? this.sunburstStage;
 
             // Saves that predate the class system just fall
             // back to Warrior (the original kit).
@@ -215,6 +248,10 @@ const Save = {
             equippedThrowingKnifeStage: this.equippedThrowingKnifeStage,
             braceletStage: this.braceletStage,
             equippedBraceletStage: this.equippedBraceletStage,
+            haloStage: this.haloStage,
+            equippedHaloStage: this.equippedHaloStage,
+            sunburstStage: this.sunburstStage,
+            equippedSunburstStage: this.equippedSunburstStage,
             inventory: { ...this.inventory },
             equipped: { ...this.equipped },
             bestiaryUnlocked: { ...this.bestiaryUnlocked }
@@ -256,6 +293,8 @@ const Save = {
         if (itemId === "dagger") return this.daggerStage;
         if (itemId === "throwingKnife") return this.throwingKnifeStage;
         if (itemId === "bracelet") return this.braceletStage;
+        if (itemId === "halo") return this.haloStage;
+        if (itemId === "sunburst") return this.sunburstStage;
 
         return 0;
 
@@ -269,6 +308,8 @@ const Save = {
         if (itemId === "dagger") return this.equippedDaggerStage;
         if (itemId === "throwingKnife") return this.equippedThrowingKnifeStage;
         if (itemId === "bracelet") return this.equippedBraceletStage;
+        if (itemId === "halo") return this.equippedHaloStage;
+        if (itemId === "sunburst") return this.equippedSunburstStage;
 
         return 0;
 
@@ -282,6 +323,8 @@ const Save = {
         if (itemId === "dagger") return this.setEquippedDaggerStage(stage);
         if (itemId === "throwingKnife") return this.setEquippedThrowingKnifeStage(stage);
         if (itemId === "bracelet") return this.setEquippedBraceletStage(stage);
+        if (itemId === "halo") return this.setEquippedHaloStage(stage);
+        if (itemId === "sunburst") return this.setEquippedSunburstStage(stage);
 
     },
 
@@ -357,12 +400,12 @@ const Save = {
         if (item.requiresMagusKilled && !this.magusKilled)
             return "Defeat the Royal Magus";
 
-        if ((itemId === "bow" || itemId === "dagger" || itemId === "throwingKnife") && this.getStage(itemId) >= this.getMaxStage(itemId))
+        if ((itemId === "bow" || itemId === "dagger" || itemId === "throwingKnife" || itemId === "sunburst") && this.getStage(itemId) >= this.getMaxStage(itemId))
             return "Maxed out";
 
         // Shield, cloak, and bracelet share a shape: 3 stages,
         // with the final stage locked behind the Knight.
-        if (itemId === "shield" || itemId === "cloak" || itemId === "bracelet") {
+        if (itemId === "shield" || itemId === "cloak" || itemId === "bracelet" || itemId === "halo") {
 
             if (this.getStage(itemId) >= 3)
                 return "Maxed out";
@@ -477,6 +520,20 @@ const Save = {
             this.inventory.bracelet = true;
             this.equipped.bracelet = true;
 
+        } else if (itemId === "halo") {
+
+            this.haloStage++;
+            this.equippedHaloStage = this.haloStage;
+            this.inventory.halo = true;
+            this.equipped.halo = true;
+
+        } else if (itemId === "sunburst") {
+
+            this.sunburstStage++;
+            this.equippedSunburstStage = this.sunburstStage;
+            this.inventory.sunburst = true;
+            this.equipped.sunburst = true;
+
         } else {
 
             this.inventory[itemId] = true;
@@ -550,6 +607,28 @@ const Save = {
         this.equippedBraceletStage = Math.max(
             1,
             Math.min(this.braceletStage, Math.floor(stage))
+        );
+
+        this.persist();
+
+    },
+
+    setEquippedHaloStage(stage) {
+
+        this.equippedHaloStage = Math.max(
+            1,
+            Math.min(this.haloStage, Math.floor(stage))
+        );
+
+        this.persist();
+
+    },
+
+    setEquippedSunburstStage(stage) {
+
+        this.equippedSunburstStage = Math.max(
+            1,
+            Math.min(this.sunburstStage, Math.floor(stage))
         );
 
         this.persist();

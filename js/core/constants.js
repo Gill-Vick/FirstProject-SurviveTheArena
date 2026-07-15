@@ -177,7 +177,8 @@ const CHARM = {
 const CLASSES = [
     { id: "warrior", name: "Warrior" },
     { id: "ranger", name: "Ranger" },
-    { id: "thief", name: "Thief" }
+    { id: "thief", name: "Thief" },
+    { id: "mage", name: "Mage" }
 ];
 
 // =====================================
@@ -538,6 +539,122 @@ const MOONLIGHT_DAGGERS = {
 };
 
 // =====================================
+// Mage (4th class) - a Light-element, dashless zone-caster
+// =====================================
+//
+// The Mage's whole identity: it has NO dash. Its only defense
+// is the Halo ward. Its basic attack (Sunbeam) is not a
+// projectile - it strikes light down at the CURSOR on a long,
+// charge-based cooldown (like the dash's charges). Every item
+// piles onto that cursor-cast or the [E] light orb. All Light-
+// themed. Times are real ms (no GAME_SPEED); speeds are
+// per-frame (×timeScale).
+
+const MAGE = {
+
+    // Sunbeam - the free basic. A radiant strike placed at the
+    // aimed point. Long per-charge recharge (heavy artillery,
+    // not spam); charge-based like the dash. Refraction adds a
+    // 2nd charge (see below), Hermes-Shoes style.
+    SUNBEAM_COOLDOWN: 2000,
+    SUNBEAM_DAMAGE: 4,
+    SUNBEAM_RADIUS: 60,
+
+    // On touch devices there's no cursor, so the strike lands
+    // this far along the aim direction instead.
+    SUNBEAM_CAST_DISTANCE: 300,
+
+    COLOR: "#fff3b0"
+
+};
+
+// Halo - staged survivability ward. Blocks one hit, then
+// recharges over RECHARGE_MS[stage]. Stage 3 (Radiant Halo)
+// is Knight-gated and recharges fastest. Because the Mage has
+// no dash, this is its entire defensive kit.
+const HALO = {
+    RECHARGE_MS: [0, 8000, 5500, 4000],  // indexed by stage
+    BLOCK_INVULN_MS: 500,
+    COLOR: "#fff0b0"
+};
+
+// Sunburst - staged [E]: a lobbed orb of light that bursts in
+// a big AOE where it lands.
+const SUNBURST = {
+    COOLDOWN: 4000,
+    DAMAGE: [0, 4, 6, 8],   // indexed by stage
+    RADIUS: [0, 70, 85, 100],
+    TRAVEL_SPEED: 9,        // px/frame toward the target point
+    COLOR: "#ffe066"
+};
+
+// Sunstone - single unlocked passive: bolsters every Sunbeam.
+const SUNSTONE = {
+    BONUS_DAMAGE: 2,
+    BONUS_RADIUS: 18
+};
+
+// Refraction (Castle Guard) - a 2nd Sunbeam charge, exactly
+// like Hermes Shoes granting a 2nd dash. Fire two casts back
+// to back, each recharging on its own timer.
+const REFRACTION = {
+    EXTRA_CHARGES: 1
+};
+
+// Solar Attunement (Castle Guard) - faster Sunbeam recharge.
+const SOLAR_ATTUNEMENT = {
+    COOLDOWN_MULTIPLIER: 0.7
+};
+
+// Radiant Overload (Knight) - every 3rd Sunbeam overcharges
+// into a much bigger, harder strike.
+const RADIANT_OVERLOAD = {
+    EVERY: 3,
+    DAMAGE_MULT: 2,
+    RADIUS_MULT: 1.8
+};
+
+// Radiant Bloom (Knight) - Sunbeam becomes a sunflower: the
+// main strike at the cursor plus a ring of PETALS smaller
+// strikes around it.
+const RADIANT_BLOOM = {
+    PETALS: 6,
+    PETAL_DISTANCE: 72,
+    PETAL_DAMAGE_MULT: 0.5,
+    PETAL_RADIUS_MULT: 0.6
+};
+
+// Sanctuary (Magus) - the Sunburst [E] leaves a lingering
+// radiant field that denies that ground.
+const SANCTUARY = {
+    DURATION_MS: 4000,
+    TICK_MS: 500,
+    TICK_DAMAGE: 2
+};
+
+// Corona (Magus) - a radiant aura that burns enemies who get
+// close. Keep-away for the immobile caster + passive clear.
+const CORONA = {
+    RADIUS: 130,
+    TICK_MS: 500,
+    TICK_DAMAGE: 2,
+    COLOR: "#ffd24d"
+};
+
+// Sovereign's Scepter (King) - +Sunbeam damage, and a right-
+// click royal barrage: a radial burst of light beams, the
+// King's own laser-wall turned against him.
+const SOVEREIGN_SCEPTER = {
+    BONUS_DAMAGE: 2,
+    BARRAGE_COOLDOWN: 6000,
+    BARRAGE_DURATION: 286,   // ms the beams are visible/active
+    BARRAGE_DAMAGE: 6,
+    BEAM_COUNT: 10,
+    BEAM_WIDTH: 30,
+    COLOR: "#ffe066"
+};
+
+// =====================================
 // Coin Rewards
 // =====================================
 
@@ -571,7 +688,7 @@ const COINS = {
 
 // Items with a multi-stage purchase track (dedicated *Stage
 // fields in Save instead of a plain inventory flag).
-const STAGED_ITEM_IDS = ["shield", "bow", "cloak", "dagger", "throwingKnife", "bracelet"];
+const STAGED_ITEM_IDS = ["shield", "bow", "cloak", "dagger", "throwingKnife", "bracelet", "halo", "sunburst"];
 
 const SHOP_ITEMS = {
 
@@ -904,6 +1021,115 @@ const SHOP_ITEMS = {
         price: 750,
         name: "Moonlight Daggers",
         desc: "+1 dagger dmg, a 2nd dash charge, and swings leave a flame trail (1 dmg per ~1.4s)",
+        requiresKingKilled: true,
+        equippable: true
+    },
+
+    // ----- Mage -----
+
+    halo: {
+        classId: "mage",
+        get price() {
+            return [25, 60, 360][Save.haloStage] ?? 0;
+        },
+        get name() {
+            if (Save.equippedHaloStage >= 3) return "Radiant Halo";
+            if (Save.equippedHaloStage === 2) return "Bright Halo";
+            return "Dim Halo";
+        },
+        get desc() {
+            if (Save.equippedHaloStage >= 3) return "Blocks a hit, recharges in ~4s";
+            if (Save.equippedHaloStage === 2) return "Blocks a hit, recharges in ~5.5s";
+            return "A ring of light blocks one hit, recharges in ~8s";
+        },
+        equippable: true
+    },
+
+    sunburst: {
+        classId: "mage",
+        equippable: true,
+        get price() {
+            return [25, 60, 120][Save.sunburstStage] ?? 0;
+        },
+        get name() {
+            if (Save.equippedSunburstStage >= 3) return "Solar Flare";
+            if (Save.equippedSunburstStage === 2) return "Sunburst";
+            return "Glimmer";
+        },
+        get desc() {
+            if (Save.equippedSunburstStage >= 3) return "Press E — huge lobbed light blast (8 dmg AOE)";
+            if (Save.equippedSunburstStage === 2) return "Press E — bigger light blast (6 dmg AOE)";
+            return "Press E — lobbed orb of light bursts in an AOE (4 dmg)";
+        }
+    },
+
+    sunstone: {
+        classId: "mage",
+        price: 30,
+        name: "Sunstone",
+        desc: "Sunbeam hits harder and strikes a wider area",
+        equippable: true
+    },
+
+    refraction: {
+        classId: "mage",
+        price: 150,
+        name: "Refraction",
+        desc: "A 2nd Sunbeam charge — cast two strikes before recharging",
+        requiresFirstBoss: true,
+        equippable: true
+    },
+
+    solarAttunement: {
+        classId: "mage",
+        price: 150,
+        name: "Solar Attunement",
+        desc: "Sunbeam recharges ~30% faster",
+        requiresFirstBoss: true,
+        equippable: true
+    },
+
+    radiantOverload: {
+        classId: "mage",
+        price: 240,
+        name: "Radiant Overload",
+        desc: "Every 3rd Sunbeam overcharges — 2x damage and a huge radius",
+        requiresKnightKilled: true,
+        equippable: true
+    },
+
+    radiantBloom: {
+        classId: "mage",
+        price: 240,
+        name: "Radiant Bloom",
+        desc: "Sunbeam blooms like a sunflower — a ring of smaller strikes around the main one",
+        requiresKnightKilled: true,
+        equippable: true
+    },
+
+    sanctuary: {
+        classId: "mage",
+        price: 400,
+        name: "Sanctuary",
+        desc: "Your Sunburst leaves a lingering radiant field that burns the ground it lands on",
+        requiresMagusKilled: true,
+        equippable: true
+    },
+
+    corona: {
+        classId: "mage",
+        price: 380,
+        name: "Corona",
+        desc: "A radiant aura burns enemies that close in on you (keep-away)",
+        requiresMagusKilled: true,
+        equippable: true
+    },
+
+    sovereignScepter: {
+        classId: "mage",
+        price: 750,
+        name: "Sovereign's Scepter",
+        desc: "+2 Sunbeam dmg + right-click royal barrage of light beams (6 dmg, 6s cd)",
         requiresKingKilled: true,
         equippable: true
     },
