@@ -912,9 +912,7 @@ const SHOP_ITEMS = {
 
     critRate: {
         classId: "shared",
-        get price() {
-            return 40 + Save.critRateLevel * 25;
-        },
+        price: 100,
         name: "Critical Training",
         desc: "Permanently +1% crit chance",
         repeatable: true
