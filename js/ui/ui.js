@@ -1277,23 +1277,30 @@ function drawEnemyPreview(type, x, y, w, h, unlocked) {
 
     ctx.save();
 
-    if (entry.isBoss) {
-
-        ctx.strokeStyle = "gold";
-        ctx.lineWidth = Math.max(2, ph(0.004));
-        ctx.strokeRect(x, y, w, h);
-
-    }
+    // Framing (gilt for creatures, gold for bosses) is drawn by
+    // the card / portrait plate around this glyph now, so this
+    // just renders the creature itself.
 
     if (!unlocked) {
 
-        ctx.fillStyle = "#444";
-        ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+        // Wax-seal medallion standing in for the unknown foe: a
+        // dark disc with a gilt rim and a single "?" glyph.
+        const cx = x + w / 2;
+        const cy = y + h / 2;
+        const rad = Math.min(w, h) * 0.3;
 
-        ctx.fillStyle = "#888";
-        ctx.font = `bold ${Math.floor(Math.min(w, h) * 0.45)}px Arial`;
+        ctx.beginPath();
+        ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(28, 22, 16, 0.75)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(140, 116, 66, 0.7)";
+        ctx.lineWidth = Math.max(1.5, rad * 0.14);
+        ctx.stroke();
+
+        ctx.fillStyle = "#a08a60";
+        ctx.font = `bold ${Math.floor(rad * 1.1)}px ${UI_FONT}`;
         ctx.textAlign = "center";
-        ctx.fillText("?", x + w / 2, y + h / 2 + Math.min(w, h) * 0.15);
+        ctx.fillText("?", cx, cy + rad * 0.4);
 
         ctx.restore();
         return;
@@ -1329,6 +1336,192 @@ function drawEnemyPreview(type, x, y, w, h, unlocked) {
     }
 
     ctx.restore();
+
+}
+
+// =====================================
+// Bestiary theming helpers
+// =====================================
+//
+// The Bestiary's backing "tome": an aged leather-and-stone
+// gradient seated in a dark border with a gilt inner frame and
+// gold corner studs - replaces the old flat brown slab so the
+// whole codex reads as one bound volume. Shared by the grid,
+// boss, and detail pages (all use getBestiaryPanelRect).
+
+function drawBestiaryPanel(panel) {
+
+    const r = ph(0.02);
+
+    ctx.save();
+    ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
+    ctx.shadowBlur = ph(0.03);
+    ctx.shadowOffsetY = ph(0.008);
+    roundRectPath(panel.x, panel.y, panel.width, panel.height, r);
+    ctx.fillStyle = "#3a2a20";
+    ctx.fill();
+    ctx.restore();
+
+    // Warm radial fill - lit at the centre, shadowed at the edges.
+    ctx.save();
+    roundRectPath(panel.x, panel.y, panel.width, panel.height, r);
+    ctx.clip();
+    const g = ctx.createRadialGradient(
+        panel.x + panel.width / 2, panel.y + panel.height * 0.42, panel.width * 0.08,
+        panel.x + panel.width / 2, panel.y + panel.height / 2, panel.width * 0.7
+    );
+    g.addColorStop(0, "#6f4d37");
+    g.addColorStop(1, "#33241c");
+    ctx.fillStyle = g;
+    ctx.fillRect(panel.x, panel.y, panel.width, panel.height);
+    ctx.restore();
+
+    // Dark outer seat + gilt inner frame.
+    roundRectPath(panel.x, panel.y, panel.width, panel.height, r);
+    ctx.strokeStyle = "rgba(20, 14, 8, 0.85)";
+    ctx.lineWidth = Math.max(4, ph(0.008));
+    ctx.stroke();
+
+    const inset = ph(0.014);
+    roundRectPath(
+        panel.x + inset,
+        panel.y + inset,
+        panel.width - inset * 2,
+        panel.height - inset * 2,
+        Math.max(2, r - inset)
+    );
+    ctx.strokeStyle = "rgba(201, 162, 39, 0.85)";
+    ctx.lineWidth = Math.max(2, ph(0.004));
+    ctx.stroke();
+
+    // Gold corner studs.
+    const studR = ph(0.009);
+    const pad = inset + ph(0.008);
+
+    [
+        [panel.x + pad, panel.y + pad],
+        [panel.x + panel.width - pad, panel.y + pad],
+        [panel.x + pad, panel.y + panel.height - pad],
+        [panel.x + panel.width - pad, panel.y + panel.height - pad]
+    ].forEach(([cx, cy]) => {
+        ctx.beginPath();
+        ctx.arc(cx, cy, studR, 0, Math.PI * 2);
+        ctx.fillStyle = "#c9a227";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(20, 14, 8, 0.7)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+    });
+
+}
+
+// One creature tile on the grid page: a framed stone portrait
+// with a gilt border and an engraved nameplate beneath. Locked
+// entries dim down and show the wax-seal "?" from
+// drawEnemyPreview.
+function drawBestiaryCard(cell, type, entry, unlocked) {
+
+    const r = cell.width * 0.08;
+    const gap = ph(0.008);
+    const plateH = ph(0.038);
+
+    // Portrait tile with a soft drop shadow.
+    ctx.save();
+    ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+    ctx.shadowBlur = cell.width * 0.1;
+    ctx.shadowOffsetY = cell.width * 0.04;
+    roundRectPath(cell.x, cell.y, cell.width, cell.height, r);
+    ctx.fillStyle = unlocked ? "#241f19" : "#1a1714";
+    ctx.fill();
+    ctx.restore();
+
+    // Vertical sheen so the tile reads as carved stone.
+    ctx.save();
+    roundRectPath(cell.x, cell.y, cell.width, cell.height, r);
+    ctx.clip();
+    const g = ctx.createLinearGradient(0, cell.y, 0, cell.y + cell.height);
+    g.addColorStop(0, unlocked ? "rgba(120, 92, 58, 0.5)" : "rgba(70, 64, 56, 0.35)");
+    g.addColorStop(1, "rgba(0, 0, 0, 0.4)");
+    ctx.fillStyle = g;
+    ctx.fillRect(cell.x, cell.y, cell.width, cell.height);
+    ctx.restore();
+
+    // Creature glyph / sealed silhouette.
+    drawEnemyPreview(type, cell.x, cell.y, cell.width, cell.height, unlocked);
+
+    // Gilt frame.
+    roundRectPath(cell.x, cell.y, cell.width, cell.height, r);
+    ctx.strokeStyle = unlocked ? "rgba(201, 162, 39, 0.9)" : "rgba(120, 100, 62, 0.5)";
+    ctx.lineWidth = Math.max(1.5, cell.width * 0.03);
+    ctx.stroke();
+
+    // Nameplate banner beneath the portrait.
+    const plateX = cell.x + cell.width * 0.04;
+    const plateW = cell.width * 0.92;
+    const plateY = cell.y + cell.height + gap;
+
+    roundRectPath(plateX, plateY, plateW, plateH, plateH * 0.28);
+    ctx.fillStyle = "rgba(18, 12, 8, 0.85)";
+    ctx.fill();
+    roundRectPath(plateX, plateY, plateW, plateH, plateH * 0.28);
+    ctx.strokeStyle = unlocked ? "rgba(201, 162, 39, 0.65)" : "rgba(120, 100, 62, 0.35)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    const label = unlocked ? entry.name : "? ? ?";
+
+    // Shrink the label until it fits the plate so long names
+    // (Necromancer, Frost Weaver) don't spill past the frame.
+    let fontSize = Math.max(9, cell.width * 0.15);
+    ctx.font = `bold ${fontSize}px ${UI_FONT}`;
+    const maxLabelW = plateW * 0.9;
+    while (fontSize > 8 && ctx.measureText(label).width > maxLabelW) {
+        fontSize -= 1;
+        ctx.font = `bold ${fontSize}px ${UI_FONT}`;
+    }
+
+    ctx.fillStyle = unlocked ? "#f2e4c2" : "#8a7a5a";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, cell.x + cell.width / 2, plateY + plateH / 2);
+    ctx.textBaseline = "alphabetic";
+
+}
+
+// Larger framed portrait for the boss and detail pages - same
+// carved-stone tile, with a bright gold frame for bosses.
+function drawBestiaryPortrait(type, x, y, size, unlocked) {
+
+    const entry = BESTIARY[type];
+    const r = size * 0.06;
+
+    ctx.save();
+    ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+    ctx.shadowBlur = size * 0.06;
+    ctx.shadowOffsetY = size * 0.02;
+    roundRectPath(x, y, size, size, r);
+    ctx.fillStyle = "#221d17";
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    roundRectPath(x, y, size, size, r);
+    ctx.clip();
+    const g = ctx.createLinearGradient(0, y, 0, y + size);
+    g.addColorStop(0, unlocked ? "rgba(120, 92, 58, 0.5)" : "rgba(70, 64, 56, 0.35)");
+    g.addColorStop(1, "rgba(0, 0, 0, 0.45)");
+    ctx.fillStyle = g;
+    ctx.fillRect(x, y, size, size);
+    ctx.restore();
+
+    drawEnemyPreview(type, x, y, size, size, unlocked);
+
+    roundRectPath(x, y, size, size, r);
+    ctx.strokeStyle = entry.isBoss
+        ? (unlocked ? "rgba(255, 215, 0, 0.95)" : "rgba(140, 110, 50, 0.55)")
+        : (unlocked ? "rgba(201, 162, 39, 0.9)" : "rgba(120, 100, 62, 0.5)");
+    ctx.lineWidth = Math.max(2, size * 0.03);
+    ctx.stroke();
 
 }
 
@@ -1412,11 +1605,7 @@ function drawBestiary() {
 
     const panel = getBestiaryPanelRect();
 
-    ctx.fillStyle = "#5c4033";
-    ctx.fillRect(panel.x, panel.y, panel.width, panel.height);
-    ctx.strokeStyle = "#c9a227";
-    ctx.lineWidth = Math.max(3, ph(0.006));
-    ctx.strokeRect(panel.x, panel.y, panel.width, panel.height);
+    drawBestiaryPanel(panel);
 
     drawButton(getBestiaryBackButton(), "BACK", "#555", "white", ph(0.024));
 
@@ -1439,7 +1628,7 @@ function drawBestiary() {
     drawButton(getBestiaryPageArrowButton(1), "▶", "#3a2a20", "white", ph(0.026));
 
     ctx.fillStyle = "#d0b58a";
-    ctx.font = `${ph(0.02)}px Arial`;
+    ctx.font = `italic ${ph(0.02)}px ${UI_FONT}`;
     ctx.fillText(
         page === 0
             ? `Creatures — page 1 / ${getBestiaryPageCount()}`
@@ -1462,24 +1651,7 @@ function drawBestiary() {
         const entry = BESTIARY[type];
         const unlocked = Save.isBestiaryUnlocked(type);
 
-        ctx.fillStyle = "rgba(0,0,0,0.35)";
-        ctx.fillRect(
-            cell.x - cell.width * 0.04,
-            cell.y - cell.width * 0.04,
-            cell.width * 1.08,
-            cell.height + ph(0.05)
-        );
-
-        drawEnemyPreview(type, cell.x, cell.y, cell.width, cell.height, unlocked);
-
-        ctx.fillStyle = unlocked ? "white" : "#666";
-        ctx.font = `${Math.max(10, cell.width * 0.12)}px Arial`;
-        ctx.textAlign = "center";
-        ctx.fillText(
-            unlocked ? entry.name : "???",
-            cell.x + cell.width / 2,
-            cell.y + cell.height + cell.width * 0.14
-        );
+        drawBestiaryCard(cell, type, entry, unlocked);
 
     });
 
@@ -1498,7 +1670,7 @@ function drawBestiaryBossPage(type) {
     const previewX = panel.x + pw(0.05);
     const previewY = ph(0.30);
 
-    drawEnemyPreview(type, previewX, previewY, previewSize, previewSize, unlocked);
+    drawBestiaryPortrait(type, previewX, previewY, previewSize, previewSize, unlocked);
 
     const textX = previewX + previewSize + pw(0.04);
     const textWidth = panel.x + panel.width - pw(0.04) - textX;
@@ -1540,7 +1712,7 @@ function drawBestiaryBossPage(type) {
     const statsY = panel.y + panel.height - ph(0.19);
 
     ctx.fillStyle = "white";
-    ctx.font = `bold ${ph(0.026)}px Arial`;
+    ctx.font = `bold ${ph(0.026)}px ${UI_FONT}`;
     ctx.fillText("Stats", panel.x + pw(0.05), statsY);
 
     ctx.fillStyle = "#ddd";
@@ -1560,11 +1732,7 @@ function drawBestiaryDetail() {
 
     const panel = getBestiaryPanelRect();
 
-    ctx.fillStyle = "#5c4033";
-    ctx.fillRect(panel.x, panel.y, panel.width, panel.height);
-    ctx.strokeStyle = "#c9a227";
-    ctx.lineWidth = Math.max(3, ph(0.006));
-    ctx.strokeRect(panel.x, panel.y, panel.width, panel.height);
+    drawBestiaryPanel(panel);
 
     drawButton(getBestiaryBackButton(), "BACK", "#555", "white", ph(0.024));
 
@@ -1572,12 +1740,12 @@ function drawBestiaryDetail() {
     const previewY = panel.y + ph(0.09);
     const previewSize = Math.min(pw(0.16), panel.height * 0.4);
 
-    drawEnemyPreview(type, previewX, previewY, previewSize, previewSize, true);
+    drawBestiaryPortrait(type, previewX, previewY, previewSize, previewSize, true);
 
     const textX = previewX + previewSize + pw(0.03);
 
     ctx.fillStyle = entry.isBoss ? "gold" : "white";
-    ctx.font = `bold ${ph(0.05)}px Arial`;
+    ctx.font = `bold ${ph(0.05)}px ${UI_FONT}`;
     ctx.textAlign = "left";
     ctx.fillText(entry.name, textX, previewY + ph(0.05));
 
@@ -1600,7 +1768,7 @@ function drawBestiaryDetail() {
     const statsY = previewY + previewSize + ph(0.08);
 
     ctx.fillStyle = "white";
-    ctx.font = `bold ${ph(0.028)}px Arial`;
+    ctx.font = `bold ${ph(0.028)}px ${UI_FONT}`;
     ctx.fillText("Stats", panel.x + pw(0.03), statsY);
 
     ctx.fillStyle = "#ddd";
