@@ -279,7 +279,7 @@ function drawPauseMenu() {
     ctx.strokeRect(panel.x, panel.y, panel.width, panel.height);
 
     ctx.fillStyle = "white";
-    ctx.font = `bold ${ph(0.045)}px Arial`;
+    ctx.font = `bold ${ph(0.045)}px ${UI_FONT}`;
     ctx.textAlign = "center";
     ctx.fillText("PAUSED", canvas.width / 2, panel.y + ph(0.065));
 
@@ -640,21 +640,112 @@ function hitRect(btn, x, y) {
 
 }
 
+// Serif stack used across the UI chrome - falls back to
+// Georgia everywhere, but reads as engraved / forged lettering
+// to match the throne-room art when the fancier faces exist.
+const UI_FONT = "'Cinzel', 'Trajan Pro', Georgia, 'Times New Roman', serif";
+
+// Rounded-rectangle path helper - traces a rounded rect as the
+// current path so it can be filled/stroked/clipped. Written by
+// hand rather than relying on ctx.roundRect for older canvases.
+function roundRectPath(x, y, w, h, r) {
+
+    r = Math.max(0, Math.min(r, w / 2, h / 2));
+
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+
+}
+
+// =====================================
+// Medieval button plate
+// =====================================
+//
+// Every button in the game funnels through here, so this is
+// what carries the theme: a rounded, drop-shadowed plate in the
+// caller's accent colour, given a forged-metal bevel (glossy
+// highlight up top, shaded base), a dark outer seat, and a gilt
+// inner frame - the one cue shared by every button in the keep.
+// Ornament scales with the button, so tiny controls (shop
+// arrows, wave-jump deltas) stay slim while big menu buttons get
+// the full treatment. The label is engraved serif with a carved
+// drop-shadow.
+
 function drawButton(btn, label, fill, textColor, fontSize) {
 
     const size = fontSize ?? ph(0.028);
+    const { x, y, width: w, height: h } = btn;
 
+    const radius = Math.min(h * 0.3, ph(0.016));
+    const border = Math.max(1.5, Math.min(w, h) * 0.06);
+
+    ctx.save();
+
+    // Seat the plate on the surface with a soft drop shadow.
+    ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+    ctx.shadowBlur = Math.max(2, h * 0.14);
+    ctx.shadowOffsetY = Math.max(1, h * 0.07);
+
+    roundRectPath(x, y, w, h, radius);
     ctx.fillStyle = fill;
-    ctx.fillRect(btn.x, btn.y, btn.width, btn.height);
+    ctx.fill();
 
-    ctx.fillStyle = textColor;
-    ctx.font = `${size}px Arial`;
-    ctx.textAlign = "center";
-    ctx.fillText(
-        label,
-        btn.x + btn.width / 2,
-        btn.y + btn.height / 2 + size * 0.35
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+
+    // Forged-metal bevel, layered over whatever the fill was so
+    // every button reads as a raised plate regardless of accent.
+    roundRectPath(x, y, w, h, radius);
+    ctx.save();
+    ctx.clip();
+    const sheen = ctx.createLinearGradient(0, y, 0, y + h);
+    sheen.addColorStop(0, "rgba(255, 255, 255, 0.32)");
+    sheen.addColorStop(0.45, "rgba(255, 255, 255, 0.04)");
+    sheen.addColorStop(0.55, "rgba(0, 0, 0, 0.04)");
+    sheen.addColorStop(1, "rgba(0, 0, 0, 0.40)");
+    ctx.fillStyle = sheen;
+    ctx.fillRect(x, y, w, h);
+    ctx.restore();
+
+    // Dark outer seat...
+    roundRectPath(x, y, w, h, radius);
+    ctx.strokeStyle = "rgba(20, 14, 8, 0.75)";
+    ctx.lineWidth = border;
+    ctx.stroke();
+
+    // ...wrapped in a gilt inner frame - the shared medieval cue.
+    const inset = border * 0.85;
+    roundRectPath(
+        x + inset,
+        y + inset,
+        w - inset * 2,
+        h - inset * 2,
+        Math.max(0.5, radius - inset)
     );
+    ctx.strokeStyle = "rgba(201, 162, 39, 0.9)";
+    ctx.lineWidth = Math.max(1, border * 0.55);
+    ctx.stroke();
+
+    // Engraved serif label with a carved drop-shadow.
+    ctx.font = `bold ${size}px ${UI_FONT}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+
+    const cx = x + w / 2;
+    const ty = y + h / 2 + size * 0.35;
+
+    ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+    ctx.fillText(label, cx + Math.max(1, size * 0.03), ty + Math.max(1, size * 0.05));
+    ctx.fillStyle = textColor;
+    ctx.fillText(label, cx, ty);
+
+    ctx.restore();
 
 }
 
@@ -844,7 +935,7 @@ function drawMenu() {
     if (Game.menuView !== "shop") {
 
         ctx.fillStyle = "white";
-        ctx.font = `${ph(0.09)}px Arial`;
+        ctx.font = `bold ${ph(0.09)}px ${UI_FONT}`;
         ctx.textAlign = "center";
         ctx.fillText("SURVIVE THE ARENA", canvas.width / 2, ph(0.16));
 
@@ -883,7 +974,7 @@ function drawMenu() {
 function drawModeSelect() {
 
     ctx.fillStyle = "#ccc";
-    ctx.font = `${ph(0.028)}px Arial`;
+    ctx.font = `${ph(0.028)}px ${UI_FONT}`;
     ctx.textAlign = "center";
     ctx.fillText("CHOOSE YOUR TRIAL", canvas.width / 2, ph(0.24));
 
@@ -931,12 +1022,33 @@ function drawModeSelect() {
 
 function drawModeCard(card, title, lore, accent, compact = false, footer = null) {
 
-    ctx.fillStyle = "rgba(15, 15, 15, 0.7)";
-    ctx.fillRect(card.x, card.y, card.width, card.height);
+    const cardRadius = ph(0.014);
 
+    roundRectPath(card.x, card.y, card.width, card.height, cardRadius);
+    const cardGrad = ctx.createLinearGradient(0, card.y, 0, card.y + card.height);
+    cardGrad.addColorStop(0, "rgba(30, 24, 18, 0.82)");
+    cardGrad.addColorStop(1, "rgba(12, 10, 8, 0.88)");
+    ctx.fillStyle = cardGrad;
+    ctx.fill();
+
+    // Accent outer frame with a thin gilt inner line, echoing
+    // the buttons so the whole menu reads as one set.
+    roundRectPath(card.x, card.y, card.width, card.height, cardRadius);
     ctx.strokeStyle = accent;
     ctx.lineWidth = Math.max(3, ph(0.006));
-    ctx.strokeRect(card.x, card.y, card.width, card.height);
+    ctx.stroke();
+
+    const giltInset = ph(0.008);
+    roundRectPath(
+        card.x + giltInset,
+        card.y + giltInset,
+        card.width - giltInset * 2,
+        card.height - giltInset * 2,
+        Math.max(1, cardRadius - giltInset)
+    );
+    ctx.strokeStyle = "rgba(201, 162, 39, 0.55)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
 
     // Half-height cards squeeze every offset/font down so the
     // same anatomy (title, divider, lore) still fits.
@@ -948,7 +1060,7 @@ function drawModeCard(card, title, lore, accent, compact = false, footer = null)
     const loreLine = compact ? ph(0.027) : ph(0.032);
 
     ctx.fillStyle = accent;
-    ctx.font = `bold ${titleFont}px Arial`;
+    ctx.font = `bold ${titleFont}px ${UI_FONT}`;
     ctx.textAlign = "center";
     ctx.fillText(title, card.x + card.width / 2, card.y + titleY);
 
@@ -973,7 +1085,7 @@ function drawModeCard(card, title, lore, accent, compact = false, footer = null)
     // Optional high-score line pinned to the card's bottom edge.
     if (footer) {
         ctx.fillStyle = accent;
-        ctx.font = `bold ${compact ? ph(0.02) : ph(0.024)}px Arial`;
+        ctx.font = `bold ${compact ? ph(0.02) : ph(0.024)}px ${UI_FONT}`;
         ctx.textAlign = "center";
         ctx.fillText(
             footer,
@@ -987,7 +1099,7 @@ function drawModeCard(card, title, lore, accent, compact = false, footer = null)
 function drawShop() {
 
     ctx.fillStyle = "white";
-    ctx.font = `${ph(0.055)}px Arial`;
+    ctx.font = `bold ${ph(0.055)}px ${UI_FONT}`;
     ctx.textAlign = "center";
     ctx.fillText("ARMOURY", canvas.width / 2, ph(0.08));
 
@@ -1002,7 +1114,7 @@ function drawShop() {
     drawButton(getArmouryClassArrowButton(1), "▶", "#333", "white", ph(0.026));
 
     ctx.fillStyle = "#c9a227";
-    ctx.font = `bold ${ph(0.04)}px Arial`;
+    ctx.font = `bold ${ph(0.04)}px ${UI_FONT}`;
     ctx.textAlign = "center";
     ctx.fillText(selectedClass.name, canvas.width / 2, ph(0.152));
 
@@ -1319,7 +1431,7 @@ function drawBestiary() {
         : (bossUnlocked ? BESTIARY[bossType].name.toUpperCase() : "???");
 
     ctx.fillStyle = page === 0 ? "white" : "gold";
-    ctx.font = `${ph(0.05)}px Arial`;
+    ctx.font = `bold ${ph(0.05)}px ${UI_FONT}`;
     ctx.textAlign = "center";
     ctx.fillText(title, canvas.width / 2, ph(0.185));
 
@@ -1743,18 +1855,22 @@ function drawHUD() {
     // Pause control, top-center ("II" glyph). P toggles too.
     const pauseBtn = getPauseButton();
 
-    ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
-    ctx.fillRect(pauseBtn.x, pauseBtn.y, pauseBtn.width, pauseBtn.height);
+    const pauseRadius = Math.min(pauseBtn.height * 0.3, ph(0.014));
 
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(pauseBtn.x, pauseBtn.y, pauseBtn.width, pauseBtn.height);
+    roundRectPath(pauseBtn.x, pauseBtn.y, pauseBtn.width, pauseBtn.height, pauseRadius);
+    ctx.fillStyle = "rgba(28, 24, 21, 0.72)";
+    ctx.fill();
+
+    roundRectPath(pauseBtn.x, pauseBtn.y, pauseBtn.width, pauseBtn.height, pauseRadius);
+    ctx.strokeStyle = "rgba(201, 162, 39, 0.85)";
+    ctx.lineWidth = Math.max(1.5, pauseBtn.width * 0.04);
+    ctx.stroke();
 
     const barW = pauseBtn.width * 0.16;
     const barH = pauseBtn.height * 0.5;
     const barY = pauseBtn.y + (pauseBtn.height - barH) / 2;
 
-    ctx.fillStyle = "white";
+    ctx.fillStyle = "#e8d9b8";
     ctx.fillRect(pauseBtn.x + pauseBtn.width * 0.3 - barW / 2, barY, barW, barH);
     ctx.fillRect(pauseBtn.x + pauseBtn.width * 0.7 - barW / 2, barY, barW, barH);
 
@@ -1867,7 +1983,7 @@ function drawWaveMessages() {
 function drawGameOver() {
 
     ctx.fillStyle = "white";
-    ctx.font = `${ph(0.09)}px Arial`;
+    ctx.font = `bold ${ph(0.09)}px ${UI_FONT}`;
     ctx.textAlign = "center";
     ctx.fillText("GAME OVER", canvas.width / 2, ph(0.31));
 
@@ -1919,7 +2035,7 @@ function drawVictory() {
     ctx.save();
 
     ctx.fillStyle = "gold";
-    ctx.font = `${ph(0.1)}px Arial`;
+    ctx.font = `bold ${ph(0.1)}px ${UI_FONT}`;
     ctx.textAlign = "center";
     ctx.shadowBlur = 24;
     ctx.shadowColor = "rgba(255, 215, 0, 0.7)";
