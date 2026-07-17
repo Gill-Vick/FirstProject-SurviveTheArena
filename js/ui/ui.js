@@ -1688,25 +1688,37 @@ function drawBestiaryBossPage(type) {
 
     ctx.textAlign = "left";
 
+    // desc, behavior, and lore all wrap to textWidth and flow
+    // downward from the running y, so a long line (e.g. the
+    // Royal Magus's behavior) pushes the rest down instead of
+    // spilling off the right edge of the panel.
+    let textY = previewY + ph(0.035);
+
     ctx.fillStyle = "#eee";
     ctx.font = `${ph(0.024)}px Arial`;
-    ctx.fillText(entry.desc, textX, previewY + ph(0.035));
+    textY = wrapText(entry.desc, textX, textY, textWidth, ph(0.032));
+
+    textY += ph(0.02);
 
     ctx.fillStyle = "#c9a227";
     ctx.font = `bold ${ph(0.02)}px Arial`;
-    ctx.fillText(`Behavior: ${entry.behavior}`, textX, previewY + ph(0.085));
+    textY = wrapText(`Behavior: ${entry.behavior}`, textX, textY, textWidth, ph(0.028));
+
+    textY += ph(0.02);
 
     // Lore, wrapped, in italics under a thin divider
     ctx.strokeStyle = "rgba(201, 162, 39, 0.5)";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(textX, previewY + ph(0.115));
-    ctx.lineTo(textX + textWidth, previewY + ph(0.115));
+    ctx.moveTo(textX, textY);
+    ctx.lineTo(textX + textWidth, textY);
     ctx.stroke();
+
+    textY += ph(0.035);
 
     ctx.fillStyle = "#e8d9b8";
     ctx.font = `italic ${ph(0.022)}px Georgia, serif`;
-    wrapText(entry.lore, textX, previewY + ph(0.16), textWidth, ph(0.037));
+    wrapText(entry.lore, textX, textY, textWidth, ph(0.037));
 
     // Stats block along the bottom of the panel
     const statsY = panel.y + panel.height - ph(0.19);
