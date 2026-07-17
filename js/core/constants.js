@@ -557,7 +557,7 @@ const MAGE = {
     // not spam); charge-based like the dash. Refraction adds a
     // 2nd charge (see below), Hermes-Shoes style.
     SUNBEAM_COOLDOWN: 2000,
-    SUNBEAM_DAMAGE: 4,
+    SUNBEAM_DAMAGE: 2,
     SUNBEAM_RADIUS: 60,
 
     // On touch devices there's no cursor, so the strike lands
