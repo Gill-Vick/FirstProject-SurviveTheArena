@@ -700,10 +700,18 @@ class SunburstOrb {
 
             enemy.takeDamage(dealt, crit);
 
+            // The shove is the point - it's the only way a
+            // dashless Mage makes space. Anchored foes (tanks,
+            // casters, bosses) are knockback-immune and ignore
+            // it, same as every other knockback in the game.
+            enemy.applyKnockback(this.tx, this.ty, SUNBURST.KNOCKBACK);
+
             if (enemy.isDead())
                 onEnemyKilled(enemy);
 
         });
+
+        Game.screenShake = Math.max(Game.screenShake, 6);
 
         Particle.createHitBurst(this.tx, this.ty);
         Game.hazards.push(new SunbeamStrike(this.tx, this.ty, this.radius, true));

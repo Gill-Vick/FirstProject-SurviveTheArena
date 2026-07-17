@@ -581,10 +581,17 @@ const HALO = {
 // Sunburst - staged [E]: a lobbed orb of light that bursts in
 // a big AOE where it lands.
 const SUNBURST = {
-    COOLDOWN: 4000,
-    DAMAGE: [0, 4, 6, 8],   // indexed by stage
-    RADIUS: [0, 70, 85, 100],
-    TRAVEL_SPEED: 9,        // px/frame toward the target point
+    COOLDOWN: 3000,
+    DAMAGE: [0, 6, 9, 12],   // indexed by stage
+    RADIUS: [0, 90, 110, 130],
+
+    // Snappy travel so it isn't dead time - and aiming at your
+    // own feet means ~zero travel, turning it into an instant
+    // panic nova. That shove is the point: it's the only way a
+    // dashless Mage makes space.
+    TRAVEL_SPEED: 16,
+    KNOCKBACK: 22,
+
     COLOR: "#ffe066"
 };
 
@@ -1057,9 +1064,9 @@ const SHOP_ITEMS = {
             return "Glimmer";
         },
         get desc() {
-            if (Save.equippedSunburstStage >= 3) return "Press E — huge lobbed light blast (8 dmg AOE)";
-            if (Save.equippedSunburstStage === 2) return "Press E — bigger light blast (6 dmg AOE)";
-            return "Press E — lobbed orb of light bursts in an AOE (4 dmg)";
+            if (Save.equippedSunburstStage >= 3) return "Press E — huge light blast (12 dmg AOE) that hurls enemies back";
+            if (Save.equippedSunburstStage === 2) return "Press E — bigger light blast (9 dmg AOE) that hurls enemies back";
+            return "Press E — orb of light bursts (6 dmg AOE) and blasts enemies away";
         }
     },
 
