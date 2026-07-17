@@ -627,17 +627,17 @@ const RADIANT_BLOOM = {
 // Sanctuary (Magus) - the Sunburst [E] leaves a lingering
 // radiant field that denies that ground.
 const SANCTUARY = {
-    DURATION_MS: 4000,
-    TICK_MS: 500,
-    TICK_DAMAGE: 2
+    DURATION_MS: 2500,
+    TICK_MS: 800,
+    TICK_DAMAGE: 1
 };
 
 // Corona (Magus) - a radiant aura that burns enemies who get
 // close. Keep-away for the immobile caster + passive clear.
 const CORONA = {
-    RADIUS: 130,
-    TICK_MS: 500,
-    TICK_DAMAGE: 2,
+    RADIUS: 95,
+    TICK_MS: 800,
+    TICK_DAMAGE: 1,
     COLOR: "#ffd24d"
 };
 
@@ -645,12 +645,12 @@ const CORONA = {
 // click royal barrage: a radial burst of light beams, the
 // King's own laser-wall turned against him.
 const SOVEREIGN_SCEPTER = {
-    BONUS_DAMAGE: 2,
-    BARRAGE_COOLDOWN: 6000,
+    BONUS_DAMAGE: 1,
+    BARRAGE_COOLDOWN: 10000,
     BARRAGE_DURATION: 286,   // ms the beams are visible/active
-    BARRAGE_DAMAGE: 6,
-    BEAM_COUNT: 10,
-    BEAM_WIDTH: 30,
+    BARRAGE_DAMAGE: 3,
+    BEAM_COUNT: 6,
+    BEAM_WIDTH: 26,
     COLOR: "#ffe066"
 };
 
@@ -1129,7 +1129,7 @@ const SHOP_ITEMS = {
         classId: "mage",
         price: 750,
         name: "Sovereign's Scepter",
-        desc: "+2 Sunbeam dmg + right-click royal barrage of light beams (6 dmg, 6s cd)",
+        desc: "+1 Sunbeam dmg + right-click royal barrage of light beams (3 dmg, 10s cd)",
         requiresKingKilled: true,
         equippable: true
     },
