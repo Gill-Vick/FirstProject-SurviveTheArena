@@ -25,6 +25,18 @@ const Save = {
 
     bestBossRushWave: 0,
 
+    // Audio settings - three independent dials plus a mute
+    // toggle, read every time a sound plays (see audio.js).
+    // Defaults live in AUDIO (sounds.js) so the sliders and
+    // the catalog agree on what "normal" is.
+    masterVolume: AUDIO.DEFAULT_MASTER,
+
+    sfxVolume: AUDIO.DEFAULT_SFX,
+
+    musicVolume: AUDIO.DEFAULT_MUSIC,
+
+    audioMuted: false,
+
     critRateLevel: 0,
 
     equippedCritLevel: 0,
@@ -172,6 +184,10 @@ const Save = {
             this.kingKilled = !!data.kingKilled;
             this.bestEndlessWave = data.bestEndlessWave ?? 0;
             this.bestBossRushWave = data.bestBossRushWave ?? 0;
+            this.masterVolume = data.masterVolume ?? AUDIO.DEFAULT_MASTER;
+            this.sfxVolume = data.sfxVolume ?? AUDIO.DEFAULT_SFX;
+            this.musicVolume = data.musicVolume ?? AUDIO.DEFAULT_MUSIC;
+            this.audioMuted = !!data.audioMuted;
             this.critRateLevel = data.critRateLevel ?? 0;
             this.equippedCritLevel = data.equippedCritLevel ?? this.critRateLevel;
             this.shieldStage = data.shieldStage ?? 0;
@@ -232,6 +248,10 @@ const Save = {
             kingKilled: this.kingKilled,
             bestEndlessWave: this.bestEndlessWave,
             bestBossRushWave: this.bestBossRushWave,
+            masterVolume: this.masterVolume,
+            sfxVolume: this.sfxVolume,
+            musicVolume: this.musicVolume,
+            audioMuted: this.audioMuted,
             critRateLevel: this.critRateLevel,
             equippedCritLevel: this.equippedCritLevel,
             shieldStage: this.shieldStage,
@@ -263,6 +283,35 @@ const Save = {
     addCoins(amount) {
 
         this.coins += amount;
+        this.persist();
+
+    },
+
+    // =====================================
+    // Audio Settings
+    // =====================================
+    //
+    // One setter for all three volume dials, since a settings
+    // slider only differs by which key it writes. Values are
+    // clamped here rather than at the call site so a dragged
+    // slider can hand over whatever it computed.
+
+    setVolume(key, value) {
+
+        if (key !== "masterVolume" && key !== "sfxVolume" && key !== "musicVolume")
+            return;
+
+        const v = Number(value);
+
+        this[key] = Math.max(0, Math.min(1, isFinite(v) ? v : 0));
+
+        this.persist();
+
+    },
+
+    setAudioMuted(muted) {
+
+        this.audioMuted = !!muted;
         this.persist();
 
     },

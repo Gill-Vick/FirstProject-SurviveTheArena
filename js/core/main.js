@@ -74,6 +74,13 @@ function gameLoop(currentTime) {
 
     update();
 
+    // Audio runs outside update() on purpose: update() returns
+    // early unless the state is "playing", but music fades and
+    // track changes still have to tick through the menus, the
+    // pause screen and the game over screen.
+    Sound.update();
+    syncMusicToGameState();
+
     draw();
 
     requestAnimationFrame(gameLoop);

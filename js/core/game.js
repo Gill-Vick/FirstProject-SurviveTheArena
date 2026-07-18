@@ -392,6 +392,10 @@ function togglePause() {
     else if (Game.state === "paused")
         Game.state = "playing";
 
+    // Music dims while paused instead of stopping - see
+    // AUDIO.PAUSE_DUCK.
+    Sound.setPaused(Game.state === "paused");
+
 }
 
 // Custom-mode cheat: tear down the current wave completely
@@ -422,6 +426,10 @@ function jumpToWave(targetWave) {
 function resetGame() {
 
     Game.state = "menu";
+
+    // Quitting straight out of a paused run would otherwise
+    // leave the menu music ducked.
+    Sound.setPaused(false);
 
     Game.menuView = "main";
 
