@@ -99,11 +99,35 @@ const SFX = {
 
 const MUSIC = {
 
-    menu:     { src: "assets/audio/music/menu.mp3",     volume: 0.5 },
-    battle:   { src: "assets/audio/music/battle.mp3",   volume: 0.45 },
-    boss:     { src: "assets/audio/music/boss.mp3",     volume: 0.5 },
-    king:     { src: "assets/audio/music/king.mp3",     volume: 0.5 },
-    victory:  { src: "assets/audio/music/victory.mp3",  volume: 0.5 }
+    menu:        { src: "assets/audio/music/menu.wav",         volume: 0.5 },
+    battle:      { src: "assets/audio/music/battle.wav",       volume: 0.45 },
+    castleGuard: { src: "assets/audio/music/castle_guard.wav", volume: 0.5 },
+    knight:      { src: "assets/audio/music/knight.wav",       volume: 0.5 },
+    magus:       { src: "assets/audio/music/magus.wav",        volume: 0.5 },
+    king:        { src: "assets/audio/music/king.wav",         volume: 0.5 },
+    victory:     { src: "assets/audio/music/victory.wav",      volume: 0.5 }
+
+};
+
+// Which MUSIC track each boss fights to, keyed by the boss's
+// enemy type. Read by syncMusicToGameState() in audio.js -
+// a boss type missing from here falls back to "battle".
+//
+//   Castle Guard - a slow, heavy dirge for the tireless
+//                  gatekeeper
+//   Knight       - a martial, drum-driven march: the mirror
+//                  match, all snare rolls and trumpet calls
+//   Royal Magus  - shimmering diminished arpeggios and
+//                  rolling thunder for the storm-caller
+//   King         - the full final-boss treatment: relentless
+//                  organ stabs and harmonic-minor runs
+
+const BOSS_TRACKS = {
+
+    boss: "castleGuard",
+    knight: "knight",
+    royalMagus: "magus",
+    king: "king"
 
 };
 

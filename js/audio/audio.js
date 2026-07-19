@@ -535,8 +535,8 @@ const Sound = {
 // means no individual state change has to remember to switch
 // the music.
 //
-// Boss fights get their own track, with the King getting his
-// own on top of that. Everything else in a run is "battle".
+// Every boss fights to its own track (see BOSS_TRACKS in
+// sounds.js). Everything else in a run is "battle".
 
 function syncMusicToGameState() {
 
@@ -565,7 +565,7 @@ function syncMusicToGameState() {
     const boss = Game.enemies.find(enemy => enemy.isBoss);
 
     if (boss)
-        Sound.playMusic(boss.type === "king" ? "king" : "boss");
+        Sound.playMusic(BOSS_TRACKS[boss.type] ?? "battle");
 
     else
         Sound.playMusic("battle");
