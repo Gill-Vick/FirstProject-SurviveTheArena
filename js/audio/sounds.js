@@ -16,9 +16,9 @@
 //              wildly different levels, so this is where a
 //              too-loud explosion gets pulled down rather
 //              than re-exporting the file.
-//   pool     - how many copies of this sound can overlap. A
-//              sword swing needs 1-2; 30 grunts dying at once
-//              needs more. See Sound.play in audio.js.
+//   pool     - UNUSED since the Web Audio rewrite (buffer
+//              sources overlap freely); kept for reference
+//              only.
 //   minGap   - ms that must pass before this id can retrigger.
 //              Stops a per-frame event (burn ticks, arrow
 //              hits) from machine-gunning into a buzz.

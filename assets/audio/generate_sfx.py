@@ -347,14 +347,17 @@ def victory():
 
 
 def ui_click():
-    buf = mk(0.06)
-    tone(buf, 0, 0.03, 1000, "square", 0.4, duty=0.4, release=0.02)
+    # Soft, rounded "thock" - sines, not squares. Raw square
+    # blips at 1kHz read as piercing on real speakers.
+    buf = mk(0.1)
+    tone(buf, 0, 0.04, 520, "sine", 0.55, release=0.05)
+    tone(buf, 0, 0.025, 1040, "sine", 0.12, release=0.03)
     return buf
 
 
 def ui_hover():
-    buf = mk(0.05)
-    tone(buf, 0, 0.02, 1400, "square", 0.25, duty=0.4, release=0.015)
+    buf = mk(0.08)
+    tone(buf, 0, 0.025, 660, "sine", 0.3, release=0.04)
     return buf
 
 
@@ -365,15 +368,17 @@ def ui_purchase():
 
 
 def ui_denied():
-    buf = mk(0.25)
-    tone(buf, 0, 0.16, 110, "square", 0.4, duty=0.25, release=0.04)
+    # Low double-knock rather than a raspy buzz.
+    buf = mk(0.3)
+    tone(buf, 0, 0.08, 165, "tri", 0.5, release=0.05)
+    tone(buf, 0.12, 0.1, 130, "tri", 0.5, release=0.06)
     return buf
 
 
 def ui_equip():
-    buf = mk(0.15)
-    tone(buf, 0, 0.03, 500, "square", 0.3, duty=0.4, release=0.02)
-    tone(buf, 0.05, 0.08, 660, "tri", 0.3, release=0.05)
+    buf = mk(0.18)
+    tone(buf, 0, 0.03, 500, "sine", 0.35, release=0.03)
+    tone(buf, 0.05, 0.08, 660, "tri", 0.3, release=0.06)
     return buf
 
 

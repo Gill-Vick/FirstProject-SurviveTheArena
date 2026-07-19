@@ -126,9 +126,13 @@ canvas.addEventListener("mousemove", (e) => {
     if (Game.state === "menu")
         handleMenuMouseMove(mouseX, mouseY);
 
-    // Pause-menu volume slider drag (started in
-    // handlePauseMenuClick, released in handleMenuMouseUp).
-    if (Game.state === "paused" && Game.volumeDragging) {
+    // Volume slider drag - pause menu or the main menu's
+    // audio settings popup (started in handleAudioControlsClick,
+    // released in handleMenuMouseUp).
+    if (
+        (Game.state === "paused" || Game.state === "menu") &&
+        Game.volumeDragging
+    ) {
 
         const index = PAUSE_VOLUME_KEYS.findIndex(
             entry => entry.key === Game.volumeDragging

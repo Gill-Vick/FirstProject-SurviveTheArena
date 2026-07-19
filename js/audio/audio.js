@@ -19,14 +19,16 @@
 // starts the moment the first click/tap/keypress lands (see
 // the unlock listeners at the bottom).
 //
-// POOLING: one HTMLAudioElement can only play one instance at
-// a time - retriggering it restarts the sound and cuts off the
-// previous one. Each catalog entry therefore gets `pool`
-// copies, cycled round-robin, so overlapping hits layer
-// instead of clipping each other.
-//
-// LAZY LOADING: pools are built on first play, not at startup,
-// so a run only ever downloads the sounds it actually uses.
+// WEB AUDIO vs ELEMENTS: sfx and music go through different
+// machinery on purpose. HTMLAudioElement is a streaming media
+// player - great for a looping 20s music bed, but it has
+// hundreds of ms of trigger latency and stutters the main
+// thread when several fire in the same frame (a kill = death +
+// coin + hit all at once). So sfx use the Web Audio API
+// instead: every file is fetched and decoded ONCE into an
+// AudioBuffer at unlock time, and each play() is just a new
+// buffer-source node - effectively free and instant, with
+// unlimited overlap. Music stays on elements.
 //
 // MISSING FILES: a sound whose file isn't there yet marks
 // itself broken on the first load error and is skipped from
@@ -40,9 +42,21 @@ const Sound = {
     // Nothing audible happens before this.
     unlocked: false,
 
-    // id -> { entry, elements: [], next: 0, broken: bool,
-    //         lastPlay: ms }
-    pools: {},
+    // Web Audio graph (sfx only). Built once in
+    // initAudioGraph():  source -> per-play gain -> sfxGain
+    // -> masterGain -> speakers. The sliders just move the
+    // two shared gain nodes.
+    ctx: null,
+    masterGain: null,
+    sfxGain: null,
+
+    // id -> AudioBuffer once decoded, "loading" while the
+    // fetch is in flight, "broken" after a failed load.
+    buffers: {},
+
+    // id -> performance.now() of the last trigger, for the
+    // catalog's minGap retrigger throttle.
+    lastPlay: {},
 
     // The music element currently audible, and the id it's
     // playing. Both null when nothing is playing.
@@ -97,12 +111,14 @@ const Sound = {
 
         Save.setVolume("masterVolume", v);
         this.applyMusicVolume();
+        this.applySfxVolume();
 
     },
 
     setSfxVolume(v) {
 
         Save.setVolume("sfxVolume", v);
+        this.applySfxVolume();
 
     },
 
@@ -117,6 +133,7 @@ const Sound = {
 
         Save.setAudioMuted(muted);
         this.applyMusicVolume();
+        this.applySfxVolume();
 
     },
 
@@ -128,66 +145,79 @@ const Sound = {
 
     },
 
-    // Final volume for one sfx instance, before positional
-    // falloff. Returns 0 when muted, which callers treat as
-    // "don't bother playing".
+    // =====================================
+    // Audio Graph & Buffers
+    // =====================================
 
-    getSfxGain(entry, overrideVolume) {
+    // Built on unlock (an AudioContext created before a user
+    // gesture starts suspended anyway). Also kicks off the
+    // fetch+decode of every catalog sound - ~1MB of local
+    // WAVs, so it's done long before the first fight.
 
-        if (this.isMuted())
-            return 0;
+    initAudioGraph() {
 
-        const trim = overrideVolume ?? entry.volume ?? 1;
+        if (this.ctx)
+            return;
 
-        return clamp01(this.getMasterVolume() * this.getSfxVolume() * trim);
+        const AC = window.AudioContext || window.webkitAudioContext;
+
+        if (!AC)
+            return;
+
+        this.ctx = new AC();
+
+        this.masterGain = this.ctx.createGain();
+        this.sfxGain = this.ctx.createGain();
+
+        this.sfxGain.connect(this.masterGain);
+        this.masterGain.connect(this.ctx.destination);
+
+        this.applySfxVolume();
+
+        Object.keys(SFX).forEach(id => this.loadBuffer(id));
 
     },
 
-    // =====================================
-    // Pools
-    // =====================================
+    loadBuffer(id) {
 
-    getPool(id) {
+        if (this.buffers[id] || !this.ctx)
+            return;
 
         const entry = SFX[id];
 
         if (!entry)
-            return null;
+            return;
 
-        let pool = this.pools[id];
+        this.buffers[id] = "loading";
 
-        if (pool)
-            return pool;
+        fetch(entry.src)
+            .then(res => {
 
-        const count = Math.max(1, entry.pool ?? 2);
+                if (!res.ok)
+                    throw new Error(res.status);
 
-        pool = {
-            entry,
-            elements: [],
-            next: 0,
-            broken: false,
-            lastPlay: -Infinity
-        };
+                return res.arrayBuffer();
 
-        for (let i = 0; i < count; i++) {
+            })
+            .then(data => this.ctx.decodeAudioData(data))
+            .then(buffer => { this.buffers[id] = buffer; })
+            .catch(() => { this.buffers[id] = "broken"; });
 
-            const el = new Audio(entry.src);
-            el.preload = "auto";
+    },
 
-            // One bad path (or a file that hasn't been made
-            // yet) retires the whole id rather than throwing
-            // once per frame from gameplay code.
-            el.addEventListener("error", () => {
-                pool.broken = true;
-            });
+    // Push the slider values into the shared gain nodes. Mute
+    // zeroes the master node so even already-ringing tails go
+    // silent.
 
-            pool.elements.push(el);
+    applySfxVolume() {
 
-        }
+        if (!this.masterGain)
+            return;
 
-        this.pools[id] = pool;
+        this.masterGain.gain.value =
+            this.isMuted() ? 0 : clamp01(this.getMasterVolume());
 
-        return pool;
+        this.sfxGain.gain.value = clamp01(this.getSfxVolume());
 
     },
 
@@ -199,56 +229,65 @@ const Sound = {
     //   volume - overrides the catalog trim (0..1)
     //   rate   - fixed playbackRate, skipping rateJitter
     //
-    // Returns the element that was started, or null if the
-    // sound was skipped (muted, locked, broken, throttled).
+    // Returns the started source node, or null if the sound
+    // was skipped (muted, locked, still loading, broken,
+    // throttled).
 
     play(id, opts = {}) {
 
-        if (!this.unlocked || this.isMuted())
+        if (!this.unlocked || this.isMuted() || !this.ctx)
             return null;
 
-        const pool = this.getPool(id);
+        const entry = SFX[id];
 
-        if (!pool || pool.broken)
+        if (!entry)
             return null;
 
-        const entry = pool.entry;
+        const buffer = this.buffers[id];
+
+        // "loading" and "broken" both fall through here - a
+        // still-decoding sound just misses this one trigger.
+        if (!(buffer instanceof AudioBuffer))
+            return null;
+
         const now = performance.now();
 
         // Retrigger throttle: keeps per-frame events (burn
         // ticks, pierced arrows, chain lightning) from stacking
         // into a buzz.
-        if (entry.minGap && now - pool.lastPlay < entry.minGap)
+        if (entry.minGap && now - (this.lastPlay[id] ?? -Infinity) < entry.minGap)
             return null;
 
-        const gain = this.getSfxGain(entry, opts.volume);
+        const vol = clamp01(opts.volume ?? entry.volume ?? 1);
 
-        if (gain <= 0)
+        if (vol <= 0)
             return null;
 
-        const el = pool.elements[pool.next];
+        this.lastPlay[id] = now;
 
-        pool.next = (pool.next + 1) % pool.elements.length;
-        pool.lastPlay = now;
+        // A fresh source per play is the intended Web Audio
+        // pattern - they're one-shot and garbage-collected
+        // after they finish.
+        const source = this.ctx.createBufferSource();
 
-        el.volume = gain;
+        source.buffer = buffer;
 
-        el.playbackRate =
+        source.playbackRate.value =
             opts.rate ??
             (entry.rateJitter
                 ? 1 + (Math.random() * 2 - 1) * entry.rateJitter
                 : 1);
 
-        // Rewinding is what makes a pooled element reusable -
-        // without it a half-finished element resumes from
-        // wherever it stopped.
-        el.currentTime = 0;
+        const gain = this.ctx.createGain();
 
-        // play() rejects if the browser still considers the
-        // page silent; nothing to do about it but ignore it.
-        el.play().catch(() => {});
+        gain.gain.value = vol;
 
-        return el;
+        source.connect(gain);
+        gain.connect(this.sfxGain);
+
+        source.start();
+
+        return source;
 
     },
 
@@ -510,6 +549,13 @@ const Sound = {
 
         this.unlocked = true;
 
+        this.initAudioGraph();
+
+        // A context created during the gesture should start
+        // running; resume() covers the browsers that don't.
+        if (this.ctx && this.ctx.state === "suspended")
+            this.ctx.resume().catch(() => {});
+
         if (this.pendingMusicId) {
 
             const id = this.pendingMusicId;
@@ -609,9 +655,18 @@ document.addEventListener("visibilitychange", () => {
         if (Sound.musicEl)
             Sound.musicEl.pause();
 
-    } else if (Sound.musicEl && !Sound.isMuted()) {
+        // The sfx graph runs on its own audio thread, so it
+        // keeps ringing after rAF freezes - suspend it too.
+        if (Sound.ctx)
+            Sound.ctx.suspend().catch(() => {});
 
-        Sound.musicEl.play().catch(() => {});
+    } else {
+
+        if (Sound.musicEl && !Sound.isMuted())
+            Sound.musicEl.play().catch(() => {});
+
+        if (Sound.ctx)
+            Sound.ctx.resume().catch(() => {});
 
     }
 

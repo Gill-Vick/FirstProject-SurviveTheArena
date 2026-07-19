@@ -191,9 +191,14 @@ function getPauseButton() {
 function getPausePanelRect() {
 
     // Taller than it used to be - the audio sliders live here
-    // now (below the custom-mode cheats when those show).
+    // now (below the custom-mode cheats when those show). The
+    // same panel doubles as the main menu's audio settings
+    // popup, where the cheat rows never show regardless of the
+    // last run's mode - hence the state check.
+    const custom = Game.state === "paused" && Game.mode === "custom";
+
     const width = pw(0.34);
-    const height = Game.mode === "custom" ? ph(0.84) : ph(0.58);
+    const height = custom ? ph(0.84) : ph(0.58);
 
     return {
         x: canvas.width / 2 - width / 2,
@@ -270,7 +275,9 @@ const PAUSE_VOLUME_KEYS = [
 // custom-mode cheat buttons when those are showing.
 function getPauseAudioStart() {
 
-    return Game.mode === "custom" ? 0.47 : 0.21;
+    return (Game.state === "paused" && Game.mode === "custom")
+        ? 0.47
+        : 0.21;
 
 }
 
@@ -313,6 +320,48 @@ function setVolumeFromSliderX(key, slider, x) {
 
     else
         Sound.setMusicVolume(pct);
+
+}
+
+// Shared by the pause menu and the main menu's audio settings
+// popup: slider grabs (which also start a drag, released by
+// handleMenuMouseUp) and the mute toggle. Returns true if the
+// click landed on one of the controls.
+function handleAudioControlsClick(x, y) {
+
+    let handled = false;
+
+    // The hit zone is padded vertically so the thin slider
+    // track is easy to grab.
+    PAUSE_VOLUME_KEYS.forEach((entry, i) => {
+
+        const slider = getPauseVolumeSlider(i);
+
+        if (
+            x >= slider.x && x <= slider.x + slider.width &&
+            y >= slider.y - slider.height &&
+            y <= slider.y + slider.height * 2
+        ) {
+            Game.volumeDragging = entry.key;
+            setVolumeFromSliderX(entry.key, slider, x);
+            handled = true;
+        }
+
+    });
+
+    if (hitRect(getPauseMuteButton(), x, y)) {
+
+        Sound.toggleMuted();
+
+        // Audible only when this unmuted, which is exactly the
+        // feedback that matters.
+        Sound.play("uiClick");
+
+        handled = true;
+
+    }
+
+    return handled;
 
 }
 
@@ -445,36 +494,8 @@ function handlePauseMenuClick(x, y) {
         return;
     }
 
-    // Volume sliders: clicking sets the value AND starts a
-    // drag (released by handleMenuMouseUp), same scheme as the
-    // Armoury's crit slider. The hit zone is padded vertically
-    // so the thin track is easy to grab.
-    PAUSE_VOLUME_KEYS.forEach((entry, i) => {
-
-        const slider = getPauseVolumeSlider(i);
-
-        if (
-            x >= slider.x && x <= slider.x + slider.width &&
-            y >= slider.y - slider.height &&
-            y <= slider.y + slider.height * 2
-        ) {
-            Game.volumeDragging = entry.key;
-            setVolumeFromSliderX(entry.key, slider, x);
-        }
-
-    });
-
-    if (hitRect(getPauseMuteButton(), x, y)) {
-
-        Sound.toggleMuted();
-
-        // Audible only when this unmuted, which is exactly the
-        // feedback that matters.
-        Sound.play("uiClick");
-
+    if (handleAudioControlsClick(x, y))
         return;
-
-    }
 
     if (Game.mode !== "custom")
         return;
@@ -492,6 +513,88 @@ function handlePauseMenuClick(x, y) {
         Sound.play("uiClick");
         Game.immortal = !Game.immortal;
     }
+
+}
+
+// =====================================
+// Main Menu - Audio Settings
+// =====================================
+//
+// A headphones button in the home screen's top-left corner
+// opens a small popup reusing the pause menu's audio controls
+// (same panel, sliders, and mute button - see the state
+// guards in getPausePanelRect / getPauseAudioStart).
+
+function getAudioSettingsButton() {
+
+    const size = ph(0.075);
+
+    return {
+        x: pw(0.015),
+        y: ph(0.025),
+        width: size,
+        height: size
+    };
+
+}
+
+function drawAudioSettingsButton() {
+
+    const b = getAudioSettingsButton();
+
+    drawButton(b, "", "#333", "white", 1);
+
+    // Headphones: an arc for the band, two capsules for the
+    // ear cups hanging off its ends.
+    const cx = b.x + b.width / 2;
+    const cy = b.y + b.height / 2;
+    const r = b.width * 0.26;
+
+    ctx.save();
+
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = b.width * 0.09;
+    ctx.lineCap = "round";
+
+    ctx.beginPath();
+    ctx.arc(cx, cy + r * 0.25, r, Math.PI, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.fillStyle = "white";
+
+    const cupW = b.width * 0.16;
+    const cupH = b.width * 0.3;
+
+    [cx - r, cx + r].forEach(x => {
+
+        ctx.beginPath();
+        ctx.roundRect(x - cupW / 2, cy + r * 0.15, cupW, cupH, cupW / 2);
+        ctx.fill();
+
+    });
+
+    ctx.restore();
+
+}
+
+function drawAudioSettingsMenu() {
+
+    const panel = getPausePanelRect();
+
+    ctx.fillStyle = "#1c1815";
+    ctx.fillRect(panel.x, panel.y, panel.width, panel.height);
+    ctx.strokeStyle = "#c9a227";
+    ctx.lineWidth = Math.max(3, ph(0.005));
+    ctx.strokeRect(panel.x, panel.y, panel.width, panel.height);
+
+    ctx.fillStyle = "white";
+    ctx.font = `bold ${ph(0.045)}px ${UI_FONT}`;
+    ctx.textAlign = "center";
+    ctx.fillText("AUDIO", canvas.width / 2, panel.y + ph(0.09));
+
+    drawPauseVolumeSliders(panel);
+
+    drawButton(getPauseAbandonButton(), "BACK", "#555", "white", ph(0.024));
 
 }
 
@@ -1115,11 +1218,18 @@ function drawMenu() {
         return;
     }
 
+    if (Game.menuView === "audioSettings") {
+        drawAudioSettingsMenu();
+        return;
+    }
+
     const btnFont = ph(0.03);
 
     drawButton(getStartButton(), "START", "lime", "black", btnFont);
     drawButton(getShopButton(), "ARMOURY", "#c9a227", "black", btnFont);
     drawButton(getBestiaryButton(), "BESTIARY", "#8B4513", "white", btnFont);
+
+    drawAudioSettingsButton();
 
 }
 
@@ -1948,6 +2058,20 @@ function drawBestiaryDetail() {
 
 function handleMenuClick(x, y) {
 
+    if (Game.menuView === "audioSettings") {
+
+        if (hitRect(getPauseAbandonButton(), x, y)) {
+            Sound.play("uiClick");
+            Game.menuView = "main";
+            return;
+        }
+
+        handleAudioControlsClick(x, y);
+
+        return;
+
+    }
+
     if (Game.menuView === "modeSelect") {
 
         if (hitRect(getModeSelectBackButton(), x, y)) {
@@ -2093,6 +2217,12 @@ function handleMenuClick(x, y) {
 
         return;
 
+    }
+
+    if (hitRect(getAudioSettingsButton(), x, y)) {
+        Sound.play("uiClick");
+        Game.menuView = "audioSettings";
+        return;
     }
 
     if (hitRect(getStartButton(), x, y)) {
