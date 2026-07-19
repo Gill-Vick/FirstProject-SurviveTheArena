@@ -136,7 +136,7 @@ def sword_swing():
 def sword_hit():
     buf = mk(0.2)
     thump(buf, 0, 160, 65, 0.1, 0.7)
-    crack(buf, 0, 0.08, 0.5)
+    crack(buf, 0, 0.07, 0.35)
     return buf
 
 
@@ -149,8 +149,10 @@ def dagger_swing():
 def crit_hit():
     buf = mk(0.3)
     thump(buf, 0, 180, 70, 0.1, 0.7)
-    crack(buf, 0, 0.1, 0.5)
-    zap(buf, 0.02, 600, 1400, 0.12, 0.25)  # rising ping
+    crack(buf, 0, 0.08, 0.35)
+    # rising ping, triangle so it gleams instead of bites
+    tone(buf, 0.02, 0.12, 600, "tri", 0.3, freq_end=1300,
+         release=0.06)
     return buf
 
 
@@ -230,16 +232,16 @@ def halo_break():
 
 def player_hurt():
     buf = mk(0.25)
-    tone(buf, 0, 0.16, 240, "square", 0.4, duty=0.35,
-         freq_end=140, release=0.06)
-    crack(buf, 0, 0.07, 0.3)
+    tone(buf, 0, 0.16, 240, "tri", 0.5, freq_end=140,
+         release=0.06)
+    crack(buf, 0, 0.06, 0.25)
     return buf
 
 
 def player_death():
     buf = mk(0.9)
-    tone(buf, 0, 0.75, 330, "square", 0.4, duty=0.4,
-         freq_end=70, release=0.15)
+    tone(buf, 0, 0.75, 330, "tri", 0.5, freq_end=70,
+         release=0.15)
     boom(buf, 0.1, 0.6, 0.35)
     return buf
 
@@ -252,15 +254,22 @@ def enemy_hit():
 
 
 def enemy_death():
-    buf = mk(0.25)
-    zap(buf, 0, 420, 90, 0.16, 0.4)
-    crack(buf, 0, 0.1, 0.3)
+    # Deliberately mellow - this fires constantly, so it's a
+    # soft descending sigh rather than a zap: triangle sweep
+    # with a slow attack and a small dark puff underneath.
+    buf = mk(0.3)
+    tone(buf, 0, 0.18, 300, "tri", 0.5, freq_end=110,
+         attack=0.02, release=0.08)
+    boom(buf, 0, 0.15, 0.2)
     return buf
 
 
 def enemy_shoot():
+    # Triangle pew instead of a square zap - it fires from
+    # every archer in the wave.
     buf = mk(0.12)
-    zap(buf, 0, 720, 280, 0.09, 0.4)
+    tone(buf, 0, 0.09, 620, "tri", 0.45, freq_end=260,
+         release=0.03)
     return buf
 
 
@@ -268,7 +277,7 @@ def explosion():
     buf = mk(0.7)
     thump(buf, 0, 85, 32, 0.4, 0.8)
     boom(buf, 0, 0.6, 0.7)
-    crack(buf, 0, 0.12, 0.5)
+    crack(buf, 0, 0.1, 0.3)
     return buf
 
 
@@ -284,23 +293,25 @@ def boss_slam():
     buf = mk(0.7)
     thump(buf, 0, 95, 28, 0.4, 0.85)
     boom(buf, 0, 0.55, 0.6)
-    crack(buf, 0, 0.06, 0.45)
+    crack(buf, 0, 0.06, 0.28)
     return buf
 
 
 def telegraph():
     buf = mk(0.3)
-    tone(buf, 0, 0.09, 880, "square", 0.25, duty=0.4, release=0.04)
-    tone(buf, 0.13, 0.11, 660, "square", 0.25, duty=0.4, release=0.05)
+    tone(buf, 0, 0.09, 880, "tri", 0.3, release=0.05)
+    tone(buf, 0.13, 0.11, 660, "tri", 0.3, release=0.06)
     return buf
 
 
 def wave_start():
-    buf = mk(0.5)
-    tone(buf, 0, 0.14, note_freq("G4"), "square", 0.3,
-         duty=0.4, release=0.05)
-    tone(buf, 0.16, 0.26, note_freq("C5"), "square", 0.3,
-         duty=0.4, release=0.12)
+    # A tiny two-note chime, not a horn - the wave banner on
+    # screen does the announcing; this just ticks the moment.
+    buf = mk(0.35)
+    tone(buf, 0, 0.06, note_freq("G5"), "sine", 0.4,
+         attack=0.01, release=0.08)
+    tone(buf, 0.09, 0.1, note_freq("C6"), "sine", 0.35,
+         attack=0.01, release=0.12)
     return buf
 
 
@@ -323,18 +334,16 @@ def boss_spawn():
 
 def coin():
     buf = mk(0.25)
-    tone(buf, 0, 0.05, note_freq("B5"), "square", 0.3,
-         duty=0.4, release=0.02)
-    tone(buf, 0.06, 0.14, note_freq("E6"), "square", 0.3,
-         duty=0.4, release=0.08)
+    tone(buf, 0, 0.05, note_freq("B5"), "tri", 0.35, release=0.03)
+    tone(buf, 0.06, 0.14, note_freq("E6"), "tri", 0.35, release=0.09)
     return buf
 
 
 def game_over():
     buf = mk(1.5)
     for i, name in enumerate(["A4", "E4", "C4", "A3"]):
-        tone(buf, i * 0.28, 0.26, note_freq(name), "square", 0.3,
-             duty=0.4, release=0.14, vib=0.005)
+        tone(buf, i * 0.28, 0.26, note_freq(name), "tri", 0.4,
+             attack=0.02, release=0.16, vib=0.005)
     boom(buf, 1.0, 0.4, 0.2)
     return buf
 
@@ -426,6 +435,21 @@ RECIPES = {
 }
 
 
+def soften(buf, cutoff_hz=3800.0):
+    """Gentle one-pole lowpass applied to every finished sfx -
+    shaves the harsh digital top end off squares, zaps, and
+    noise without muffling the body of the sound."""
+
+    a = 1.0 - math.exp(-2.0 * math.pi * cutoff_hz / SR)
+    lp = 0.0
+
+    for i, s in enumerate(buf):
+        lp += a * (s - lp)
+        buf[i] = lp
+
+    return buf
+
+
 def main():
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -434,7 +458,7 @@ def main():
 
     for filename, recipe in RECIPES.items():
 
-        buf = finalize(recipe(), peak=0.8)
+        buf = finalize(soften(recipe()), peak=0.8)
         path = OUT_DIR / filename
 
         write_wav(path, buf)
