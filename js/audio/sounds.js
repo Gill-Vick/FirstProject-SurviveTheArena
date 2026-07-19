@@ -31,57 +31,62 @@
 
 const SFX = {
 
+    // Mix philosophy: the sounds that fire constantly (hits,
+    // deaths, coins, shots, dashes) sit LOW so they read as
+    // texture; the once-in-a-while cues (boss spawn, blocks,
+    // purchases, game over) sit noticeably above them.
+
     // ----- Player: melee -----
 
-    swordSwing:   { src: "assets/audio/sfx/sword_swing.wav", volume: 0.5, pool: 3, rateJitter: 0.08 },
-    swordHit:     { src: "assets/audio/sfx/sword_hit.wav",   volume: 0.6, pool: 4, rateJitter: 0.1 },
-    daggerSwing:  { src: "assets/audio/sfx/dagger_swing.wav", volume: 0.4, pool: 4, rateJitter: 0.1 },
-    critHit:      { src: "assets/audio/sfx/crit_hit.wav",    volume: 0.7, pool: 3 },
+    swordSwing:   { src: "assets/audio/sfx/sword_swing.wav", volume: 0.35, rateJitter: 0.08 },
+    swordHit:     { src: "assets/audio/sfx/sword_hit.wav",   volume: 0.4, rateJitter: 0.1 },
+    daggerSwing:  { src: "assets/audio/sfx/dagger_swing.wav", volume: 0.28, rateJitter: 0.1 },
+    critHit:      { src: "assets/audio/sfx/crit_hit.wav",    volume: 0.5 },
 
     // ----- Player: ranged / abilities -----
 
-    bowShot:      { src: "assets/audio/sfx/bow_shot.wav",    volume: 0.45, pool: 4, rateJitter: 0.08 },
-    arrowHit:     { src: "assets/audio/sfx/arrow_hit.wav",   volume: 0.4, pool: 4, minGap: 40 },
-    knifeThrow:   { src: "assets/audio/sfx/knife_throw.wav", volume: 0.45, pool: 3 },
-    dash:         { src: "assets/audio/sfx/dash.wav",        volume: 0.5, pool: 2 },
-    laser:        { src: "assets/audio/sfx/laser.wav",       volume: 0.6, pool: 2 },
-    sunbeam:      { src: "assets/audio/sfx/sunbeam.wav",     volume: 0.55, pool: 3 },
-    sunburst:     { src: "assets/audio/sfx/sunburst.wav",    volume: 0.6, pool: 2 },
-    lightningChain: { src: "assets/audio/sfx/lightning_chain.wav", volume: 0.45, pool: 4, minGap: 60 },
+    bowShot:      { src: "assets/audio/sfx/bow_shot.wav",    volume: 0.32, rateJitter: 0.08 },
+    arrowHit:     { src: "assets/audio/sfx/arrow_hit.wav",   volume: 0.28, minGap: 40 },
+    knifeThrow:   { src: "assets/audio/sfx/knife_throw.wav", volume: 0.32 },
+    dash:         { src: "assets/audio/sfx/dash.wav",        volume: 0.32 },
+    laser:        { src: "assets/audio/sfx/laser.wav",       volume: 0.45 },
+    sunbeam:      { src: "assets/audio/sfx/sunbeam.wav",     volume: 0.4 },
+    sunburst:     { src: "assets/audio/sfx/sunburst.wav",    volume: 0.45 },
+    lightningChain: { src: "assets/audio/sfx/lightning_chain.wav", volume: 0.28, minGap: 60 },
 
     // ----- Player: defense / damage -----
 
-    shieldBlock:  { src: "assets/audio/sfx/shield_block.wav", volume: 0.6, pool: 2 },
-    haloBreak:    { src: "assets/audio/sfx/halo_break.wav",   volume: 0.55, pool: 2 },
-    playerHurt:   { src: "assets/audio/sfx/player_hurt.wav",  volume: 0.7, pool: 2 },
-    playerDeath:  { src: "assets/audio/sfx/player_death.wav", volume: 0.8, pool: 1 },
+    shieldBlock:  { src: "assets/audio/sfx/shield_block.wav", volume: 0.45 },
+    haloBreak:    { src: "assets/audio/sfx/halo_break.wav",   volume: 0.42 },
+    playerHurt:   { src: "assets/audio/sfx/player_hurt.wav",  volume: 0.55 },
+    playerDeath:  { src: "assets/audio/sfx/player_death.wav", volume: 0.65 },
 
     // ----- Enemies -----
 
-    enemyHit:     { src: "assets/audio/sfx/enemy_hit.wav",   volume: 0.35, pool: 6, minGap: 40, rateJitter: 0.12 },
-    enemyDeath:   { src: "assets/audio/sfx/enemy_death.wav", volume: 0.45, pool: 6, minGap: 50, rateJitter: 0.12 },
-    enemyShoot:   { src: "assets/audio/sfx/enemy_shoot.wav", volume: 0.3, pool: 5, minGap: 60 },
-    explosion:    { src: "assets/audio/sfx/explosion.wav",   volume: 0.7, pool: 3 },
-    summon:       { src: "assets/audio/sfx/summon.wav",      volume: 0.5, pool: 3 },
-    bossSlam:     { src: "assets/audio/sfx/boss_slam.wav",   volume: 0.8, pool: 2 },
-    telegraph:    { src: "assets/audio/sfx/telegraph.wav",   volume: 0.4, pool: 4, minGap: 80 },
+    enemyHit:     { src: "assets/audio/sfx/enemy_hit.wav",   volume: 0.22, minGap: 40, rateJitter: 0.12 },
+    enemyDeath:   { src: "assets/audio/sfx/enemy_death.wav", volume: 0.18, minGap: 50, rateJitter: 0.12 },
+    enemyShoot:   { src: "assets/audio/sfx/enemy_shoot.wav", volume: 0.18, minGap: 60 },
+    explosion:    { src: "assets/audio/sfx/explosion.wav",   volume: 0.5 },
+    summon:       { src: "assets/audio/sfx/summon.wav",      volume: 0.3 },
+    bossSlam:     { src: "assets/audio/sfx/boss_slam.wav",   volume: 0.6 },
+    telegraph:    { src: "assets/audio/sfx/telegraph.wav",   volume: 0.22, minGap: 80 },
 
     // ----- Run flow -----
 
-    waveStart:    { src: "assets/audio/sfx/wave_start.wav",  volume: 0.6, pool: 1 },
-    waveClear:    { src: "assets/audio/sfx/wave_clear.wav",  volume: 0.6, pool: 1 },
-    bossSpawn:    { src: "assets/audio/sfx/boss_spawn.wav",  volume: 0.8, pool: 1 },
-    coin:         { src: "assets/audio/sfx/coin.wav",        volume: 0.3, pool: 4, minGap: 60, rateJitter: 0.15 },
-    gameOver:     { src: "assets/audio/sfx/game_over.wav",   volume: 0.7, pool: 1 },
-    victory:      { src: "assets/audio/sfx/victory.wav",     volume: 0.7, pool: 1 },
+    waveStart:    { src: "assets/audio/sfx/wave_start.wav",  volume: 0.2 },
+    waveClear:    { src: "assets/audio/sfx/wave_clear.wav",  volume: 0.35 },
+    bossSpawn:    { src: "assets/audio/sfx/boss_spawn.wav",  volume: 0.55 },
+    coin:         { src: "assets/audio/sfx/coin.wav",        volume: 0.2, minGap: 60, rateJitter: 0.15 },
+    gameOver:     { src: "assets/audio/sfx/game_over.wav",   volume: 0.55 },
+    victory:      { src: "assets/audio/sfx/victory.wav",     volume: 0.5 },
 
     // ----- UI -----
 
-    uiClick:      { src: "assets/audio/sfx/ui_click.wav",    volume: 0.4, pool: 2 },
-    uiHover:      { src: "assets/audio/sfx/ui_hover.wav",    volume: 0.2, pool: 2, minGap: 60 },
-    uiPurchase:   { src: "assets/audio/sfx/ui_purchase.wav", volume: 0.5, pool: 2 },
-    uiDenied:     { src: "assets/audio/sfx/ui_denied.wav",   volume: 0.4, pool: 2 },
-    uiEquip:      { src: "assets/audio/sfx/ui_equip.wav",    volume: 0.4, pool: 2 }
+    uiClick:      { src: "assets/audio/sfx/ui_click.wav",    volume: 0.35 },
+    uiHover:      { src: "assets/audio/sfx/ui_hover.wav",    volume: 0.2, minGap: 60 },
+    uiPurchase:   { src: "assets/audio/sfx/ui_purchase.wav", volume: 0.4 },
+    uiDenied:     { src: "assets/audio/sfx/ui_denied.wav",   volume: 0.3 },
+    uiEquip:      { src: "assets/audio/sfx/ui_equip.wav",    volume: 0.35 }
 
 };
 
