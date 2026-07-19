@@ -191,18 +191,25 @@ def laser():
 
 
 def sunbeam():
-    buf = mk(0.4)
-    thump(buf, 0.03, 220, 90, 0.2, 0.5)
-    for i, f in enumerate([1320, 1760, 2200]):
-        tone(buf, i * 0.03, 0.18, f, "sine", 0.22, release=0.2)
+    # Radiant ARTILLERY, not fairy dust - a deep strike with a
+    # warm mid body and one modest overtone for the "light"
+    # flavor. The old 1.3-2.2kHz sine stack read as piercing.
+    buf = mk(0.45)
+    thump(buf, 0, 170, 60, 0.28, 0.8)
+    boom(buf, 0, 0.3, 0.35)
+    tone(buf, 0.01, 0.2, 520, "tri", 0.35, freq_end=300,
+         release=0.12)
+    tone(buf, 0.02, 0.14, 780, "sine", 0.15, release=0.1)
     return buf
 
 
 def sunburst():
-    buf = mk(0.55)
-    thump(buf, 0, 120, 45, 0.3, 0.7)
-    boom(buf, 0, 0.4, 0.5)
-    chime(buf, 0.05, ["E6", "G6", "B6"], 0.05, 0.12, 0.16)
+    # Pure blast wave - the shove is the point of this spell.
+    buf = mk(0.6)
+    thump(buf, 0, 110, 38, 0.35, 0.85)
+    boom(buf, 0, 0.5, 0.6)
+    tone(buf, 0.02, 0.18, 420, "tri", 0.3, freq_end=240,
+         release=0.12)
     return buf
 
 
@@ -224,9 +231,11 @@ def shield_block():
 
 
 def halo_break():
+    # An octave lower than it was - a warm shattered bell
+    # rather than breaking glass.
     buf = mk(0.5)
-    chime(buf, 0, ["G6", "Eb6", "B5", "G5"], 0.07, 0.16, 0.3)
-    crack(buf, 0, 0.05, 0.25)
+    chime(buf, 0, ["G5", "Eb5", "B4", "G4"], 0.07, 0.16, 0.35, "tri")
+    thump(buf, 0, 200, 90, 0.12, 0.4)
     return buf
 
 

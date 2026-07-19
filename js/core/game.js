@@ -353,15 +353,14 @@ function onEnemyKilled(enemy) {
     Game.enemiesRemaining--;
 
     // Bosses go down with a slam; everything else with the
-    // stock death blip. The coin chime plays at full volume -
-    // it's feedback for the player, not a sound in the world.
+    // stock death blip. (No coin chime here on purpose - one
+    // per kill turned into constant jingling, and the death
+    // sound already marks the payout moment.)
     Sound.playAt(
         enemy.isBoss ? "bossSlam" : "enemyDeath",
         enemy.x + enemy.size / 2,
         enemy.y + enemy.size / 2
     );
-
-    Sound.play("coin");
 
     const reward = COINS[enemy.type] ?? COINS.grunt;
 
