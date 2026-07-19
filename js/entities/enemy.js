@@ -235,6 +235,14 @@ class Enemy {
 
         this.flashTimer = 7;
 
+        // One central hit sound for every damage source, faded
+        // by distance. Crits ring out brighter.
+        Sound.playAt(
+            crit ? "critHit" : "enemyHit",
+            this.x + this.size / 2,
+            this.y + this.size / 2
+        );
+
         const centerX =
             this.x + this.size / 2;
 

@@ -98,6 +98,11 @@ const Game = {
     // (item id string), or null. See handleMenuMouseDown.
     shopStageDragging: null,
 
+    // Which pause-menu volume slider is being dragged (a Save
+    // key: "masterVolume" | "sfxVolume" | "musicVolume"), or
+    // null. See handlePauseMenuClick.
+    volumeDragging: null,
+
     // Armoury list scroll offset in logical px (0 = top).
     // Driven by the mouse wheel / touch drag in input.js.
     armouryScroll: 0,
@@ -210,6 +215,11 @@ class SpawnWarning {
         this.timer = delay;
         this.onSpawn = onSpawn;
         this.triggered = false;
+
+        // The warning circle is also the audio telegraph for
+        // whatever is about to appear (minGap in the catalog
+        // keeps a necromancer pack from stacking the sting).
+        Sound.playAt("summon", x, y);
 
     }
 
@@ -341,6 +351,17 @@ function onEnemyKilled(enemy) {
     enemy.killCredited = true;
 
     Game.enemiesRemaining--;
+
+    // Bosses go down with a slam; everything else with the
+    // stock death blip. The coin chime plays at full volume -
+    // it's feedback for the player, not a sound in the world.
+    Sound.playAt(
+        enemy.isBoss ? "bossSlam" : "enemyDeath",
+        enemy.x + enemy.size / 2,
+        enemy.y + enemy.size / 2
+    );
+
+    Sound.play("coin");
 
     const reward = COINS[enemy.type] ?? COINS.grunt;
 

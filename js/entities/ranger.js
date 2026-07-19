@@ -243,6 +243,8 @@ class Ranger extends Player {
         if (this.bowCooldown > 0)
             return;
 
+        Sound.play("bowShot");
+
         const cx = this.x + this.size / 2;
         const cy = this.y + this.size / 2;
 
@@ -326,6 +328,8 @@ class Ranger extends Player {
         this.daggerTimer = DAGGER.SWING_MS;
         this.daggerAngle = aimAngle;
 
+        Sound.play("daggerSwing");
+
         // Stage 1 (Talon Dagger) is the base stab; stage 2
         // (Shortsword) extends the reach; stage 3 (Venom
         // Blade) keeps that reach and injects venom on top.
@@ -400,6 +404,8 @@ class Ranger extends Player {
         this.stormCooldown = STORMPIERCER.LASER_COOLDOWN;
         this.stormLaserAngle = aimAngle;
         this.stormLaserTimer = STORMPIERCER.LASER_DURATION;
+
+        Sound.play("laser");
 
         const critical = Math.random() < Save.getEquippedCritChance();
         const damage = critical
@@ -724,6 +730,8 @@ class Ranger extends Player {
                 ex, ey - 170, ex, ey, STORMFLETCH.STRIKE_RADIUS
             ));
 
+            Sound.playAt("lightningChain", ex, ey);
+
             return;
 
         }
@@ -753,6 +761,8 @@ class Ranger extends Player {
 
         const tx = target.x + target.size / 2;
         const ty = target.y + target.size / 2;
+
+        Sound.playAt("lightningChain", tx, ty);
 
         target.takeDamage(this.applyMark(STORMFLETCH.CHAIN_DAMAGE, target));
 

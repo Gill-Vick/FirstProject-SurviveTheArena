@@ -190,8 +190,10 @@ function getPauseButton() {
 
 function getPausePanelRect() {
 
+    // Taller than it used to be - the audio sliders live here
+    // now (below the custom-mode cheats when those show).
     const width = pw(0.34);
-    const height = Game.mode === "custom" ? ph(0.62) : ph(0.42);
+    const height = Game.mode === "custom" ? ph(0.84) : ph(0.58);
 
     return {
         x: canvas.width / 2 - width / 2,
@@ -247,6 +249,115 @@ function getPauseImmortalButton() {
         width,
         height: ph(0.06)
     };
+
+}
+
+// =====================================
+// Pause Menu - Audio Controls
+// =====================================
+//
+// Three sliders (master / effects / music) plus a mute
+// toggle. Values live in Save and route through the Sound
+// setters so a drag is audible immediately.
+
+const PAUSE_VOLUME_KEYS = [
+    { key: "masterVolume", label: "MASTER" },
+    { key: "sfxVolume", label: "EFFECTS" },
+    { key: "musicVolume", label: "MUSIC" }
+];
+
+// Where the audio block starts inside the panel - below the
+// custom-mode cheat buttons when those are showing.
+function getPauseAudioStart() {
+
+    return Game.mode === "custom" ? 0.47 : 0.21;
+
+}
+
+function getPauseVolumeSlider(index) {
+
+    const panel = getPausePanelRect();
+
+    return {
+        x: panel.x + panel.width * 0.38,
+        y: panel.y + ph(getPauseAudioStart() + index * 0.055),
+        width: panel.width * 0.52,
+        height: ph(0.024)
+    };
+
+}
+
+function getPauseMuteButton() {
+
+    const panel = getPausePanelRect();
+    const width = pw(0.2);
+
+    return {
+        x: canvas.width / 2 - width / 2,
+        y: panel.y + ph(getPauseAudioStart() + 3 * 0.055 + 0.012),
+        width,
+        height: ph(0.055)
+    };
+
+}
+
+function setVolumeFromSliderX(key, slider, x) {
+
+    const pct = Math.max(0, Math.min(1, (x - slider.x) / slider.width));
+
+    if (key === "masterVolume")
+        Sound.setMasterVolume(pct);
+
+    else if (key === "sfxVolume")
+        Sound.setSfxVolume(pct);
+
+    else
+        Sound.setMusicVolume(pct);
+
+}
+
+function drawPauseVolumeSliders(panel) {
+
+    PAUSE_VOLUME_KEYS.forEach((entry, i) => {
+
+        const slider = getPauseVolumeSlider(i);
+        const value = Save[entry.key];
+
+        ctx.fillStyle = "white";
+        ctx.font = `bold ${ph(0.018)}px ${UI_FONT}`;
+        ctx.textAlign = "left";
+        ctx.fillText(
+            entry.label,
+            panel.x + panel.width * 0.07,
+            slider.y + slider.height * 0.9
+        );
+
+        // Track, filled portion, knob.
+        ctx.fillStyle = "#333";
+        ctx.fillRect(slider.x, slider.y, slider.width, slider.height);
+
+        ctx.fillStyle = "#c9a227";
+        ctx.fillRect(slider.x, slider.y, slider.width * value, slider.height);
+
+        ctx.fillStyle = "white";
+        ctx.fillRect(
+            slider.x + slider.width * value - pw(0.003),
+            slider.y - slider.height * 0.3,
+            pw(0.006),
+            slider.height * 1.6
+        );
+
+    });
+
+    const muted = Sound.isMuted();
+
+    drawButton(
+        getPauseMuteButton(),
+        muted ? "SOUND: OFF" : "SOUND: ON",
+        muted ? "#8b1520" : "#444",
+        "white",
+        ph(0.02)
+    );
 
 }
 
@@ -314,6 +425,8 @@ function drawPauseMenu() {
 
     }
 
+    drawPauseVolumeSliders(panel);
+
     drawButton(getPauseAbandonButton(), "ABANDON RUN", "#8b1520", "white", ph(0.024));
 
 }
@@ -321,13 +434,46 @@ function drawPauseMenu() {
 function handlePauseMenuClick(x, y) {
 
     if (hitRect(getPauseResumeButton(), x, y)) {
+        Sound.play("uiClick");
         togglePause();
         return;
     }
 
     if (hitRect(getPauseAbandonButton(), x, y)) {
+        Sound.play("uiClick");
         resetGame();
         return;
+    }
+
+    // Volume sliders: clicking sets the value AND starts a
+    // drag (released by handleMenuMouseUp), same scheme as the
+    // Armoury's crit slider. The hit zone is padded vertically
+    // so the thin track is easy to grab.
+    PAUSE_VOLUME_KEYS.forEach((entry, i) => {
+
+        const slider = getPauseVolumeSlider(i);
+
+        if (
+            x >= slider.x && x <= slider.x + slider.width &&
+            y >= slider.y - slider.height &&
+            y <= slider.y + slider.height * 2
+        ) {
+            Game.volumeDragging = entry.key;
+            setVolumeFromSliderX(entry.key, slider, x);
+        }
+
+    });
+
+    if (hitRect(getPauseMuteButton(), x, y)) {
+
+        Sound.toggleMuted();
+
+        // Audible only when this unmuted, which is exactly the
+        // feedback that matters.
+        Sound.play("uiClick");
+
+        return;
+
     }
 
     if (Game.mode !== "custom")
@@ -335,13 +481,17 @@ function handlePauseMenuClick(x, y) {
 
     PAUSE_WAVE_DELTAS.forEach((delta, i) => {
 
-        if (hitRect(getPauseWaveButton(i), x, y))
+        if (hitRect(getPauseWaveButton(i), x, y)) {
+            Sound.play("uiClick");
             jumpToWave(Game.wave + delta);
+        }
 
     });
 
-    if (hitRect(getPauseImmortalButton(), x, y))
+    if (hitRect(getPauseImmortalButton(), x, y)) {
+        Sound.play("uiClick");
         Game.immortal = !Game.immortal;
+    }
 
 }
 
@@ -396,6 +546,8 @@ function getArmouryItemIds() {
 // so whichever class is showing when the player leaves the
 // Armoury is the class the next run starts as.
 function cycleArmouryClass(step) {
+
+    Sound.play("uiClick");
 
     const index = CLASSES.findIndex(c => c.id === Save.selectedClass);
 
@@ -1541,6 +1693,8 @@ function getBestiaryPageCount() {
 
 function cycleBestiaryPage(step) {
 
+    Sound.play("uiClick");
+
     const count = getBestiaryPageCount();
 
     Game.bestiaryPage = (Game.bestiaryPage + step + count) % count;
@@ -1797,26 +1951,31 @@ function handleMenuClick(x, y) {
     if (Game.menuView === "modeSelect") {
 
         if (hitRect(getModeSelectBackButton(), x, y)) {
+            Sound.play("uiClick");
             Game.menuView = "main";
             return;
         }
 
         if (hitRect(getCampaignCardButton(), x, y)) {
+            Sound.play("uiClick");
             startGame("campaign");
             return;
         }
 
         if (hitRect(getBossRushCardButton(), x, y)) {
+            Sound.play("uiClick");
             startGame("bossRush");
             return;
         }
 
         if (hitRect(getEndlessCardButton(), x, y)) {
+            Sound.play("uiClick");
             startGame("endless");
             return;
         }
 
         if (hitRect(getCustomCardButton(), x, y)) {
+            Sound.play("uiClick");
             startGame("custom");
             return;
         }
@@ -1828,6 +1987,7 @@ function handleMenuClick(x, y) {
     if (Game.menuView === "shop") {
 
         if (hitRect(getShopBackButton(), x, y)) {
+            Sound.play("uiClick");
             Game.menuView = "main";
             return;
         }
@@ -1855,11 +2015,15 @@ function handleMenuClick(x, y) {
             if (rowY + rowHeight < viewTop || rowY > viewBottom)
                 return;
 
-            if (item.equippable && Save.owns(id) && hitRect(getShopEquipButton(i), x, y))
+            if (item.equippable && Save.owns(id) && hitRect(getShopEquipButton(i), x, y)) {
                 Save.toggleEquip(id);
+                Sound.play("uiEquip");
+            }
 
+            // purchase() reports whether the sale went through,
+            // which is exactly the buy/denied sound split.
             if (hitRect(getShopBuyButton(i), x, y))
-                Save.purchase(id);
+                Sound.play(Save.purchase(id) ? "uiPurchase" : "uiDenied");
 
             // Staged items: clicking the stage picker sets the
             // equipped stage (clamped to what's owned in
@@ -1882,8 +2046,10 @@ function handleMenuClick(x, y) {
 
     if (Game.menuView === "bestiaryDetail") {
 
-        if (hitRect(getBestiaryBackButton(), x, y))
+        if (hitRect(getBestiaryBackButton(), x, y)) {
+            Sound.play("uiClick");
             Game.menuView = "bestiary";
+        }
 
         return;
 
@@ -1892,6 +2058,7 @@ function handleMenuClick(x, y) {
     if (Game.menuView === "bestiary") {
 
         if (hitRect(getBestiaryBackButton(), x, y)) {
+            Sound.play("uiClick");
             Game.menuView = "main";
             return;
         }
@@ -1917,6 +2084,7 @@ function handleMenuClick(x, y) {
                 return;
 
             if (hitRect(getBestiaryCell(i), x, y)) {
+                Sound.play("uiClick");
                 Game.bestiarySelected = type;
                 Game.menuView = "bestiaryDetail";
             }
@@ -1928,16 +2096,19 @@ function handleMenuClick(x, y) {
     }
 
     if (hitRect(getStartButton(), x, y)) {
+        Sound.play("uiClick");
         Game.menuView = "modeSelect";
         return;
     }
 
     if (hitRect(getShopButton(), x, y)) {
+        Sound.play("uiClick");
         Game.menuView = "shop";
         Game.armouryScroll = 0;
     }
 
     if (hitRect(getBestiaryButton(), x, y)) {
+        Sound.play("uiClick");
         Game.menuView = "bestiary";
         Game.bestiaryPage = 0;
     }
@@ -2023,6 +2194,15 @@ function handleMenuMouseUp() {
     Game.shopCritDragging = false;
     Game.shopStageDragging = null;
     Game.shopLocketDragging = false;
+
+    // Releasing a volume slider plays a click at the new
+    // settings - instant "this is how loud that is" feedback.
+    if (Game.volumeDragging) {
+
+        Game.volumeDragging = null;
+        Sound.play("uiClick");
+
+    }
 
 }
 

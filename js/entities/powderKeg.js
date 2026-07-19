@@ -114,6 +114,8 @@ class PowderKeg extends Enemy {
 
         const cx = this.x + this.size / 2;
         const cy = this.y + this.size / 2;
+
+        Sound.playAt("explosion", cx, cy);
         const radius = ENEMY_TYPES.powderKeg.EXPLOSION_RADIUS;
 
         // Player

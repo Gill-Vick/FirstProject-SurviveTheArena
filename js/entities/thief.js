@@ -309,6 +309,8 @@ class Thief extends Player {
 
         this.daggerSwingCount++;
 
+        Sound.play("daggerSwing");
+
         // Two daggers, alternating sides - left on odd swings,
         // right on even ones.
         this.daggerSide = -this.daggerSide;
@@ -394,6 +396,8 @@ class Thief extends Player {
 
         if (this.knifeCooldown > 0)
             return;
+
+        Sound.play("knifeThrow");
 
         const upgraded = Save.equippedThrowingKnifeStage >= 2;
         const heartStealer = Save.equippedThrowingKnifeStage >= 3;
@@ -805,6 +809,8 @@ class Thief extends Player {
                 onEnemyKilled(next);
 
             Game.hazards.push(new VoltaicArc(cx, cy, nx, ny));
+
+            Sound.playAt("lightningChain", nx, ny);
 
             visited.add(next);
             cx = nx;

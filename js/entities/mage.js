@@ -79,6 +79,8 @@ class Mage extends Player {
         this.wardCooldown = HALO.RECHARGE_MS[Save.equippedHaloStage] ?? HALO.RECHARGE_MS[1];
         this.invulnTimer = Math.max(this.invulnTimer, HALO.BLOCK_INVULN_MS);
 
+        Sound.play("haloBreak");
+
         Game.screenShake = EFFECTS.SHAKE_ON_KILL;
         Particle.createHitBurst(this.x + this.size / 2, this.y + this.size / 2);
 
@@ -212,6 +214,8 @@ class Mage extends Player {
 
         this.sunbeamCastCount++;
 
+        Sound.play("sunbeam");
+
         const overloaded =
             Save.isEquipped("radiantOverload") &&
             (this.sunbeamCastCount % RADIANT_OVERLOAD.EVERY === 0);
@@ -291,6 +295,8 @@ class Mage extends Player {
 
         this.sunburstCooldown = SUNBURST.COOLDOWN;
 
+        Sound.play("sunburst");
+
         const stage = Save.equippedSunburstStage;
         const t = this.getCastTarget();
 
@@ -345,6 +351,8 @@ class Mage extends Player {
 
         this.scepterCooldown = SOVEREIGN_SCEPTER.BARRAGE_COOLDOWN;
         this.scepterFlashTimer = SOVEREIGN_SCEPTER.BARRAGE_DURATION;
+
+        Sound.play("laser");
 
         const cx = this.x + this.size / 2;
         const cy = this.y + this.size / 2;

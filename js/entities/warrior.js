@@ -218,11 +218,16 @@ class Warrior extends Player {
 
         Game.screenShake = EFFECTS.SHAKE_ON_KILL;
 
+        Sound.play("shieldBlock");
+
         return true;
 
     }
 
     triggerNuke() {
+
+        Sound.play("explosion");
+
         // Damage all enemies currently on screen and clear kill state correctly
         Game.enemies.forEach(enemy => {
             enemy.takeDamage(SHIELD.ONYX_DAMAGE);
@@ -374,6 +379,8 @@ class Warrior extends Player {
         if (this.bowCooldown > 0)
             return;
 
+        Sound.play("bowShot");
+
         const cx = this.x + this.size / 2;
         const cy = this.y + this.size / 2;
 
@@ -438,6 +445,8 @@ class Warrior extends Player {
         this.kingsBladeCooldown = KINGS_BLADE.LASER_COOLDOWN;
         this.kingsBladeLaserAngle = aimAngle;
         this.kingsBladeLaserTimer = KINGS_BLADE.LASER_DURATION;
+
+        Sound.play("laser");
 
         const critical = Math.random() < Save.getEquippedCritChance();
         const damage = critical
@@ -507,6 +516,8 @@ class Warrior extends Player {
         this.swingProgress = 0;
 
         this.swordAngle = aimAngle;
+
+        Sound.play("swordSwing");
 
         this.rageGainedThisSwing = false;
 

@@ -154,6 +154,12 @@ class Player {
 
         Game.state = "gameover";
 
+        // The death sting carries the moment; the music bed
+        // fades out under it (the router deliberately doesn't
+        // start anything new while in "gameover").
+        Sound.play("gameOver");
+        Sound.stopMusic({ fade: 1000 });
+
         Game.killedBy = source;
 
         // Log the run's distance for the score modes (no-op in
@@ -348,6 +354,8 @@ class Player {
             this.y += dy * dashDistance;
 
             this.dashCooldowns[i] = this.getDashCooldown();
+
+            Sound.play("dash");
 
             this.onDash(dx, dy, startX, startY);
 

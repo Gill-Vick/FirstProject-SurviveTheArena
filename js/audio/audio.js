@@ -593,3 +593,26 @@ function clamp01(v) {
     window.addEventListener(type, () => Sound.unlock(), { once: true });
 
 });
+
+// A hidden tab goes quiet. The game loop (rAF) freezes when
+// the tab is hidden, so fades stop ticking too - pausing the
+// music element (and anything mid-fade) directly is the only
+// reliable way to silence it. Coming back resumes the current
+// track from where it stopped.
+
+document.addEventListener("visibilitychange", () => {
+
+    if (document.hidden) {
+
+        Sound.fades.forEach(fade => fade.el.pause());
+
+        if (Sound.musicEl)
+            Sound.musicEl.pause();
+
+    } else if (Sound.musicEl && !Sound.isMuted()) {
+
+        Sound.musicEl.play().catch(() => {});
+
+    }
+
+});

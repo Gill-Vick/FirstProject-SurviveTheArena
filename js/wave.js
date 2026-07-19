@@ -115,6 +115,13 @@ function startWave() {
         ? ((Game.wave - 1) % WAVES.KING_WAVE) + 1
         : Game.wave;
 
+    const bossWaves = [
+        WAVES.BOSS_WAVE, WAVES.KNIGHT_WAVE,
+        WAVES.MAGUS_WAVE, WAVES.KING_WAVE
+    ];
+
+    Sound.play(bossWaves.includes(cycleWave) ? "bossSpawn" : "waveStart");
+
     if (cycleWave === WAVES.BOSS_WAVE) {
 
         startBossWave();
@@ -705,6 +712,8 @@ function updateWave() {
 
     Game.waveTransition = true;
     Game.waveActive = false;
+
+    Sound.play("waveClear");
 
     const token = Game.runToken;
 

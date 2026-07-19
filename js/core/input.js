@@ -70,6 +70,8 @@ canvas.addEventListener("mousedown", (e) => {
 
                     isMouseDown = false;
 
+                    Sound.play("uiClick");
+
                     togglePause();
 
                 }
@@ -93,6 +95,7 @@ canvas.addEventListener("mousedown", (e) => {
                     y > homeBtn.y &&
                     y < homeBtn.y + homeBtn.height
                 ) {
+                    Sound.play("uiClick");
                     resetGame();
                 }
                 break;
@@ -122,6 +125,22 @@ canvas.addEventListener("mousemove", (e) => {
 
     if (Game.state === "menu")
         handleMenuMouseMove(mouseX, mouseY);
+
+    // Pause-menu volume slider drag (started in
+    // handlePauseMenuClick, released in handleMenuMouseUp).
+    if (Game.state === "paused" && Game.volumeDragging) {
+
+        const index = PAUSE_VOLUME_KEYS.findIndex(
+            entry => entry.key === Game.volumeDragging
+        );
+
+        setVolumeFromSliderX(
+            Game.volumeDragging,
+            getPauseVolumeSlider(index),
+            mouseX
+        );
+
+    }
 
     // player doesn't exist until startGame() runs,
     // so skip aiming while on the menu screen.
@@ -277,6 +296,11 @@ window.addEventListener("keydown", (e) => {
         togglePause();
 
     }
+
+    // [M] - mute toggle, mirroring the pause menu's button.
+    // Works from any screen.
+    if (e.key.toLowerCase() === "m")
+        Sound.toggleMuted();
 
 });
 
