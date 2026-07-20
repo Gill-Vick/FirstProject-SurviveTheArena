@@ -27,7 +27,7 @@ class RoyalMagus extends Enemy {
         super(x, y, {
             size: MAGUS.SIZE,
             speed: MAGUS.SPEED * Game.enemySpeedMultiplier,
-            hp: MAGUS.HP,
+            hp: MAGUS.BASE_HP + Game.wave * MAGUS.HP_PER_WAVE,
             color: MAGUS.COLOR
         });
 

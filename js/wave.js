@@ -105,15 +105,17 @@ function startWave() {
             : 1;
 
     // Boss Rush skips straight from one boss fight to the next
-    // (Game.wave goes 5, 10, 15, 20, ...); Endless plays every
-    // wave but wants the bosses to recur too. Both fold onto the
-    // same 1-20 cycle Campaign uses so they keep landing on
-    // BOSS_WAVE/KNIGHT_WAVE/MAGUS_WAVE/KING_WAVE (with HP still
-    // scaling off the real Game.wave). Campaign uses the wave
-    // as-is, so it stops having bosses after the King at 20.
-    const cycleWave = (Game.bossRush || Game.mode === "endless")
-        ? ((Game.wave - 1) % WAVES.KING_WAVE) + 1
-        : Game.wave;
+    // (Game.wave goes 5, 10, 15, 20, ...); Endless and Custom
+    // play every wave but want the bosses to recur too. All
+    // three fold onto the same 1-20 cycle Campaign uses so they
+    // keep landing on BOSS_WAVE/KNIGHT_WAVE/MAGUS_WAVE/KING_WAVE
+    // (with HP still scaling off the real Game.wave). Campaign
+    // uses the wave as-is, so it stops having bosses after the
+    // King at 20.
+    const cycleWave =
+        (Game.bossRush || Game.mode === "endless" || Game.mode === "custom")
+            ? ((Game.wave - 1) % WAVES.KING_WAVE) + 1
+            : Game.wave;
 
     const bossWaves = [
         WAVES.BOSS_WAVE, WAVES.KNIGHT_WAVE,

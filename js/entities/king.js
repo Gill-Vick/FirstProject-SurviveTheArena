@@ -9,7 +9,7 @@ class King extends Enemy {
         super(x, y, {
             size: KING.SIZE,
             speed: KING.SPEED * Game.enemySpeedMultiplier,
-            hp: KING.HP,
+            hp: KING.BASE_HP + Game.wave * KING.HP_PER_WAVE,
             color: KING.COLOR
         });
 
@@ -43,7 +43,7 @@ class King extends Enemy {
 
         super.takeDamage(amount, crit);
 
-        if (!this.summoned && this.hp <= KING.SUMMON_THRESHOLD) {
+        if (!this.summoned && this.hp <= this.maxHp * KING.SUMMON_FRACTION) {
 
             this.summonReinforcements();
 
@@ -173,7 +173,7 @@ class King extends Enemy {
     // down a set of parallel WallLaser lines (vertical,
     // horizontal, or diagonal) spanning the whole screen, with
     // one gap left in the wall to dodge through. Once the King
-    // passes SUMMON_THRESHOLD ("this.summoned"), a second wall
+    // drops below half HP ("this.summoned"), a second wall
     // at a different angle follows shortly after, so the two
     // gaps have to be threaded together instead of just one.
 

@@ -1521,7 +1521,12 @@ const MAGUS = {
     SIZE: 110,
     SPEED: 0.63,
     COLOR: "#3d5af1",
-    HP: 100,
+
+    // Same wave-scaling scheme as the Castle Guard / Knight:
+    // 40 + 15 x 4 = 100 on his debut wave, growing every cycle
+    // he recurs in Boss Rush / Endless / Custom.
+    BASE_HP: 40,
+    HP_PER_WAVE: 4,
 
     // Keep-at-range drift, same scheme as the fire mage.
     PREFERRED_RANGE: 380,
@@ -1596,9 +1601,16 @@ const KING = {
     SIZE: 130,
     SPEED: 0.56,
     COLOR: "#6a0dad",
-    HP: 130,
 
-    SUMMON_THRESHOLD: 65,
+    // Same wave-scaling scheme as the Castle Guard / Knight:
+    // 30 + 20 x 5 = 130 on his debut wave, growing every cycle
+    // he recurs in Boss Rush / Endless / Custom.
+    BASE_HP: 30,
+    HP_PER_WAVE: 5,
+
+    // Reinforcements arrive at this fraction of his max HP
+    // (half), whatever that max scaled to this run.
+    SUMMON_FRACTION: 0.5,
 
     // Wall Laser Barrage - bullet-hell style. Instead of a
     // single beam tracking out from the King's own position,
@@ -1618,7 +1630,7 @@ const KING = {
     // the dodge lane through each wall.
     WALL_LASER_GAP_COUNT: 2,
 
-    // Once the King passes SUMMON_THRESHOLD, every barrage
+    // Once the King drops below SUMMON_FRACTION, every barrage
     // layers a second, differently-angled wall shortly after
     // the first - e.g. vertical + horizontal, or both
     // diagonals - so the two independent gaps have to be
@@ -1960,8 +1972,8 @@ const BESTIARY = {
         desc: "The wave 15 gatekeeper - the court's archmage.",
         behavior: "Cycles lightning showers, meteors, earth walls, and gale-force winds while stationed mages bombard from both walls.",
         lore: "Court wizard to three kings, and poisoner of at least two of them. The crown keeps him not out of trust but out of terror — no one else can command the storm, split the earth, or call fire from the sky. He duels from the center of the arena like a conductor, his honor guard of weavers and pyromancers chained to the walls by oaths only he can break.",
-        hpAtWave(w) { return MAGUS.HP; },
-        hpScale: `${MAGUS.HP} (fixed)`,
+        hpAtWave(w) { return MAGUS.BASE_HP + w * MAGUS.HP_PER_WAVE; },
+        hpScale: `${MAGUS.BASE_HP} + wave × ${MAGUS.HP_PER_WAVE}`,
         baseSpeed: MAGUS.SPEED
     },
 
@@ -1973,8 +1985,8 @@ const BESTIARY = {
         desc: "The arena's ruler. A multi-phase nightmare.",
         behavior: "Laser wall barrages, greatsword slashes, and elite summons at half HP.",
         lore: "The mad monarch who turned his own throne room into an arena for his amusement. Wave after wave he watches from above, bored of victories bought with other men's blood. Those his soldiers cannot break, he descends to break himself — greatsword in hand, crown ablaze.",
-        hpAtWave(w) { return KING.HP; },
-        hpScale: `${KING.HP} (fixed)`,
+        hpAtWave(w) { return KING.BASE_HP + w * KING.HP_PER_WAVE; },
+        hpScale: `${KING.BASE_HP} + wave × ${KING.HP_PER_WAVE}`,
         baseSpeed: KING.SPEED
     }
 
