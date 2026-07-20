@@ -600,10 +600,6 @@ class Warrior extends Player {
 
                 enemy.takeDamage(damage, critical);
 
-                applyHitStop(
-                    critical ? HITSTOP.CRIT_MS : HITSTOP.MELEE_MS
-                );
-
                 enemy.applyKnockback(
                     playerCenterX,
                     playerCenterY,

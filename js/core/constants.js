@@ -1190,17 +1190,15 @@ const DASH = {
 // Hit-Stop
 // =====================================
 //
-// Tiny full-sim freezes on melee contact that make hits feel
-// weighty. Applied via applyHitStop() (game.js) and enforced
-// in the main loop by zeroing Game.dt/timeScale while the
-// timer (real ms, NOT scaled) runs down. Concurrent hits
-// take the max, never the sum, so an AOE swing can't chain
-// into a long stutter.
+// A full-sim freeze applied via applyHitStop() (game.js) and
+// enforced in the main loop by zeroing Game.dt/timeScale
+// while the timer (real ms, NOT scaled) runs down.
+//
+// Deliberately ONLY used for boss kills: per-swing hit-stop
+// was tried and cut - with this game's constant hit rate it
+// read as lag, not weight. Don't re-add it to regular melee.
 
 const HITSTOP = {
-
-    MELEE_MS: 60,
-    CRIT_MS: 100,
 
     // Any boss kill, melee or ranged - the big punctuation
     // mark.

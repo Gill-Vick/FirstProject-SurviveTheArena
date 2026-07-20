@@ -352,10 +352,6 @@ class Thief extends Player {
 
             enemy.takeDamage(damage, critical);
 
-            applyHitStop(
-                critical ? HITSTOP.CRIT_MS : HITSTOP.MELEE_MS
-            );
-
             enemy.applyKnockback(px, py, critical ? 11.2 : 8.4);
 
             landedHit = true;
