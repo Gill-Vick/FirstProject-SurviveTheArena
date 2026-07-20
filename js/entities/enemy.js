@@ -198,11 +198,17 @@ class Enemy {
     takeDamage(amount, crit = false) {
 
         // Royal Magus honor guard (untouchable while their
-        // master lives - see RoyalMagus.takeDamage) and Blood
+        // master lives - see RoyalMagus.takeDamage), Blood
         // Cleric heal targets (invincible while the tether
-        // holds). Hits still spark so the player can feel
-        // them bounce off.
-        if (this.damageImmune || this.healShieldTimer > 0) {
+        // holds), and anything inside an elite tank's
+        // protective aura (see isAuraProtected in elite.js).
+        // Hits still spark so the player can feel them bounce
+        // off.
+        if (
+            this.damageImmune ||
+            this.healShieldTimer > 0 ||
+            isAuraProtected(this)
+        ) {
 
             this.flashTimer = 4;
 
@@ -216,11 +222,20 @@ class Enemy {
         }
 
         // Blood Cleric ward - a 1-hit shield that eats one
-        // full instance of damage, whatever its size.
+        // full instance of damage, whatever its size. Breaking
+        // it also strips an elite cleric's haste (the speed
+        // was granted alongside the ward - see bloodCleric.js).
         if (this.wardShield) {
 
             this.wardShield = false;
             this.flashTimer = 7;
+
+            if (this.wardHaste) {
+
+                this.wardHaste = false;
+                this.speed /= ELITE.CLERIC_HASTE;
+
+            }
 
             Particle.createHitBurst(
                 this.x + this.size / 2,
@@ -300,6 +315,9 @@ class Enemy {
 
         if (this.projectileRingRadius)
             this.drawProjectileRing();
+
+        if (this.protectsAllies)
+            this.drawProtectAura();
 
         if (this.isElite)
             this.drawEliteRing();
@@ -448,6 +466,36 @@ class Enemy {
             this.x + this.size + 6,
             this.y - 2
         );
+
+        ctx.restore();
+
+    }
+
+    // Elite tank's protective aura - a broad gold dome so
+    // "everything in here is unkillable, kill the tank" reads
+    // at a glance.
+
+    drawProtectAura() {
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+        const pulse = 0.3 + Math.sin(Date.now() / 300) * 0.1;
+
+        ctx.save();
+
+        ctx.fillStyle = `rgba(255, 200, 60, ${pulse * 0.16})`;
+        ctx.beginPath();
+        ctx.arc(cx, cy, this.auraRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = `rgba(255, 210, 80, ${pulse + 0.2})`;
+        ctx.lineWidth = 3;
+        ctx.setLineDash([14, 10]);
+        ctx.lineDashOffset = -Date.now() / 50;
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, this.auraRadius, 0, Math.PI * 2);
+        ctx.stroke();
 
         ctx.restore();
 

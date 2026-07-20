@@ -198,6 +198,16 @@ class BloodCleric extends Enemy {
 
             nearest.wardShield = true;
 
+            // An elite cleric's ward also hastes its holder
+            // until the shield breaks (reverted in
+            // Enemy.takeDamage when the ward pops).
+            if (this.isElite && !nearest.wardHaste) {
+
+                nearest.wardHaste = true;
+                nearest.speed *= ELITE.CLERIC_HASTE;
+
+            }
+
             Particle.createHitBurst(
                 nearest.x + nearest.size / 2,
                 nearest.y + nearest.size / 2
@@ -206,8 +216,11 @@ class BloodCleric extends Enemy {
         }
 
         // Short retry beat either way so it re-evaluates soon
-        // without scanning every frame.
-        this.healCooldown = C.RETRY_BEAT;
+        // without scanning every frame - elites cycle it twice
+        // as fast ("shields faster").
+        this.healCooldown =
+            C.RETRY_BEAT *
+            (this.isElite ? ELITE.CLERIC_WARD_RATE_SCALE : 1);
 
     }
 

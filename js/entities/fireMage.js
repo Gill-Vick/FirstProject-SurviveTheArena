@@ -70,7 +70,11 @@ class FireMage extends Enemy {
         const tx = player.x + player.size / 2;
         const ty = player.y + player.size / 2;
 
-        Game.hazards.push(new FireCast(tx, ty));
+        // Elite mages call down a much larger blast.
+        Game.hazards.push(new FireCast(
+            tx, ty,
+            this.isElite ? ELITE.FIRE_AREA_SCALE : 1
+        ));
 
         // castRateScale is only ever set on the Royal Magus'
         // honor guard (see spawnMagusEscort in wave.js).

@@ -108,6 +108,22 @@ class Lancer extends Enemy {
         if (this.thrustCooldown > 0)
             this.thrustCooldown -= Game.dt;
 
+        // Elite lancers are shield-bearers for the whole
+        // wave: on a steady beat, ward every nearby ally with
+        // a 1-hit shield (the Blood Cleric's ward mechanic).
+        if (this.isElite) {
+
+            this.eliteWardTimer -= Game.dt;
+
+            if (this.eliteWardTimer <= 0) {
+
+                this.eliteWardTimer = ELITE.LANCER_WARD_INTERVAL;
+                this.wardNearbyAllies();
+
+            }
+
+        }
+
         switch (this.state) {
 
             case "idle":
@@ -131,6 +147,41 @@ class Lancer extends Enemy {
                 break;
 
         }
+
+    }
+
+    wardNearbyAllies() {
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        Game.enemies.forEach(enemy => {
+
+            if (
+                enemy === this ||
+                enemy.isDead() ||
+                enemy.isBoss ||
+                enemy.wardShield
+            )
+                return;
+
+            const dist = Math.hypot(
+                enemy.x + enemy.size / 2 - cx,
+                enemy.y + enemy.size / 2 - cy
+            );
+
+            if (dist < ELITE.LANCER_WARD_RADIUS) {
+
+                enemy.wardShield = true;
+
+                Particle.createHitBurst(
+                    enemy.x + enemy.size / 2,
+                    enemy.y + enemy.size / 2
+                );
+
+            }
+
+        });
 
     }
 
@@ -193,8 +244,10 @@ class Lancer extends Enemy {
             this.lanceExtension = 0;
 
             // Shield still up -> that's the whole attack,
-            // back to cooldown/chase.
-            if (this.shieldHits > 0) {
+            // back to cooldown/chase. Elites don't wait for a
+            // broken shield - every thrust flows into the
+            // charging lunge, shield raised or not.
+            if (this.shieldHits > 0 && !this.isElite) {
 
                 this.state = "idle";
                 this.thrustCooldown = ENEMY_TYPES.lancer.THRUST_COOLDOWN;
@@ -202,8 +255,7 @@ class Lancer extends Enemy {
 
             }
 
-            // Shield broken -> the thrust flows straight
-            // into a charging lunge.
+            // The thrust flows straight into a charging lunge.
             const cx = this.x + this.size / 2;
             const cy = this.y + this.size / 2;
             const px = player.x + player.size / 2;

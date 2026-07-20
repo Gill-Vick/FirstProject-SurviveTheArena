@@ -26,6 +26,45 @@ class Necromancer extends Enemy {
 
     }
 
+    // Normal necromancers march straight at the player
+    // (default chase). Elites hang back at range like an
+    // archer, forcing you to push through their skeletons to
+    // reach them.
+    move() {
+
+        if (!this.isElite) {
+
+            super.move();
+
+            return;
+
+        }
+
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance === 0)
+            return;
+
+        const preferred = ELITE.NECRO_KITE_RANGE;
+
+        if (distance < preferred - 30) {
+
+            this.x -= (dx / distance) * this.speed * Game.timeScale;
+            this.y -= (dy / distance) * this.speed * Game.timeScale;
+
+        } else if (distance > preferred + 30) {
+
+            this.x += (dx / distance) * this.speed * Game.timeScale;
+            this.y += (dy / distance) * this.speed * Game.timeScale;
+
+        }
+
+        this.keepInArenaOnceEntered();
+
+    }
+
     attack() {
 
         if (this.summonCooldown > 0) {
@@ -62,6 +101,12 @@ class Necromancer extends Enemy {
                 () => {
 
                     const sk = new Skeleton(sx, sy);
+
+                    // An elite master raises elite minions -
+                    // faster, warded, and dagger-armed (see
+                    // skeleton.js / makeElite).
+                    if (this.isElite)
+                        makeElite(sk);
 
                     Game.enemies.push(sk);
 

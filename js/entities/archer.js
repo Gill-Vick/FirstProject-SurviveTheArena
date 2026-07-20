@@ -105,25 +105,39 @@ class Archer extends Enemy {
 
         const angle = Math.atan2(dy, dx);
 
-        Game.projectiles.push(new Projectile(
+        // Elite archers loose a fan; normal archers a single
+        // arrow. Angles spread evenly around the aim line.
+        const count = this.isElite ? ELITE.ARCHER_FAN_COUNT : 1;
+        const spread = ELITE.ARCHER_FAN_SPREAD;
 
-            centerX,
-            centerY,
-            angle,
+        for (let i = 0; i < count; i++) {
 
-            {
+            const offset =
+                count === 1
+                    ? 0
+                    : (i - (count - 1) / 2) * spread;
 
-                speed: ENEMY_TYPES.archer.PROJECTILE_SPEED,
-                color: ENEMY_TYPES.archer.PROJECTILE_COLOR,
+            Game.projectiles.push(new Projectile(
 
-                size: 6,
-                life: 214,
-                sourceType: "archer",
-                isArrow: true
+                centerX,
+                centerY,
+                angle + offset,
 
-            }
+                {
 
-        ));
+                    speed: ENEMY_TYPES.archer.PROJECTILE_SPEED,
+                    color: ENEMY_TYPES.archer.PROJECTILE_COLOR,
+
+                    size: 6,
+                    life: 214,
+                    sourceType: "archer",
+                    isArrow: true
+
+                }
+
+            ));
+
+        }
 
     }
 

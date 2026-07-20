@@ -4,11 +4,14 @@
 
 class FireCast {
 
-    constructor(x, y) {
+    // scale > 1 for elite fire mages - grows both the blast
+    // and the burning ground it leaves behind.
+    constructor(x, y, scale = 1) {
 
         this.x = x;
         this.y = y;
-        this.radius = HAZARD.FIRE_RADIUS;
+        this.scale = scale;
+        this.radius = HAZARD.FIRE_RADIUS * scale;
         this.timer = HAZARD.FIRE_WARNING;
         this.exploded = false;
 
@@ -38,7 +41,7 @@ class FireCast {
         if (Math.sqrt(dx * dx + dy * dy) < this.radius)
             player.takeHit(ENEMY_LABELS.fireMage);
 
-        Game.hazards.push(new BurningGround(this.x, this.y));
+        Game.hazards.push(new BurningGround(this.x, this.y, this.scale));
 
         Particle.createHitBurst(this.x, this.y);
 
@@ -187,11 +190,13 @@ class FrostZone {
 
 class KegKillZone {
 
-    constructor(x, y) {
+    // radius defaults to a full keg blast; elite cluster
+    // bombs pass their own smaller footprint.
+    constructor(x, y, radius = ENEMY_TYPES.powderKeg.EXPLOSION_RADIUS) {
 
         this.x = x;
         this.y = y;
-        this.radius = ENEMY_TYPES.powderKeg.EXPLOSION_RADIUS;
+        this.radius = radius;
         this.tickTimer = 0;
         this.age = 0;
 
@@ -290,16 +295,131 @@ class KegKillZone {
 }
 
 // =====================================
-// Burning Ground
+// Cluster Bomb (elite Powder Keg)
 // =====================================
+//
+// Scattered by an elite keg's death blast: sits armed for
+// KEG_CLUSTER_FUSE ms under a pulsing warning circle, then
+// explodes - hurting the player, damaging enemies, and
+// scorching its own (smaller) kill zone. The scatter turns
+// one elite keg death into a minefield.
 
-class BurningGround {
+class ClusterBomb {
 
     constructor(x, y) {
 
         this.x = x;
         this.y = y;
-        this.radius = HAZARD.BURN_RADIUS;
+        this.radius = ELITE.KEG_CLUSTER_RADIUS;
+        this.timer = ELITE.KEG_CLUSTER_FUSE;
+        this.exploded = false;
+
+    }
+
+    update() {
+
+        this.timer -= Game.dt;
+
+        if (this.timer <= 0 && !this.exploded) {
+
+            this.exploded = true;
+
+            this.explode();
+
+        }
+
+    }
+
+    explode() {
+
+        Sound.playAt("explosion", this.x, this.y);
+
+        const px = player.x + player.size / 2;
+        const py = player.y + player.size / 2;
+
+        if (Math.hypot(px - this.x, py - this.y) < this.radius + player.size / 2)
+            player.takeHit(ENEMY_LABELS.powderKeg);
+
+        Game.enemies.forEach(enemy => {
+
+            if (enemy.isDead())
+                return;
+
+            const ex = enemy.x + enemy.size / 2;
+            const ey = enemy.y + enemy.size / 2;
+
+            if (Math.hypot(ex - this.x, ey - this.y) < this.radius + enemy.size / 2) {
+
+                enemy.takeDamage(ENEMY_TYPES.powderKeg.EXPLOSION_ENEMY_DAMAGE);
+
+                if (enemy.isDead())
+                    onEnemyKilled(enemy);
+
+            }
+
+        });
+
+        Particle.createHitBurst(this.x, this.y);
+
+        Game.screenShake = Math.max(Game.screenShake, 6);
+
+        Game.hazards.push(new KegKillZone(this.x, this.y, this.radius));
+
+    }
+
+    isDead() {
+
+        return this.exploded;
+
+    }
+
+    draw() {
+
+        const urgency = 1 - this.timer / ELITE.KEG_CLUSTER_FUSE;
+        const pulse = 0.25 + Math.sin(Date.now() / 40) * 0.15;
+
+        ctx.save();
+
+        // Blast-radius warning, same language as the keg's own
+        // fuse circle.
+        ctx.strokeStyle = `rgba(255, 60, 20, ${pulse + urgency * 0.35})`;
+        ctx.fillStyle = `rgba(255, 80, 20, ${pulse * 0.3})`;
+        ctx.lineWidth = 2.5;
+
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // The bomblet itself, flashing faster as it arms.
+        const flashing =
+            Math.floor(Date.now() / (100 - urgency * 65)) % 2 === 0;
+
+        ctx.fillStyle = flashing ? "#ffcf4d" : "#5d5348";
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = "orange";
+
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 8, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+
+    }
+
+}
+
+// =====================================
+// Burning Ground
+// =====================================
+
+class BurningGround {
+
+    constructor(x, y, scale = 1) {
+
+        this.x = x;
+        this.y = y;
+        this.radius = HAZARD.BURN_RADIUS * scale;
         this.life = HAZARD.BURN_DURATION;
         this.tickTimer = 0;
 

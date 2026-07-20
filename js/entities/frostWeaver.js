@@ -77,18 +77,66 @@ class FrostWeaver extends Enemy {
         const tx = player.x + player.size / 2;
         const ty = player.y + player.size / 2;
 
-        // Elite weavers conjure noticeably bigger patches.
-        const radius =
-            ENEMY_TYPES.frostWeaver.ZONE_RADIUS *
-            (this.isElite ? 1.4 : 1);
-
-        Game.hazards.push(new FrostZone(tx, ty, radius));
+        // Elite weavers don't drop a patch - they lay a full
+        // ROW of ice from themselves through the player (a
+        // King's-Blade-style line that slows instead of
+        // damaging). Normal weavers keep the single patch.
+        if (this.isElite)
+            this.castIceRow(tx, ty);
+        else
+            Game.hazards.push(new FrostZone(
+                tx, ty,
+                ENEMY_TYPES.frostWeaver.ZONE_RADIUS
+            ));
 
         // castRateScale is only ever set on the Royal Magus'
         // honor guard (see spawnMagusEscort in wave.js).
         this.castCooldown =
             ENEMY_TYPES.frostWeaver.CAST_COOLDOWN *
             (this.castRateScale ?? 1);
+
+    }
+
+    // A trail of overlapping frost patches marching from the
+    // weaver through the player's position and beyond, capped
+    // at ROW_LENGTH. Each link is a normal FrostZone (radius =
+    // half ROW_WIDTH), so the slow logic, grow-in, and fade
+    // all come for free.
+    castIceRow(tx, ty) {
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        const dx = tx - cx;
+        const dy = ty - cy;
+        const dist = Math.hypot(dx, dy) || 1;
+
+        const dirX = dx / dist;
+        const dirY = dy / dist;
+
+        const radius = ELITE.WEAVER_ROW_WIDTH / 2;
+        const spacing = ELITE.WEAVER_ROW_SPACING;
+
+        for (
+            let d = spacing;
+            d <= ELITE.WEAVER_ROW_LENGTH;
+            d += spacing
+        ) {
+
+            const zx = cx + dirX * d;
+            const zy = cy + dirY * d;
+
+            // Stop once the row leaves the arena - no point
+            // simulating ice nobody can stand on.
+            if (
+                zx < -radius || zx > canvas.width + radius ||
+                zy < -radius || zy > canvas.height + radius
+            )
+                break;
+
+            Game.hazards.push(new FrostZone(zx, zy, radius));
+
+        }
 
     }
 

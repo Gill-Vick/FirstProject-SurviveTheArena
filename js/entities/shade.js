@@ -42,6 +42,28 @@ class Shade extends Enemy {
 
     }
 
+    // Elite shades run the whole blink cycle hotter: shorter
+    // vanish/windup (the dash comes out faster), a faster
+    // lunge, and less downtime between teleports. 1x for
+    // normal shades.
+    tempoScale() {
+
+        return this.isElite ? ELITE.SHADE_TEMPO_SCALE : 1;
+
+    }
+
+    lungeScale() {
+
+        return this.isElite ? ELITE.SHADE_LUNGE_SCALE : 1;
+
+    }
+
+    cooldownScale() {
+
+        return this.isElite ? ELITE.SHADE_COOLDOWN_SCALE : 1;
+
+    }
+
     // Untouchable mid-vanish - the dissolve is its defense.
     takeDamage(amount, crit = false) {
 
@@ -67,7 +89,7 @@ class Shade extends Enemy {
                 if (this.teleportCooldown <= 0) {
 
                     this.state = "vanish";
-                    this.stateTimer = S.VANISH_DURATION;
+                    this.stateTimer = S.VANISH_DURATION * this.tempoScale();
 
                     return;
 
@@ -84,7 +106,7 @@ class Shade extends Enemy {
                     this.blinkBehindPlayer();
 
                     this.state = "windup";
-                    this.stateTimer = S.WINDUP_DURATION;
+                    this.stateTimer = S.WINDUP_DURATION * this.tempoScale();
 
                 }
 
@@ -112,8 +134,8 @@ class Shade extends Enemy {
 
             case "lunge":
 
-                this.x += this.lungeDX * S.LUNGE_SPEED * Game.timeScale;
-                this.y += this.lungeDY * S.LUNGE_SPEED * Game.timeScale;
+                this.x += this.lungeDX * S.LUNGE_SPEED * this.lungeScale() * Game.timeScale;
+                this.y += this.lungeDY * S.LUNGE_SPEED * this.lungeScale() * Game.timeScale;
 
                 if (this.stateTimer <= 0) {
 
@@ -129,7 +151,8 @@ class Shade extends Enemy {
                 if (this.stateTimer <= 0) {
 
                     this.state = "walk";
-                    this.teleportCooldown = S.TELEPORT_COOLDOWN;
+                    this.teleportCooldown =
+                        S.TELEPORT_COOLDOWN * this.cooldownScale();
 
                     return;
 
@@ -194,7 +217,9 @@ class Shade extends Enemy {
         if (this.state === "windup") {
 
             const S = ENEMY_TYPES.shade;
-            const progress = 1 - this.stateTimer / S.WINDUP_DURATION;
+            const progress =
+                1 - this.stateTimer /
+                (S.WINDUP_DURATION * this.tempoScale());
             const radius = this.size * (1.6 - progress * 0.7);
 
             ctx.save();

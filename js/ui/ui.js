@@ -2462,6 +2462,24 @@ function drawWaveMessages() {
         ctx.fillStyle = "gold";
         ctx.fillText("WAVE COMPLETE", canvas.width / 2, canvas.height / 2);
 
+        // The breather tally: what the wave paid out, and
+        // that the dash came back with it.
+        ctx.font = `${ph(0.04)}px Arial`;
+        ctx.fillStyle = "#ffe28a";
+        ctx.fillText(
+            `+${Game.waveCoins} coins`,
+            canvas.width / 2,
+            canvas.height / 2 + ph(0.065)
+        );
+
+        ctx.font = `${ph(0.028)}px Arial`;
+        ctx.fillStyle = "#9fd8ff";
+        ctx.fillText(
+            "Dash refunded",
+            canvas.width / 2,
+            canvas.height / 2 + ph(0.11)
+        );
+
     }
 
 }

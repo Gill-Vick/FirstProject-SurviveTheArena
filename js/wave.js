@@ -43,10 +43,53 @@ const SPAWN_GAP = {
 
 };
 
-// An elite 1-HP bomb is just noise, so kegs stay normal.
+// Bosses never roll elite. (Kegs used to be excluded too,
+// but elite kegs now have their own payoff - cluster bombs.)
 const NO_ELITE = new Set([
-    "boss", "knight", "royalMagus", "king", "powderKeg"
+    "boss", "knight", "royalMagus", "king"
 ]);
+
+// =====================================
+// Elite Waves
+// =====================================
+//
+// Elites are deterministic, not a per-spawn gamble: within
+// each 5-wave block ending in a boss (1-5, 6-10, ...), the
+// 2nd and 3rd waves of the block are elite waves (e.g. waves
+// 2-3, then 7-8, 12-13, 17-18, 22-23...). Boss waves land on
+// wave % 5 == 0, so they can never be elite waves.
+
+function isEliteWave(wave) {
+
+    const posInBlock = wave % WAVES.BOSS_WAVE;
+
+    return posInBlock === 2 || posInBlock === 3;
+
+}
+
+// How many elites this wave carries. 0 on non-elite waves.
+// The count ramps every elite wave: START_COUNT on the first
+// (wave 2), then +PER_WAVE_STEP each elite wave after it, by
+// counting how many elite waves have come before this one.
+//
+//   wave 2  -> 1st elite wave -> 2
+//   wave 3  -> 2nd elite wave -> 3
+//   wave 7  -> 3rd elite wave -> 4
+//   wave 8  -> 4th elite wave -> 5   ...and so on.
+
+function eliteCountForWave(wave) {
+
+    if (!isEliteWave(wave))
+        return 0;
+
+    // Two elite waves per 5-wave block; within a block the
+    // pos-2 wave is the earlier of the pair, pos-3 the later.
+    const block = Math.floor((wave - 1) / WAVES.BOSS_WAVE);
+    const eliteWaveIndex = block * 2 + (wave % WAVES.BOSS_WAVE === 3 ? 1 : 0);
+
+    return ELITE.START_COUNT + eliteWaveIndex * ELITE.PER_WAVE_STEP;
+
+}
 
 // =====================================
 // Spawn Order
@@ -91,6 +134,17 @@ function startWave() {
     Game.waveSpawning = true;
     Game.waveTransition = false;
     Game.waveMessageTimer = 120;
+
+    // Coins earned this wave, tallied by onEnemyKilled and
+    // shown on the wave-clear banner.
+    Game.waveCoins = 0;
+
+    // Elite budget for this wave (ramps every elite wave -
+    // see eliteCountForWave). eliteEligibleLeft is filled in
+    // by the spawners once the wave's counts are known;
+    // spawnEnemy() then hands the budget out at exact odds.
+    Game.eliteBudget = eliteCountForWave(Game.wave);
+    Game.eliteEligibleLeft = 0;
 
     updateArenaForWave();
 
@@ -292,6 +346,8 @@ function spawnWaveEnemiesGrouped(counts) {
         return;
 
     }
+
+    countEliteEligible(counts);
 
     const token = Game.runToken;
 
@@ -497,6 +553,18 @@ function startKingWave() {
 
 }
 
+// How many of this wave's scheduled spawns can roll elite -
+// spawnEnemy() uses it to hand out Game.eliteBudget at exact
+// odds (budget/remaining per eligible spawn).
+
+function countEliteEligible(counts) {
+
+    Game.eliteEligibleLeft = Object.keys(counts)
+        .filter(type => !NO_ELITE.has(type))
+        .reduce((sum, type) => sum + counts[type], 0);
+
+}
+
 function spawnWaveEnemies(counts) {
 
     const totalCount = Object.values(counts)
@@ -509,6 +577,8 @@ function spawnWaveEnemies(counts) {
         return;
 
     }
+
+    countEliteEligible(counts);
 
     // Captured at schedule time: if the run/wave is torn down
     // (menu, restart, custom wave jump) before a timer fires,
@@ -670,20 +740,28 @@ function spawnEnemy(type = "grunt") {
     const EnemyClass = ENEMY_CLASSES[type] || Grunt;
     const enemy = new EnemyClass(x, y);
 
-    const eliteChance =
-        Game.mode === "endless" ? ENDLESS.ELITE_CHANCE : ELITE.CHANCE;
+    // Deterministic elite waves (see isEliteWave): exactly
+    // eliteBudget elites land somewhere random among this
+    // wave's eligible spawns. Giving each eligible spawn
+    // budget/remaining odds distributes them uniformly while
+    // guaranteeing the exact count.
+    if (!NO_ELITE.has(type) && Game.eliteBudget > 0) {
 
-    if (
+        const odds =
+            Game.eliteBudget / Math.max(1, Game.eliteEligibleLeft);
 
-        !NO_ELITE.has(type) &&
-        Game.wave >= ELITE.UNLOCK_WAVE &&
-        Math.random() < eliteChance
+        if (Math.random() < odds) {
 
-    ) {
+            makeElite(enemy);
 
-        makeElite(enemy);
+            Game.eliteBudget--;
+
+        }
 
     }
+
+    if (!NO_ELITE.has(type))
+        Game.eliteEligibleLeft--;
 
     Game.enemies.push(enemy);
 
@@ -716,6 +794,11 @@ function updateWave() {
     Game.waveActive = false;
 
     Sound.play("waveClear");
+
+    // The breather beat: clearing a wave refunds the dash so
+    // every wave starts with your mobility ready to answer.
+    if (player)
+        player.dashCooldowns = player.dashCooldowns.map(() => 0);
 
     const token = Game.runToken;
 

@@ -179,6 +179,15 @@ const Game = {
 
     enemiesRemaining: 0,
 
+    // Coins earned in the current wave (wave-clear banner
+    // tally) - reset by startWave.
+    waveCoins: 0,
+
+    // Deterministic elite-wave bookkeeping - set by startWave
+    // / the spawners in wave.js, spent by spawnEnemy.
+    eliteBudget: 0,
+    eliteEligibleLeft: 0,
+
     enemySpeedMultiplier: 1,
 
     // Flat HP multiplier applied to every enemy at spawn (see
@@ -425,6 +434,8 @@ function onEnemyKilled(enemy) {
     const reward = COINS[enemy.type] ?? COINS.grunt;
 
     Save.addCoins(reward);
+
+    Game.waveCoins += reward;
 
     if (enemy.type === "boss")
         Save.markFirstBossKilled();

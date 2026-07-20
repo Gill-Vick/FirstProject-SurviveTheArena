@@ -162,6 +162,29 @@ class PowderKeg extends Enemy {
         // stays lethal to the player until the wave ends.
         Game.hazards.push(new KegKillZone(cx, cy));
 
+        // Elite kegs go out as a minefield: cluster bombs
+        // scattered around the blast, each with its own fuse
+        // and its own (smaller) kill zone.
+        if (this.isElite) {
+
+            for (let i = 0; i < ELITE.KEG_CLUSTER_COUNT; i++) {
+
+                const angle =
+                    (i / ELITE.KEG_CLUSTER_COUNT) * Math.PI * 2 +
+                    Math.random() * 0.8;
+
+                const dist =
+                    ELITE.KEG_CLUSTER_SCATTER * (0.6 + Math.random() * 0.4);
+
+                Game.hazards.push(new ClusterBomb(
+                    cx + Math.cos(angle) * dist,
+                    cy + Math.sin(angle) * dist
+                ));
+
+            }
+
+        }
+
         onEnemyKilled(this);
 
     }

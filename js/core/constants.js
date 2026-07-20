@@ -1454,10 +1454,20 @@ const ENEMY_LABELS = {
 // Elite Modifier
 // =====================================
 //
-// Elites aren't a new class - makeElite()
-// in entities/elite.js buffs an existing
-// enemy instance and flags it. Applies to
-// grunt/tank/archer/runner, not the boss.
+// Elites aren't a new class - makeElite() in
+// entities/elite.js buffs an existing enemy instance, flags
+// it, and layers on a per-type twist (see the switch there).
+// Bosses are excluded.
+//
+// SPAWNING is deterministic, not a per-spawn gamble: within
+// each 5-wave block ending in a boss (1-5, 6-10, ...), the
+// 2nd and 3rd waves of the block (wave % 5 == 2 or 3) are
+// "elite waves". The count ramps every elite wave: START_COUNT
+// on the first one (wave 2), then +PER_WAVE_STEP on each
+// subsequent elite wave (wave 3 = 3, wave 7 = 4, wave 8 = 5,
+// ...). Those elites are distributed randomly across the
+// wave's eligible spawns. See eliteCountForWave()/spawnEnemy()
+// in wave.js.
 
 const ELITE = {
 
@@ -1467,8 +1477,74 @@ const ELITE = {
 
     GLOW_COLOR: "gold",
 
-    UNLOCK_WAVE: 3,
-    CHANCE: 0.15
+    // Elites on the very first elite wave, and how much the
+    // count grows on each elite wave after it.
+    START_COUNT: 2,
+    PER_WAVE_STEP: 1,
+
+    // --- Per-type twists (see makeElite) ---
+
+    // Tank: aura that makes every OTHER enemy inside it
+    // damage-immune (the elite tank itself stays hittable) -
+    // "kill the tank first" pressure.
+    TANK_AURA_RADIUS: 170,
+
+    // Archer: 3-arrow fan per shot.
+    ARCHER_FAN_COUNT: 3,
+    ARCHER_FAN_SPREAD: 0.2,
+
+    // Fire Mage: multiplier on the fire cast's area (the
+    // burning ground it leaves scales with it).
+    FIRE_AREA_SCALE: 1.6,
+
+    // Necromancer: kites at range like an archer instead of
+    // marching into melee, and its summons come out elite.
+    NECRO_KITE_RANGE: 300,
+
+    // Elite skeleton dagger - a short telegraphed swing that
+    // extends its kill reach beyond plain body contact.
+    SKELETON_DAGGER_RANGE: 80,
+    SKELETON_DAGGER_WINDUP: 300,
+    SKELETON_DAGGER_SWING: 160,
+    SKELETON_DAGGER_COOLDOWN: 1300,
+
+    // Lancer: tougher shield, dashes without needing the
+    // shield broken first, and periodically wards nearby
+    // allies with 1-hit shields.
+    LANCER_SHIELD_HITS: 3,
+    LANCER_WARD_RADIUS: 220,
+    LANCER_WARD_INTERVAL: 4000,
+
+    // Shade: a smaller, faster blink-assassin. TEMPO scales
+    // vanish/windup down (dash "happens faster"), LUNGE
+    // scales the dash speed up, COOLDOWN shortens the gap
+    // between teleports.
+    SHADE_SIZE_SCALE: 0.8,
+    SHADE_TEMPO_SCALE: 0.55,
+    SHADE_LUNGE_SCALE: 1.5,
+    SHADE_COOLDOWN_SCALE: 0.6,
+
+    // Frost Weaver: instead of one patch, lays a full row of
+    // ice from itself through the player - a King's-Blade-
+    // style line, but it slows instead of damaging. WIDTH is
+    // the row's total width (the Blade's beam is 30).
+    WEAVER_ROW_WIDTH: 90,
+    WEAVER_ROW_SPACING: 40,
+    WEAVER_ROW_LENGTH: 1000,
+
+    // Powder Keg: death scatters cluster bombs around the
+    // blast that explode after a fuse, each scorching its own
+    // (smaller) kill zone.
+    KEG_CLUSTER_COUNT: 4,
+    KEG_CLUSTER_RADIUS: 65,
+    KEG_CLUSTER_FUSE: 1000,
+    KEG_CLUSTER_SCATTER: 120,
+
+    // Blood Cleric: wards come out twice as fast, and a ward
+    // from an elite cleric also hastes its holder until the
+    // shield breaks.
+    CLERIC_WARD_RATE_SCALE: 0.5,
+    CLERIC_HASTE: 1.25
 
 };
 
@@ -1760,7 +1836,9 @@ const WAVES = {
     BOSS_ESCORT_GRUNTS: 8,
     BOSS_ESCORT_TANKS: 4,
 
-    TRANSITION_TIME: 1500,
+    // Long enough for the wave-clear tally (coins earned,
+    // dash refunded) to actually read as a breather beat.
+    TRANSITION_TIME: 2500,
 
     // Small pause after one enemy type finishes its spawn
     // sequence and before the next type starts, so waves read
@@ -1778,8 +1856,9 @@ const WAVES = {
 // (bosses recur every 5 waves via a modulo-20 cycle - see
 // startWave in wave.js) but there is no victory. Past the King
 // (wave 20) the difficulty ramps: every wave beyond 20 adds a
-// little enemy HP and speed, and elites roll far more often, so
-// how far you get is the score. RAMP_START is WAVES.KING_WAVE.
+// little enemy HP and speed, so how far you get is the score.
+// (Elites follow the same deterministic elite-wave schedule as
+// every other mode - see ELITE.) RAMP_START is WAVES.KING_WAVE.
 
 const ENDLESS = {
 
@@ -1793,10 +1872,7 @@ const ENDLESS = {
     // Enemy speed: added to the flat 1.2 combat multiplier per
     // wave past 20, capped at SPEED_MAX.
     SPEED_PER_WAVE: 0.015,
-    SPEED_MAX: 1.9,
-
-    // Elites roll much more often than the normal 15%.
-    ELITE_CHANCE: 0.28
+    SPEED_MAX: 1.9
 
 };
 
