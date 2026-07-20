@@ -69,8 +69,37 @@ function gameLoop(currentTime) {
     if (delta < 0)
         delta = 0;
 
-    Game.dt = delta;
-    Game.timeScale = delta / (1000 / 60);
+    // Hit-stop and the death slow-mo bend time for the whole
+    // sim. Their timers tick on the RAW delta (they'd freeze
+    // themselves otherwise), and only while actually playing,
+    // so pausing mid-freeze doesn't quietly drain them.
+    let flow = 1;
+
+    if (Game.state === "playing") {
+
+        if (Game.dying) {
+
+            Game.dyingTimer -= delta;
+
+            if (Game.dyingTimer <= 0)
+                finishPlayerDeath();
+            else
+                flow = DEATH_SLOWMO.TIME_SCALE;
+
+        }
+
+        if (Game.hitStopTimer > 0) {
+
+            Game.hitStopTimer -= delta;
+
+            flow = 0;
+
+        }
+
+    }
+
+    Game.dt = delta * flow;
+    Game.timeScale = Game.dt / (1000 / 60);
 
     update();
 

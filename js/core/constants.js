@@ -1171,7 +1171,57 @@ const CRIT = {
 
 const DASH = {
     DISTANCE: 120,
-    COOLDOWN: 3571
+    COOLDOWN: 3571,
+
+    // Brief invulnerability granted by every dash (all
+    // classes) - just enough grace that dashing INTO a
+    // projectile you were dodging doesn't feel like a cheap
+    // death. The Thief's cloak phase stacks on top.
+    GRACE_MS: 100,
+
+    // Ghost images left along the dash line so the teleport
+    // reads as movement. Count is how many ghosts, life is
+    // how long each takes to fade (60fps frames).
+    AFTERIMAGE_COUNT: 4,
+    AFTERIMAGE_LIFE: 14
+};
+
+// =====================================
+// Hit-Stop
+// =====================================
+//
+// Tiny full-sim freezes on melee contact that make hits feel
+// weighty. Applied via applyHitStop() (game.js) and enforced
+// in the main loop by zeroing Game.dt/timeScale while the
+// timer (real ms, NOT scaled) runs down. Concurrent hits
+// take the max, never the sum, so an AOE swing can't chain
+// into a long stutter.
+
+const HITSTOP = {
+
+    MELEE_MS: 60,
+    CRIT_MS: 100,
+
+    // Any boss kill, melee or ranged - the big punctuation
+    // mark.
+    BOSS_KILL_MS: 220
+
+};
+
+// =====================================
+// Death Slow-Mo
+// =====================================
+//
+// A fatal hit no longer cuts straight to the game over
+// screen - the sim runs at TIME_SCALE for DURATION_MS (real
+// ms) first, so the player actually sees the blow that
+// killed them land. See Player.takeHit / finishPlayerDeath.
+
+const DEATH_SLOWMO = {
+
+    DURATION_MS: 600,
+    TIME_SCALE: 0.2
+
 };
 
 // =====================================

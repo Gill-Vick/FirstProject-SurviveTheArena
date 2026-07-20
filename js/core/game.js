@@ -84,6 +84,18 @@ const Game = {
     dt: 1000 / 60,
     timeScale: 1,
 
+    // Remaining hit-stop freeze, in REAL ms - ticked down by
+    // the raw frame delta in main.js (it must not scale
+    // itself to zero). While positive, dt/timeScale are 0.
+    hitStopTimer: 0,
+
+    // True between the fatal hit and the game over screen -
+    // the sim keeps running in slow motion so the killing
+    // blow is actually seen. dyingTimer is REAL ms remaining;
+    // finishPlayerDeath() (below) fires when it runs out.
+    dying: false,
+    dyingTimer: 0,
+
     state: "menu",
 
     menuView: "main",
@@ -298,6 +310,12 @@ function startGame(mode = "campaign") {
 
     Game.newBest = false;
 
+    Game.hitStopTimer = 0;
+
+    Game.dying = false;
+
+    Game.dyingTimer = 0;
+
     Game.wave = Game.bossRush ? WAVES.BOSS_WAVE : 1;
 
     Game.elapsedTime = 0;
@@ -339,6 +357,39 @@ function startGame(mode = "campaign") {
 
 }
 
+// =====================================
+// Hit-Stop / Death Slow-Mo
+// =====================================
+//
+// Both bend time for the entire sim; the actual dt/timeScale
+// enforcement lives in main.js, where the raw (unscaled)
+// frame delta is available to tick these timers.
+
+function applyHitStop(ms) {
+
+    // Max, not sum - a multi-target swing lands one beat, not
+    // a stutter per enemy hit.
+    Game.hitStopTimer = Math.max(Game.hitStopTimer, ms);
+
+}
+
+// The fatal hit only STARTS the death (see Player.takeHit) -
+// this runs when the slow-mo window ends and actually rolls
+// the game over screen.
+
+function finishPlayerDeath() {
+
+    Game.dying = false;
+    Game.dyingTimer = 0;
+
+    Game.state = "gameover";
+
+    // Log the run's distance for the score modes (no-op in
+    // Campaign/Custom); remember if it was a new record.
+    Game.newBest = Save.recordRunWave(Game.mode, Game.wave);
+
+}
+
 function onEnemyKilled(enemy) {
 
     // One credit per corpse. Two damage sources can both see
@@ -361,6 +412,15 @@ function onEnemyKilled(enemy) {
         enemy.x + enemy.size / 2,
         enemy.y + enemy.size / 2
     );
+
+    // Death pop: a burst of the enemy's own color plus an
+    // expanding ring, so kills read as an event instead of a
+    // disappearance. Bosses also get the big hit-stop beat,
+    // whatever weapon landed the kill.
+    Particle.createDeathBurst(enemy);
+
+    if (enemy.isBoss)
+        applyHitStop(HITSTOP.BOSS_KILL_MS);
 
     const reward = COINS[enemy.type] ?? COINS.grunt;
 
@@ -458,6 +518,12 @@ function resetGame() {
     Game.immortal = false;
 
     Game.runToken++;
+
+    Game.hitStopTimer = 0;
+
+    Game.dying = false;
+
+    Game.dyingTimer = 0;
 
     Game.bestiarySelected = null;
 

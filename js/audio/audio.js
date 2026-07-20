@@ -601,8 +601,11 @@ function syncMusicToGameState() {
 
     // Game over holds on whatever was playing rather than
     // cutting to silence mid-sting - the gameOver sfx carries
-    // that moment.
-    if (Game.state === "gameover")
+    // that moment. The death slow-mo window counts too: the
+    // state is still "playing" there, but the music bed is
+    // already fading out under the sting and must not be
+    // restarted.
+    if (Game.state === "gameover" || Game.dying)
         return;
 
     if (!isRunActive())

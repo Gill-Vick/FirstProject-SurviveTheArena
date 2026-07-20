@@ -368,6 +368,10 @@ class Ranger extends Player {
 
             enemy.takeDamage(this.applyMark(damage, enemy), critical);
 
+            applyHitStop(
+                critical ? HITSTOP.CRIT_MS : HITSTOP.MELEE_MS
+            );
+
             enemy.applyKnockback(px, py, 9.8);
 
             if (venom)

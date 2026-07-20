@@ -142,6 +142,11 @@ class Player {
         if (Game.immortal)
             return false;
 
+        // Already dying - the slow-mo window shouldn't record
+        // a second killer or restart itself.
+        if (Game.dying)
+            return false;
+
         if (this.invulnTimer > 0)
             return false;
 
@@ -152,7 +157,12 @@ class Player {
 
         Game.screenShake = EFFECTS.SHAKE_ON_DEATH;
 
-        Game.state = "gameover";
+        // Don't cut straight to the game over screen - run the
+        // sim in slow motion for a beat so the killing blow is
+        // actually seen. finishPlayerDeath() (game.js) flips
+        // the state when the window expires (main.js ticks it).
+        Game.dying = true;
+        Game.dyingTimer = DEATH_SLOWMO.DURATION_MS;
 
         // The death sting carries the moment; the music bed
         // fades out under it (the router deliberately doesn't
@@ -161,10 +171,6 @@ class Player {
         Sound.stopMusic({ fade: 1000 });
 
         Game.killedBy = source;
-
-        // Log the run's distance for the score modes (no-op in
-        // Campaign/Custom); remember if it was a new record.
-        Game.newBest = Save.recordRunWave(Game.mode, Game.wave);
 
         return true;
 
@@ -193,17 +199,18 @@ class Player {
 
         const speed = this.getCurrentSpeed() * this.getFrostMultiplier();
 
-        if (keys["w"])
-            this.y -= speed * Game.timeScale;
+        // Build the full input vector first, then clamp its
+        // magnitude to 1 - holding W+D used to move the player
+        // sqrt(2) (~41%) faster than holding W alone. Only
+        // clamped (not always normalized) so an analog joystick
+        // tilted gently still walks at partial speed.
+        let dx = 0;
+        let dy = 0;
 
-        if (keys["s"])
-            this.y += speed * Game.timeScale;
-
-        if (keys["a"])
-            this.x -= speed * Game.timeScale;
-
-        if (keys["d"])
-            this.x += speed * Game.timeScale;
+        if (keys["w"]) dy -= 1;
+        if (keys["s"]) dy += 1;
+        if (keys["a"]) dx -= 1;
+        if (keys["d"]) dx += 1;
 
         // Mobile joystick input - purely additive on top of
         // the WASD checks above. MobileInput.active is only
@@ -212,10 +219,22 @@ class Player {
         // no-op on desktop and doesn't change PC movement feel.
         if (typeof MobileInput !== "undefined" && MobileInput.active) {
 
-            this.x += MobileInput.moveX * speed * Game.timeScale;
-            this.y += MobileInput.moveY * speed * Game.timeScale;
+            dx += MobileInput.moveX;
+            dy += MobileInput.moveY;
 
         }
+
+        const magnitude = Math.hypot(dx, dy);
+
+        if (magnitude > 1) {
+
+            dx /= magnitude;
+            dy /= magnitude;
+
+        }
+
+        this.x += dx * speed * Game.timeScale;
+        this.y += dy * speed * Game.timeScale;
 
     }
 
@@ -354,6 +373,22 @@ class Player {
             this.y += dy * dashDistance;
 
             this.dashCooldowns[i] = this.getDashCooldown();
+
+            // A hair of grace on every dash - dashing INTO a
+            // projectile you were dodging shouldn't be a death.
+            // Max, not assignment, so it never trims a longer
+            // shield/cloak invulnerability already running.
+            this.invulnTimer = Math.max(this.invulnTimer, DASH.GRACE_MS);
+
+            // Ghost trail along the dash line so the teleport
+            // reads as movement (see DashAfterimage).
+            DashAfterimage.createTrail(
+                startX, startY,
+                this.x, this.y,
+                this.size,
+                this.frameIndex,
+                aimAngle
+            );
 
             Sound.play("dash");
 
