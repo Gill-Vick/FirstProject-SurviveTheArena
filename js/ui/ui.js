@@ -629,6 +629,31 @@ const SHOP_ITEM_IDS = [
 
 ];
 
+// =====================================
+// Stage Picker Visibility
+// =====================================
+//
+// Which staged items show the 3-segment stage picker, and
+// when. Every class owns exactly one item in each group:
+//
+//   [E] weapon line - picker always visible
+//     Warrior bow / Ranger dagger / Thief throwing knife /
+//     Mage sunburst (Glimmer -> Sunburst -> Solar Flare)
+//
+//   Defensive-utility line - picker once stage 1 is owned
+//     Warrior shield / Thief cloak / Ranger bracelet /
+//     Mage halo
+//
+// Between them these cover all of STAGED_ITEM_IDS. The click
+// and drag handlers already work off STAGED_ITEM_IDS, so an
+// item missing from BOTH lists is still draggable but draws
+// no picker - which is exactly how the Mage's halo and
+// sunburst ended up unswitchable.
+
+const PICKER_ALWAYS = ["bow", "dagger", "throwingKnife", "sunburst"];
+
+const PICKER_WHEN_OWNED = ["shield", "cloak", "bracelet", "halo"];
+
 // The Armoury only lists the currently selected class's
 // items, plus shared ones (crit). Every row index used for
 // layout/hit-testing below is an index into THIS list, not
@@ -1021,6 +1046,11 @@ function drawCoinDisplay(x, y, size) {
 // (bow 1/2/3, shield W/O/B, cloak T/S/P, dagger 1/2/3) -
 // the per-item labels/colors live in STAGE_SLIDER_STYLE.
 
+// Labels follow the same split as the picker groups: the [E]
+// weapon line is numbered 1-2-3, the defensive/utility line
+// uses its stage initials (Wooden/Onyx/Bulwark, Tattered/
+// Shadow/Phantom, Iron/Wind/Sylph, Dim/Bright/Radiant).
+
 const STAGE_SLIDER_STYLE = {
 
     bow: { labels: ["1", "2", "3"], activeColor: "#c9a227" },
@@ -1028,13 +1058,24 @@ const STAGE_SLIDER_STYLE = {
     cloak: { labels: ["T", "S", "P"], activeColor: "#9b59b6" },
     dagger: { labels: ["1", "2", "3"], activeColor: "#95a5a6" },
     throwingKnife: { labels: ["1", "2", "3"], activeColor: "#c0392b" },
-    bracelet: { labels: ["I", "W", "S"], activeColor: "#1abc9c" }
+    bracelet: { labels: ["I", "W", "S"], activeColor: "#1abc9c" },
+    sunburst: { labels: ["1", "2", "3"], activeColor: SUNBURST.COLOR },
+    halo: { labels: ["D", "B", "R"], activeColor: HALO.COLOR }
 
+};
+
+// Numeric fallback so a staged item missing from the table
+// above draws a plain picker instead of throwing and taking
+// the whole menu down with it.
+const STAGE_SLIDER_FALLBACK = {
+    labels: ["1", "2", "3"],
+    activeColor: "#c9a227"
 };
 
 function drawStageIndicator(slider, currentStage, itemId) {
 
-    const { labels, activeColor } = STAGE_SLIDER_STYLE[itemId];
+    const { labels, activeColor } =
+        STAGE_SLIDER_STYLE[itemId] ?? STAGE_SLIDER_FALLBACK;
 
     const segW = slider.width / 3;
     const boxW = segW * 0.85;
@@ -1434,15 +1475,15 @@ function drawShop() {
             ctx.fillText(`${item.price} coins`, marginX + pw(0.015), rowY + ph(0.065));
         }
 
-        // Staged items get the 3-segment stage picker. Bow,
-        // dagger, and throwing knife always show theirs; shield,
-        // cloak, and bracelet only once the first stage is owned
-        // (matching the old behavior).
-        if (id === "bow" || id === "dagger" || id === "throwingKnife") {
-            drawStageIndicator(getShopStageSlider(i), Save.getEquippedStage(id), id);
-        }
-
-        if ((id === "shield" || id === "cloak" || id === "bracelet") && Save.getStage(id) >= 1) {
+        // Staged items get the 3-segment stage picker, in two
+        // groups that line up one-per-class (see the lists
+        // above drawShop): the [E] weapon line always shows
+        // its picker, the defensive/utility line only once the
+        // first stage is owned.
+        if (
+            PICKER_ALWAYS.includes(id) ||
+            (PICKER_WHEN_OWNED.includes(id) && Save.getStage(id) >= 1)
+        ) {
             drawStageIndicator(getShopStageSlider(i), Save.getEquippedStage(id), id);
         }
 

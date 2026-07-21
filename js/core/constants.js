@@ -590,6 +590,15 @@ const MAGE = {
     // this far along the aim direction instead.
     SUNBEAM_CAST_DISTANCE: 300,
 
+    // Every source of Mage damage is scaled by this against
+    // the Royal Magus and the King ONLY (see mageDamageTo in
+    // mage.js). The Mage's kit is all persistent zone damage -
+    // wide strikes, burns, fields, auras - which is the point
+    // against a wave, but against one big stationary target
+    // every source lands at once and those two fights melted.
+    // Trash, the Castle Guard and the Knight are untouched.
+    LATE_BOSS_DAMAGE_SCALE: 0.5,
+
     COLOR: "#fff3b0"
 
 };

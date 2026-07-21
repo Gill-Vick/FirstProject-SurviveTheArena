@@ -22,6 +22,37 @@
 //   - Sovereign's Scepter (King): +Sunbeam dmg + right-click
 //     royal barrage of light beams.
 
+// =====================================
+// Late-Boss Resist
+// =====================================
+//
+// Every point of damage the Mage deals - Sunbeam strikes,
+// Prism burns and ice fields, Sunburst, Sanctuary, Corona,
+// the Scepter barrage - is routed through here. Against the
+// Royal Magus and the King it is scaled by
+// MAGE.LATE_BOSS_DAMAGE_SCALE; against everything else it
+// passes through untouched.
+//
+// Why those two specifically: the Mage's whole kit is
+// persistent AREA damage, and a boss that is both huge and
+// slow sits inside every zone at once, so all of it stacks on
+// one target. Waves (the thing the zones are designed for)
+// and the two smaller early bosses are unaffected.
+//
+// Floored at 1 so a 1-damage tick still lands rather than
+// rounding away to nothing.
+
+const MAGE_RESISTANT_BOSSES = new Set(["royalMagus", "king"]);
+
+function mageDamageTo(enemy, amount) {
+
+    if (!MAGE_RESISTANT_BOSSES.has(enemy.type))
+        return amount;
+
+    return Math.max(1, Math.round(amount * MAGE.LATE_BOSS_DAMAGE_SCALE));
+
+}
+
 class Mage extends Player {
 
     constructor() {
@@ -284,7 +315,7 @@ class Mage extends Player {
             if (Math.hypot(ex - x, ey - y) > radius)
                 return;
 
-            enemy.takeDamage(dealt, crit);
+            enemy.takeDamage(mageDamageTo(enemy, dealt), crit);
 
             if (enemy.isDead()) {
 
@@ -360,7 +391,9 @@ class Mage extends Player {
                 burn.tickTimer += ELEMENTAL_PRISM.BURN_TICK_MS;
                 burn.ticksLeft--;
 
-                burn.enemy.takeDamage(ELEMENTAL_PRISM.BURN_DAMAGE);
+                burn.enemy.takeDamage(
+                    mageDamageTo(burn.enemy, ELEMENTAL_PRISM.BURN_DAMAGE)
+                );
 
                 if (burn.enemy.isDead()) {
 
@@ -425,7 +458,7 @@ class Mage extends Player {
             if (Math.hypot(ex - cx, ey - cy) > CORONA.RADIUS)
                 return;
 
-            enemy.takeDamage(CORONA.TICK_DAMAGE);
+            enemy.takeDamage(mageDamageTo(enemy, CORONA.TICK_DAMAGE));
 
             if (enemy.isDead())
                 onEnemyKilled(enemy);
@@ -482,7 +515,7 @@ class Mage extends Player {
 
                 if (lx >= -pad && lx <= length + pad && Math.abs(ly) <= half + pad) {
 
-                    enemy.takeDamage(dmg, crit);
+                    enemy.takeDamage(mageDamageTo(enemy, dmg), crit);
                     hit.add(enemy);
 
                     if (enemy.isDead())
@@ -837,7 +870,7 @@ class SunburstOrb {
             if (Math.hypot(ex - this.tx, ey - this.ty) > this.radius)
                 return;
 
-            enemy.takeDamage(dealt, crit);
+            enemy.takeDamage(mageDamageTo(enemy, dealt), crit);
 
             // The shove is the point - it's the only way a
             // dashless Mage makes space. Anchored foes (tanks,
@@ -920,7 +953,7 @@ class SanctuaryField {
                 if (Math.hypot(ex - this.x, ey - this.y) > this.radius)
                     return;
 
-                enemy.takeDamage(SANCTUARY.TICK_DAMAGE);
+                enemy.takeDamage(mageDamageTo(enemy, SANCTUARY.TICK_DAMAGE));
 
                 if (enemy.isDead())
                     onEnemyKilled(enemy);

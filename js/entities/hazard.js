@@ -360,7 +360,9 @@ class MageIceField {
 
             if (ticking) {
 
-                enemy.takeDamage(ELEMENTAL_PRISM.ICE_DAMAGE);
+                enemy.takeDamage(
+                    mageDamageTo(enemy, ELEMENTAL_PRISM.ICE_DAMAGE)
+                );
 
                 if (enemy.isDead())
                     onEnemyKilled(enemy);
