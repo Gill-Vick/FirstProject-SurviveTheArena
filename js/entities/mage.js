@@ -13,10 +13,11 @@
 //     that blocks one hit then recharges. The whole defense.
 //   - Sunburst (staged [E]): a lobbed orb of light, AOE burst.
 //   - Sunstone (single): +Sunbeam damage & radius.
-//   - Refraction / Solar Attunement (Castle Guard): a 2nd
-//     Sunbeam charge / faster recharge.
-//   - Radiant Overload / Radiant Bloom (Knight): every 3rd
-//     cast overcharges / Sunbeam blooms into a sunflower.
+//   - Refraction / Amberlight Field (Castle Guard): much
+//     faster Sunbeam recharge / an aura that halves the speed
+//     of enemy shots crossing it.
+//   - Radiant Overload / Elemental Prism (Knight): every 3rd
+//     cast overcharges / casts alternate fire and ice.
 //   - Sanctuary / Corona (Magus): Sunburst leaves a field /
 //     a damaging aura keeps enemies off you.
 //   - Sovereign's Scepter (King): +Sunbeam dmg + right-click
@@ -73,9 +74,14 @@ class Mage extends Player {
         // Sunburst [E]
         this.sunburstCooldown = 0;
 
-        // Halo ward - starts up, recharges on a timer once spent.
+        // Halo ward - starts up. Once spent it comes back after
+        // a number of WAVES (see HALO.RECHARGE_WAVES), not on a
+        // seconds timer, so a blocked hit is a cost you carry
+        // through the round rather than one that refunds itself
+        // mid-fight. lastSeenWave drives the countdown.
         this.wardReady = true;
-        this.wardCooldown = 0;
+        this.wardWavesLeft = 0;
+        this.lastSeenWave = Game.wave;
 
         // Corona aura tick.
         this.coronaTimer = 0;
@@ -101,6 +107,15 @@ class Mage extends Player {
 
     }
 
+    // Amberlight Field - read by Projectile.update, which
+    // drags enemy shots inside AMBERLIGHT.RADIUS down to half
+    // speed.
+    hasProjectileSlowAura() {
+
+        return Save.isEquipped("amberlightField");
+
+    }
+
     onAbilityKey() { this.castSunburst(); }
 
     onSecondaryFire() { this.fireBarrage(); }
@@ -113,7 +128,9 @@ class Mage extends Player {
             return false;
 
         this.wardReady = false;
-        this.wardCooldown = HALO.RECHARGE_MS[Save.equippedHaloStage] ?? HALO.RECHARGE_MS[1];
+        this.wardWavesLeft =
+            HALO.RECHARGE_WAVES[Save.equippedHaloStage] ??
+            HALO.RECHARGE_WAVES[1];
         this.invulnTimer = Math.max(this.invulnTimer, HALO.BLOCK_INVULN_MS);
 
         Sound.play("haloBreak");
@@ -150,13 +167,23 @@ class Mage extends Player {
         // Elemental Prism burn stacks.
         this.updateBurns();
 
-        // Halo ward recharge.
-        if (Save.isEquipped("halo") && !this.wardReady) {
+        // Halo ward recharge - counted in WAVES survived rather
+        // than seconds. Detecting that Game.wave CHANGED (not
+        // differencing the numbers) keeps one tick meaning one
+        // round in every mode: Boss Rush jumps 5 waves at a
+        // time, and a Custom wave jump can move it anywhere.
+        if (Game.wave !== this.lastSeenWave) {
 
-            this.wardCooldown -= Game.dt;
+            this.lastSeenWave = Game.wave;
 
-            if (this.wardCooldown <= 0)
-                this.wardReady = true;
+            if (!this.wardReady && this.wardWavesLeft > 0) {
+
+                this.wardWavesLeft--;
+
+                if (this.wardWavesLeft <= 0)
+                    this.wardReady = true;
+
+            }
 
         }
 
@@ -184,19 +211,28 @@ class Mage extends Player {
     // Sunbeam (basic - cursor cast)
     // =====================================
 
+    // Always a single charge now - Refraction buys recharge
+    // speed instead of a 2nd charge. Kept as a method (and the
+    // cooldown array kept at length 2) so the charge plumbing
+    // is still here if a charge item ever comes back.
     getSunbeamChargeCount() {
 
-        return 1 + (Save.isEquipped("refraction") ? REFRACTION.EXTRA_CHARGES : 0);
+        return 1;
 
     }
 
+    // Refraction is the Mage's only recharge item, and lands
+    // the Sunbeam at roughly the same sustained rate the old
+    // 2-charge build had - the burst is what's gone, not the
+    // output.
     getSunbeamCooldown() {
 
-        return MAGE.SUNBEAM_COOLDOWN * (
-            Save.isEquipped("solarAttunement")
-                ? SOLAR_ATTUNEMENT.COOLDOWN_MULTIPLIER
-                : 1
-        );
+        let cooldown = MAGE.SUNBEAM_COOLDOWN;
+
+        if (Save.isEquipped("refraction"))
+            cooldown *= REFRACTION.COOLDOWN_MULTIPLIER;
+
+        return cooldown;
 
     }
 
@@ -539,14 +575,16 @@ class Mage extends Player {
 
         const lines = [];
 
-        const slots = this.getSunbeamChargeCount();
-        let ready = 0;
-        for (let i = 0; i < slots; i++)
-            if (this.sunbeamCooldowns[i] <= 0) ready++;
+        // Single charge, so report it as ready / seconds left
+        // (the same shape as every other ability line) rather
+        // than the old "n/2" charge counter.
+        const beamCooldown = this.sunbeamCooldowns[0];
 
         lines.push({
-            text: `Sunbeam: ${ready}/${slots}`,
-            color: ready > 0 ? "white" : "#888"
+            text: `Sunbeam: ${beamCooldown > 0
+                ? (beamCooldown / 1000).toFixed(1) + "s"
+                : "READY"}`,
+            color: beamCooldown > 0 ? "#888" : "white"
         });
 
         // Elemental Prism - which element the NEXT cast lands
@@ -573,7 +611,9 @@ class Mage extends Player {
 
         if (Save.isEquipped("halo")) {
             lines.push({
-                text: `Halo: ${this.wardReady ? "UP" : (this.wardCooldown / 1000).toFixed(1) + "s"}`,
+                text: `Halo: ${this.wardReady
+                    ? "UP"
+                    : this.wardWavesLeft + (this.wardWavesLeft === 1 ? " wave" : " waves")}`,
                 color: this.wardReady ? "#ffe98a" : "#888"
             });
         }
@@ -594,6 +634,12 @@ class Mage extends Player {
     // =====================================
 
     draw() {
+
+        // Drawn first and largest - it's the outermost layer,
+        // and the boundary is information (shots crossing it
+        // slow down), so it sits under everything else.
+        if (Save.isEquipped("amberlightField"))
+            this.drawAmberlightField();
 
         if (Save.isEquipped("corona"))
             this.drawCorona();
@@ -682,6 +728,43 @@ class Mage extends Player {
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(cx, cy, CORONA.RADIUS, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.restore();
+
+    }
+
+    // A wide, faint dome of thickened light. Deliberately
+    // subtle in the middle (it covers a lot of screen) with a
+    // clearer rim, since the rim is the part that matters -
+    // it's where incoming shots start to drag.
+    drawAmberlightField() {
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+        const pulse = 0.5 + Math.sin(Date.now() / 500) * 0.15;
+
+        ctx.save();
+
+        const grad = ctx.createRadialGradient(
+            cx, cy, AMBERLIGHT.RADIUS * 0.45,
+            cx, cy, AMBERLIGHT.RADIUS
+        );
+        grad.addColorStop(0, "rgba(255, 217, 138, 0)");
+        grad.addColorStop(1, `rgba(255, 217, 138, ${0.1 * pulse})`);
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, AMBERLIGHT.RADIUS, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = `rgba(255, 226, 160, ${0.28 * pulse})`;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([12, 14]);
+        ctx.lineDashOffset = -Date.now() / 220;
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, AMBERLIGHT.RADIUS, 0, Math.PI * 2);
         ctx.stroke();
 
         ctx.restore();

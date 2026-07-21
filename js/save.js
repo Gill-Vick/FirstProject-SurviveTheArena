@@ -114,7 +114,7 @@ const Save = {
         sunburst: false,
         sunstone: false,
         refraction: false,
-        solarAttunement: false,
+        amberlightField: false,
         radiantOverload: false,
         elementalPrism: false,
         sanctuary: false,
@@ -156,7 +156,7 @@ const Save = {
         sunburst: false,
         sunstone: false,
         refraction: false,
-        solarAttunement: false,
+        amberlightField: false,
         radiantOverload: false,
         elementalPrism: false,
         sanctuary: false,
@@ -230,11 +230,16 @@ const Save = {
             // for the slot, so a rebalance that swaps what
             // fills it must not silently pocket their coins.
             //
-            //   Radiant Bloom  -> Elemental Prism   (mage)
-            //   Serrated Blade -> Shadowreach Blades (thief)
+            //   Radiant Bloom    -> Elemental Prism    (mage)
+            //   Serrated Blade   -> Shadowreach Blades (thief)
+            //   Solar Attunement -> Amberlight Field   (mage)
             //
             // Same price and same boss gate on both sides of
-            // each swap.
+            // each swap. The Amberlight Field does something
+            // different from the Solar Attunement it replaces
+            // (its old recharge bonus was folded into
+            // Refraction), but the slot was paid for either
+            // way.
             if (data.inventory?.radiantBloom) {
 
                 this.inventory.elementalPrism = true;
@@ -246,6 +251,13 @@ const Save = {
 
                 this.inventory.shadowreachBlades = true;
                 this.equipped.shadowreachBlades = !!data.equipped?.serratedBlade;
+
+            }
+
+            if (data.inventory?.solarAttunement) {
+
+                this.inventory.amberlightField = true;
+                this.equipped.amberlightField = !!data.equipped?.solarAttunement;
 
             }
 

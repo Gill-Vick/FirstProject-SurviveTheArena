@@ -41,6 +41,30 @@ class Projectile {
 
     }
 
+    // The Mage's Amberlight Field: enemy shots inside the aura
+    // travel at AMBERLIGHT.SPEED_FACTOR of their speed. Purely
+    // a slow - nothing is blocked or destroyed - and it only
+    // ever touches enemy fire, never the player's own.
+    getSlowAuraFactor() {
+
+        if (this.owner === "player")
+            return 1;
+
+        if (typeof player === "undefined" || !player)
+            return 1;
+
+        if (!player.hasProjectileSlowAura())
+            return 1;
+
+        const cx = player.x + player.size / 2;
+        const cy = player.y + player.size / 2;
+
+        return Math.hypot(this.x - cx, this.y - cy) < AMBERLIGHT.RADIUS
+            ? AMBERLIGHT.SPEED_FACTOR
+            : 1;
+
+    }
+
     resolve(x, y, enemy) {
 
         if (this.resolved)
@@ -57,9 +81,14 @@ class Projectile {
         const prevX = this.x;
         const prevY = this.y;
 
-        this.x += Math.cos(this.angle) * this.speed * Game.timeScale;
-        this.y += Math.sin(this.angle) * this.speed * Game.timeScale;
+        const speed = this.speed * this.getSlowAuraFactor();
 
+        this.x += Math.cos(this.angle) * speed * Game.timeScale;
+        this.y += Math.sin(this.angle) * speed * Game.timeScale;
+
+        // Life ticks in real frames regardless of the slow, so
+        // a shot crawling through the aura expires over the
+        // same distance-ish rather than hanging around forever.
         this.life -= Game.timeScale;
 
         if (this.owner === "player") {

@@ -604,15 +604,27 @@ const MAGE = {
 };
 
 // Halo - staged survivability ward. Blocks one hit, then
-// recharges over RECHARGE_MS[stage]. Stage 3 (Radiant Halo)
-// is Knight-gated and recharges fastest. Because the Mage has
-// no dash, this is its entire defensive kit.
+// comes back after RECHARGE_WAVES[stage] waves. Stage 3
+// (Radiant Halo) is Knight-gated and returns every wave.
+// Because the Mage has no dash, this is its entire defensive
+// kit - and it is deliberately scarce.
 const HALO = {
-    // Balance pass: recharges materially faster at every stage.
-    // A dashless class that has to walk out of trouble needs
-    // its one defense back before the NEXT wave beat, not two
-    // beats later.
-    RECHARGE_MS: [0, 6000, 4200, 3000],  // indexed by stage
+
+    // Recharges in WAVES, not seconds - indexed by stage.
+    //
+    // A seconds-based timer meant the Mage could trade a hit
+    // every few beats and just keep walking, which made the
+    // dashless class the safest in the game. Spending the ward
+    // now costs you for the rest of the ROUND (and several
+    // rounds at low stages), so the Mage plays on a knife edge:
+    // one mistake is banked, not refunded. Fully upgraded it
+    // comes back every wave - one hit per round, no more.
+    //
+    //   stage 1 - every 5 waves
+    //   stage 2 - every 3 waves
+    //   stage 3 - every wave
+    RECHARGE_WAVES: [0, 5, 3, 1],
+
     BLOCK_INVULN_MS: 700,
     COLOR: "#fff0b0"
 };
@@ -640,16 +652,36 @@ const SUNSTONE = {
     BONUS_RADIUS: 24
 };
 
-// Refraction (Castle Guard) - a 2nd Sunbeam charge, exactly
-// like Hermes Shoes granting a 2nd dash. Fire two casts back
-// to back, each recharging on its own timer.
+// Refraction (Castle Guard) - the Mage's recharge item.
+//
+// It used to grant a 2nd charge (Hermes-Shoes style). Two
+// charges made the Mage bursty and fiddly: both casts came out
+// at once unless you deliberately tapped slowly to hold one
+// back, so the "skill" was rationing charges rather than
+// aiming. It now cuts the recharge instead - same sustained
+// output, none of the burst.
+//
+// This multiplier carries the FULL reduction that was briefly
+// split across Refraction (0.5) and Solar Attunement (0.7):
+// 0.5 x 0.7 = 0.35, i.e. ~65% faster. Solar Attunement became
+// the Amberlight Field below, so the two Castle Guard picks
+// aren't the same upgrade twice.
 const REFRACTION = {
-    EXTRA_CHARGES: 1
+    COOLDOWN_MULTIPLIER: 0.35
 };
 
-// Solar Attunement (Castle Guard) - faster Sunbeam recharge.
-const SOLAR_ATTUNEMENT = {
-    COOLDOWN_MULTIPLIER: 0.7
+// Amberlight Field (Castle Guard) - replaces Solar Attunement.
+//
+// A wide aura of thickened light around the Mage. Enemy shots
+// crossing it are dragged down to SPEED_FACTOR of their normal
+// speed for as long as they're inside it. It does NOT block,
+// destroy or deflect anything - it buys reaction time, not
+// safety, which is exactly what a dashless caster lacks
+// against archer/fire-mage crossfire it can't sidestep.
+const AMBERLIGHT = {
+    RADIUS: 260,
+    SPEED_FACTOR: 0.5,
+    COLOR: "#ffd98a"
 };
 
 // Radiant Overload (Knight) - every 3rd Sunbeam overcharges
@@ -1113,9 +1145,9 @@ const SHOP_ITEMS = {
             return "Dim Halo";
         },
         get desc() {
-            if (Save.equippedHaloStage >= 3) return "Blocks a hit, recharges in ~3s";
-            if (Save.equippedHaloStage === 2) return "Blocks a hit, recharges in ~4.2s";
-            return "A ring of light blocks one hit, recharges in ~6s";
+            if (Save.equippedHaloStage >= 3) return "Blocks a hit, returns every wave";
+            if (Save.equippedHaloStage === 2) return "Blocks a hit, returns after 3 waves";
+            return "A ring of light blocks one hit, returns after 5 waves";
         },
         equippable: true
     },
@@ -1150,16 +1182,16 @@ const SHOP_ITEMS = {
         classId: "mage",
         price: 150,
         name: "Refraction",
-        desc: "A 2nd Sunbeam charge — cast two strikes before recharging",
+        desc: "Sunbeam recharges 65% faster",
         requiresFirstBoss: true,
         equippable: true
     },
 
-    solarAttunement: {
+    amberlightField: {
         classId: "mage",
         price: 150,
-        name: "Solar Attunement",
-        desc: "Sunbeam recharges ~30% faster",
+        name: "Amberlight Field",
+        desc: "Thickened light around you — enemy shots crossing it travel at half speed",
         requiresFirstBoss: true,
         equippable: true
     },

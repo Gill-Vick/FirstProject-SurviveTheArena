@@ -95,6 +95,11 @@ class Player {
     // against this specific enemy (e.g. Hunter's Mark).
     getProjectileDamageMultiplier(enemy) { return 1; }
 
+    // True while this class projects an aura that slows
+    // incoming enemy projectiles (the Mage's Amberlight
+    // Field). Read every frame by Projectile.update.
+    hasProjectileSlowAura() { return false; }
+
     // Glow color for the body sprite, or null for none.
     getBodyGlowColor() { return null; }
 
