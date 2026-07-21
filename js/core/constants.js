@@ -590,14 +590,21 @@ const MAGE = {
     // this far along the aim direction instead.
     SUNBEAM_CAST_DISTANCE: 300,
 
-    // Every source of Mage damage is scaled by this against
-    // the Royal Magus and the King ONLY (see mageDamageTo in
-    // mage.js). The Mage's kit is all persistent zone damage -
-    // wide strikes, burns, fields, auras - which is the point
-    // against a wave, but against one big stationary target
-    // every source lands at once and those two fights melted.
-    // Trash, the Castle Guard and the Knight are untouched.
-    LATE_BOSS_DAMAGE_SCALE: 0.5,
+    // How much of the Mage's damage each boss actually takes
+    // (see mageDamageTo in mage.js). The Mage's kit is all
+    // persistent zone damage - wide strikes, burns, fields,
+    // auras - which is the point against a wave, but against
+    // one big slow target every source lands at once, so the
+    // late bosses need to shrug most of it off.
+    //
+    // Anything not listed takes FULL damage: all trash, and
+    // the Castle Guard (wave 5, where the Mage has barely any
+    // kit assembled yet).
+    BOSS_DAMAGE_SCALE: {
+        knight: 0.75,      // 25% less
+        royalMagus: 0.25,  // 75% less
+        king: 0.25         // 75% less
+    },
 
     COLOR: "#fff3b0"
 
@@ -661,13 +668,14 @@ const SUNSTONE = {
 // aiming. It now cuts the recharge instead - same sustained
 // output, none of the burst.
 //
-// This multiplier carries the FULL reduction that was briefly
-// split across Refraction (0.5) and Solar Attunement (0.7):
-// 0.5 x 0.7 = 0.35, i.e. ~65% faster. Solar Attunement became
+// It briefly carried the full reduction of both old recharge
+// items (0.5 x 0.7 = 0.35, ~65% faster), which made the
+// Sunbeam come back faster than the class was ever meant to
+// sustain. Pulled back to 40% faster. Solar Attunement became
 // the Amberlight Field below, so the two Castle Guard picks
 // aren't the same upgrade twice.
 const REFRACTION = {
-    COOLDOWN_MULTIPLIER: 0.35
+    COOLDOWN_MULTIPLIER: 0.6
 };
 
 // Amberlight Field (Castle Guard) - replaces Solar Attunement.
@@ -742,9 +750,9 @@ const SANCTUARY = {
 // Corona (Magus) - a radiant aura that burns enemies who get
 // close. Keep-away for the immobile caster + passive clear.
 const CORONA = {
-    RADIUS: 95,
+    RADIUS: 190,
     TICK_MS: 800,
-    TICK_DAMAGE: 1,
+    TICK_DAMAGE: 2,
     COLOR: "#ffd24d"
 };
 
@@ -1182,7 +1190,7 @@ const SHOP_ITEMS = {
         classId: "mage",
         price: 150,
         name: "Refraction",
-        desc: "Sunbeam recharges 65% faster",
+        desc: "Sunbeam recharges 40% faster",
         requiresFirstBoss: true,
         equippable: true
     },

@@ -29,28 +29,39 @@
 //
 // Every point of damage the Mage deals - Sunbeam strikes,
 // Prism burns and ice fields, Sunburst, Sanctuary, Corona,
-// the Scepter barrage - is routed through here. Against the
-// Royal Magus and the King it is scaled by
-// MAGE.LATE_BOSS_DAMAGE_SCALE; against everything else it
-// passes through untouched.
+// the Scepter barrage - is routed through here, and scaled by
+// the target's entry in MAGE.BOSS_DAMAGE_SCALE. Anything not
+// listed there (all trash, and the Castle Guard) takes full
+// damage.
 //
-// Why those two specifically: the Mage's whole kit is
-// persistent AREA damage, and a boss that is both huge and
-// slow sits inside every zone at once, so all of it stacks on
-// one target. Waves (the thing the zones are designed for)
-// and the two smaller early bosses are unaffected.
+// Why bosses specifically: the Mage's whole kit is persistent
+// AREA damage, and a boss that is both huge and slow sits
+// inside every zone at once, so all of it stacks onto one
+// target. Waves - the thing the zones are designed for - are
+// unaffected.
 //
-// Floored at 1 so a 1-damage tick still lands rather than
-// rounding away to nothing.
-
-const MAGE_RESISTANT_BOSSES = new Set(["royalMagus", "king"]);
+// The rounding remainder is CARRIED on the target rather than
+// thrown away. Without it every 1-or-2 damage tick (ice field,
+// Sanctuary, Corona, Prism burns) rounded back up to 1 and so
+// ignored the scale completely - against the King that leaked
+// ~78% more damage than intended, and the ice field alone hit
+// as hard as it does on a grunt. Carrying the fraction means a
+// long string of small ticks lands on the intended total, and
+// takeDamage() ignores a tick that rounds to nothing.
 
 function mageDamageTo(enemy, amount) {
 
-    if (!MAGE_RESISTANT_BOSSES.has(enemy.type))
+    const scale = MAGE.BOSS_DAMAGE_SCALE[enemy.type];
+
+    if (scale === undefined)
         return amount;
 
-    return Math.max(1, Math.round(amount * MAGE.LATE_BOSS_DAMAGE_SCALE));
+    const exact = amount * scale + (enemy.mageDamageCarry ?? 0);
+    const dealt = Math.floor(exact);
+
+    enemy.mageDamageCarry = exact - dealt;
+
+    return dealt;
 
 }
 

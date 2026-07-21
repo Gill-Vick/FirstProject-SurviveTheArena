@@ -222,6 +222,12 @@ class Enemy {
 
     takeDamage(amount, crit = false) {
 
+        // A scaled-down tick can round to nothing (see
+        // mageDamageTo) - that's a non-event, not a hit: no
+        // number, no spark, and no ward burned on it.
+        if (amount <= 0)
+            return;
+
         // Royal Magus honor guard (untouchable while their
         // master lives - see RoyalMagus.takeDamage), Blood
         // Cleric heal targets (invincible while the tether
