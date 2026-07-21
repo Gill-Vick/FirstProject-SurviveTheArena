@@ -116,7 +116,7 @@ const Save = {
         refraction: false,
         solarAttunement: false,
         radiantOverload: false,
-        radiantBloom: false,
+        elementalPrism: false,
         sanctuary: false,
         corona: false,
         sovereignScepter: false
@@ -158,7 +158,7 @@ const Save = {
         refraction: false,
         solarAttunement: false,
         radiantOverload: false,
-        radiantBloom: false,
+        elementalPrism: false,
         sanctuary: false,
         corona: false,
         sovereignScepter: false
@@ -225,6 +225,17 @@ const Save = {
             Object.keys(this.equipped).forEach(id => {
                 this.equipped[id] = !!data.equipped?.[id];
             });
+
+            // Radiant Bloom was replaced by the Elemental
+            // Prism (same slot, same price, same Knight gate).
+            // Anyone who already bought Bloom keeps the item
+            // rather than silently losing 240 coins of value.
+            if (data.inventory?.radiantBloom) {
+
+                this.inventory.elementalPrism = true;
+                this.equipped.elementalPrism = !!data.equipped?.radiantBloom;
+
+            }
 
             this.bestiaryUnlocked = { ...(data.bestiaryUnlocked ?? {}) };
 

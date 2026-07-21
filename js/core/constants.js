@@ -248,8 +248,8 @@ const DAGGER = {
 
 const EMBER_ARROWS = {
     BURN_DAMAGE_PER_TICK: 1,
-    BURN_TICKS: 2,
-    BURN_TICK_MS: 1143
+    BURN_TICKS: 3,
+    BURN_TICK_MS: 950
 };
 
 // =====================================
@@ -261,13 +261,16 @@ const EMBER_ARROWS = {
 // fire-rate boost.
 
 const FALCON_QUIVER = {
-    // Total enemies one arrow can hit: pierces through the
-    // first target into one more. (Was 3 - too much AOE.)
-    PIERCE: 2
+    // Total enemies one arrow can hit. Went 3 -> 2 in an
+    // earlier pass, back to 3 here: the Ranger's problem in
+    // the set-3 waves (11-14) is being buried by volume, and
+    // piercing is the cleanest answer that doesn't touch its
+    // single-target boss damage at all.
+    PIERCE: 3
 };
 
 const SWIFTDRAW = {
-    COOLDOWN_MULTIPLIER: 0.7
+    COOLDOWN_MULTIPLIER: 0.6
 };
 
 // =====================================
@@ -287,7 +290,7 @@ const HUNTERS_MARK = {
 };
 
 const GALE_RECURVE = {
-    ARROW_COUNT: 2
+    ARROW_COUNT: 3
 };
 
 // =====================================
@@ -357,8 +360,11 @@ const STORMPIERCER = {
 
 const CLOAK = {
     // Phase duration in real ms, indexed by equipped cloak
-    // stage (index 0 = not owned/equipped).
-    PHASE_MS: [0, 500, 857, 1286],
+    // stage (index 0 = not owned/equipped). Nudged up across
+    // the board - the phase window is the Thief's whole
+    // survival answer to a crowded arena, and half a second
+    // wasn't clearing a set-3 pack.
+    PHASE_MS: [0, 700, 1100, 1600],
     DASH_DAMAGE: 3,
     DASH_HIT_WIDTH: 50,
     GLOW_COLOR: "#9b59b6"
@@ -424,9 +430,9 @@ const THROWING_KNIFE = {
 // keeps it topped up.
 
 const THIEFS_WIT = {
-    SPEED_BONUS: 0.3,
+    SPEED_BONUS: 0.35,
     ATTACK_SPEED_BONUS: 0.2,
-    DURATION_MS: 2857
+    DURATION_MS: 3400
 };
 
 // =====================================
@@ -556,9 +562,15 @@ const MAGE = {
     // aimed point. Long per-charge recharge (heavy artillery,
     // not spam); charge-based like the dash. Refraction adds a
     // 2nd charge (see below), Hermes-Shoes style.
-    SUNBEAM_COOLDOWN: 2000,
+    //
+    // Balance pass: the strike is a wide zone rather than a
+    // pinpoint, and comes back faster. The Mage's damage is
+    // meant to come from covering ground (a whole clump caught
+    // per cast), NOT from stacking multipliers onto one target
+    // - see ELEMENTAL_PRISM for the other half of that trade.
+    SUNBEAM_COOLDOWN: 1600,
     SUNBEAM_DAMAGE: 2,
-    SUNBEAM_RADIUS: 60,
+    SUNBEAM_RADIUS: 82,
 
     // On touch devices there's no cursor, so the strike lands
     // this far along the aim direction instead.
@@ -573,17 +585,21 @@ const MAGE = {
 // is Knight-gated and recharges fastest. Because the Mage has
 // no dash, this is its entire defensive kit.
 const HALO = {
-    RECHARGE_MS: [0, 8000, 5500, 4000],  // indexed by stage
-    BLOCK_INVULN_MS: 500,
+    // Balance pass: recharges materially faster at every stage.
+    // A dashless class that has to walk out of trouble needs
+    // its one defense back before the NEXT wave beat, not two
+    // beats later.
+    RECHARGE_MS: [0, 6000, 4200, 3000],  // indexed by stage
+    BLOCK_INVULN_MS: 700,
     COLOR: "#fff0b0"
 };
 
 // Sunburst - staged [E]: a lobbed orb of light that bursts in
 // a big AOE where it lands.
 const SUNBURST = {
-    COOLDOWN: 3000,
+    COOLDOWN: 2200,
     DAMAGE: [0, 6, 9, 12],   // indexed by stage
-    RADIUS: [0, 90, 110, 130],
+    RADIUS: [0, 110, 132, 155],
 
     // Snappy travel so it isn't dead time - and aiming at your
     // own feet means ~zero travel, turning it into an instant
@@ -598,7 +614,7 @@ const SUNBURST = {
 // Sunstone - single unlocked passive: bolsters every Sunbeam.
 const SUNSTONE = {
     BONUS_DAMAGE: 2,
-    BONUS_RADIUS: 18
+    BONUS_RADIUS: 24
 };
 
 // Refraction (Castle Guard) - a 2nd Sunbeam charge, exactly
@@ -621,14 +637,43 @@ const RADIANT_OVERLOAD = {
     RADIUS_MULT: 1.8
 };
 
-// Radiant Bloom (Knight) - Sunbeam becomes a sunflower: the
-// main strike at the cursor plus a ring of PETALS smaller
-// strikes around it.
-const RADIANT_BLOOM = {
-    PETALS: 6,
-    PETAL_DISTANCE: 72,
-    PETAL_DAMAGE_MULT: 0.5,
-    PETAL_RADIUS_MULT: 0.6
+// Elemental Prism (Knight) - replaces the old Radiant Bloom.
+//
+// Bloom ringed the cursor with 6 half-power petals. Against a
+// wave that was fine, but against a BOSS every petal landed on
+// the same huge hitbox, so one cast dealt ~4x damage to a
+// single target and boss fights melted. The Prism keeps the
+// power but moves it off burst and onto area + time:
+//
+//   Fire cast - everything caught by the strike burns
+//               (BURN_DAMAGE per tick, BURN_TICKS times).
+//   Ice cast  - the strike freezes the ground it hit into a
+//               field that damages and slows (see MageIceField
+//               in hazard.js).
+//
+// Casts alternate fire -> ice -> fire. Both scale with how
+// MANY enemies the strike caught, so a packed wave takes far
+// more total damage than a lone boss ever does.
+
+const ELEMENTAL_PRISM = {
+
+    // Fire half.
+    BURN_DAMAGE: 2,
+    BURN_TICKS: 3,
+    BURN_TICK_MS: 700,
+    FIRE_COLOR: "#ff8a3d",
+
+    // Ice half. The field outlives the strike, denying that
+    // ground and dragging anything standing in it to
+    // SLOW_FACTOR of its normal speed (bosses shrug it off,
+    // same as knockback/charm).
+    ICE_RADIUS_MULT: 1.15,
+    ICE_DURATION_MS: 4000,
+    ICE_TICK_MS: 700,
+    ICE_DAMAGE: 1,
+    ICE_SLOW_FACTOR: 0.55,
+    ICE_COLOR: "#8fe3ff"
+
 };
 
 // Sanctuary (Magus) - the Sunburst [E] leaves a lingering
@@ -856,7 +901,7 @@ const SHOP_ITEMS = {
         classId: "ranger",
         price: 30,
         name: "Emberweave Arrows",
-        desc: "Arrow hits ignite enemies — 2 burn dmg over ~2.3s",
+        desc: "Arrow hits ignite enemies — 3 burn dmg over ~2.9s",
         equippable: true
     },
 
@@ -864,7 +909,7 @@ const SHOP_ITEMS = {
         classId: "ranger",
         price: 150,
         name: "Falcon Quiver",
-        desc: "Arrows pierce through 1 enemy",
+        desc: "Arrows pierce through 2 enemies",
         requiresFirstBoss: true,
         equippable: true
     },
@@ -873,7 +918,7 @@ const SHOP_ITEMS = {
         classId: "ranger",
         price: 150,
         name: "Swiftdraw Gloves",
-        desc: "Bow fires ~43% faster",
+        desc: "Bow fires ~67% faster",
         requiresFirstBoss: true,
         equippable: true
     },
@@ -891,7 +936,7 @@ const SHOP_ITEMS = {
         classId: "ranger",
         price: 220,
         name: "Gale Recurve",
-        desc: "Bow fires 2 arrows in a fan",
+        desc: "Bow fires 3 arrows in a fan",
         requiresKnightKilled: true,
         equippable: true
     },
@@ -936,9 +981,9 @@ const SHOP_ITEMS = {
             return "Tattered Cloak";
         },
         get desc() {
-            if (Save.equippedCloakStage >= 3) return "Dash phases 1.3s + deals 3 dmg to enemies dashed through";
-            if (Save.equippedCloakStage === 2) return "Dash phases 0.9s (untouchable while phasing)";
-            return "Dash phases 0.5s (untouchable while phasing)";
+            if (Save.equippedCloakStage >= 3) return "Dash phases 1.6s + deals 3 dmg to enemies dashed through";
+            if (Save.equippedCloakStage === 2) return "Dash phases 1.1s (untouchable while phasing)";
+            return "Dash phases 0.7s (untouchable while phasing)";
         },
         equippable: true
     },
@@ -965,7 +1010,7 @@ const SHOP_ITEMS = {
         classId: "thief",
         price: 30,
         name: "Thief's Wit",
-        desc: "Hits grant +30% move speed, +20% attack speed for ~2.9s",
+        desc: "Hits grant +35% move speed, +20% attack speed for ~3.4s",
         equippable: true
     },
 
@@ -1045,9 +1090,9 @@ const SHOP_ITEMS = {
             return "Dim Halo";
         },
         get desc() {
-            if (Save.equippedHaloStage >= 3) return "Blocks a hit, recharges in ~4s";
-            if (Save.equippedHaloStage === 2) return "Blocks a hit, recharges in ~5.5s";
-            return "A ring of light blocks one hit, recharges in ~8s";
+            if (Save.equippedHaloStage >= 3) return "Blocks a hit, recharges in ~3s";
+            if (Save.equippedHaloStage === 2) return "Blocks a hit, recharges in ~4.2s";
+            return "A ring of light blocks one hit, recharges in ~6s";
         },
         equippable: true
     },
@@ -1105,11 +1150,11 @@ const SHOP_ITEMS = {
         equippable: true
     },
 
-    radiantBloom: {
+    elementalPrism: {
         classId: "mage",
         price: 240,
-        name: "Radiant Bloom",
-        desc: "Sunbeam blooms like a sunflower — a ring of smaller strikes around the main one",
+        name: "Elemental Prism",
+        desc: "Sunbeam alternates — fire scorches everything hit (2 dmg x3), then ice leaves a freezing field",
         requiresKnightKilled: true,
         equippable: true
     },

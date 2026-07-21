@@ -621,7 +621,7 @@ const SHOP_ITEM_IDS = [
     // Mage
     "halo", "sunburst", "sunstone",
     "refraction", "solarAttunement",
-    "radiantOverload", "radiantBloom",
+    "radiantOverload", "elementalPrism",
     "sanctuary", "corona", "sovereignScepter",
 
     // Shared

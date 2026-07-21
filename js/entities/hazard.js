@@ -295,6 +295,137 @@ class KegKillZone {
 }
 
 // =====================================
+// Mage Ice Field (Elemental Prism)
+// =====================================
+//
+// Left by the ice half of the Mage's Sunbeam rotation. Unlike
+// the Frost Weaver's zone (which slows the PLAYER and deals no
+// damage), this is the mirror image: it damages enemies on a
+// tick and drags them to a crawl while they stand in it. The
+// chill is re-asserted every frame onto whatever is inside, so
+// it lapses on its own the moment an enemy walks clear (see
+// chillTimer in enemy.js). Bosses take the damage but shrug
+// off the slow.
+
+class MageIceField {
+
+    constructor(x, y, radius) {
+
+        this.x = x;
+        this.y = y;
+        this.maxRadius = radius;
+        this.life = ELEMENTAL_PRISM.ICE_DURATION_MS;
+        this.age = 0;
+        this.tickTimer = ELEMENTAL_PRISM.ICE_TICK_MS;
+
+    }
+
+    getRadius() {
+
+        // Quick grow-in so it reads as ice spreading out from
+        // the impact rather than popping into place.
+        return this.maxRadius * Math.min(1, this.age / 200);
+
+    }
+
+    update() {
+
+        this.age += Game.dt;
+        this.life -= Game.dt;
+
+        const radius = this.getRadius();
+
+        this.tickTimer -= Game.dt;
+
+        const ticking = this.tickTimer <= 0;
+
+        if (ticking)
+            this.tickTimer += ELEMENTAL_PRISM.ICE_TICK_MS;
+
+        Game.enemies.forEach(enemy => {
+
+            if (enemy.isDead())
+                return;
+
+            const ex = enemy.x + enemy.size / 2;
+            const ey = enemy.y + enemy.size / 2;
+
+            if (Math.hypot(ex - this.x, ey - this.y) > radius + enemy.size / 2)
+                return;
+
+            // Re-asserted every frame; expires ~immediately
+            // after the enemy leaves the field.
+            if (!enemy.isBoss)
+                enemy.chillTimer = 100;
+
+            if (ticking) {
+
+                enemy.takeDamage(ELEMENTAL_PRISM.ICE_DAMAGE);
+
+                if (enemy.isDead())
+                    onEnemyKilled(enemy);
+
+            }
+
+        });
+
+    }
+
+    isDead() {
+
+        return this.life <= 0;
+
+    }
+
+    draw() {
+
+        const radius = this.getRadius();
+        const fade = Math.min(1, this.life / 800);
+        const shimmer = 0.8 + Math.sin(Date.now() / 180) * 0.12;
+
+        ctx.save();
+
+        ctx.fillStyle = `rgba(140, 220, 255, ${0.2 * fade * shimmer})`;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = `rgba(200, 240, 255, ${0.6 * fade})`;
+        ctx.lineWidth = 2;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = ELEMENTAL_PRISM.ICE_COLOR;
+        ctx.stroke();
+
+        // Frost shards so it reads as jagged ice, distinct
+        // from the weaver's smoother patches.
+        ctx.strokeStyle = `rgba(225, 248, 255, ${0.4 * fade})`;
+        ctx.lineWidth = 1.5;
+        ctx.shadowBlur = 0;
+
+        for (let i = 0; i < 8; i++) {
+
+            const a = (Math.PI / 4) * i + Math.PI / 16;
+
+            ctx.beginPath();
+            ctx.moveTo(
+                this.x + Math.cos(a) * radius * 0.25,
+                this.y + Math.sin(a) * radius * 0.25
+            );
+            ctx.lineTo(
+                this.x + Math.cos(a) * radius * 0.9,
+                this.y + Math.sin(a) * radius * 0.9
+            );
+            ctx.stroke();
+
+        }
+
+        ctx.restore();
+
+    }
+
+}
+
+// =====================================
 // Cluster Bomb (elite Powder Keg)
 // =====================================
 //

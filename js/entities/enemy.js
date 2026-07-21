@@ -43,6 +43,11 @@ class Enemy {
         // screen - see keepInArenaOnceEntered(), used by kiters.
         this.hasEnteredArena = false;
 
+        // Chilled by the Mage's ice field - re-asserted every
+        // frame while stood in one, so it lapses on its own
+        // once the enemy walks clear. See update().
+        this.chillTimer = 0;
+
     }
 
     update() {
@@ -73,7 +78,27 @@ class Enemy {
         if (this.healShieldTimer > 0)
             this.healShieldTimer -= Game.dt;
 
+        if (this.chillTimer > 0)
+            this.chillTimer -= Game.dt;
+
+        // Chill scales down however far move() actually
+        // travelled this frame. Doing it here rather than
+        // inside each move() means it works on every enemy -
+        // chases, kites, lunges, charges, lancer dashes -
+        // without a single subclass knowing chill exists.
+        // Knockback is applied above, so shoves stay full
+        // strength.
+        const preX = this.x;
+        const preY = this.y;
+
         this.move();
+
+        if (this.chillTimer > 0) {
+
+            this.x = preX + (this.x - preX) * ELEMENTAL_PRISM.ICE_SLOW_FACTOR;
+            this.y = preY + (this.y - preY) * ELEMENTAL_PRISM.ICE_SLOW_FACTOR;
+
+        }
 
         // Charmed enemies can still move, but can't attack or
         // deal contact damage for the duration.
@@ -331,13 +356,19 @@ class Enemy {
         if (this.damageImmune)
             this.drawImmuneRing();
 
+        // Chilled enemies glaze over in the ice field's blue so
+        // the slow is visible rather than just felt.
+        const chilled = this.chillTimer > 0;
+
         ctx.shadowBlur = EFFECTS.ENEMY_GLOW;
-        ctx.shadowColor = this.color;
+        ctx.shadowColor = chilled ? ELEMENTAL_PRISM.ICE_COLOR : this.color;
 
         ctx.fillStyle =
             this.flashTimer > 0
                 ? "white"
-                : this.color;
+                : chilled
+                    ? ELEMENTAL_PRISM.ICE_COLOR
+                    : this.color;
 
         ctx.fillRect(
 
