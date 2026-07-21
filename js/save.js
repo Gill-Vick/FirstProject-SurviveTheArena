@@ -105,7 +105,7 @@ const Save = {
         thiefsWit: false,
         voidEnchant: false,
         masterOfBlade: false,
-        serratedBlade: false,
+        shadowreachBlades: false,
         pocketWatch: false,
         voltaicFang: false,
         leylineSnare: false,
@@ -147,7 +147,7 @@ const Save = {
         thiefsWit: false,
         voidEnchant: false,
         masterOfBlade: false,
-        serratedBlade: false,
+        shadowreachBlades: false,
         pocketWatch: false,
         voltaicFang: false,
         leylineSnare: false,
@@ -226,14 +226,26 @@ const Save = {
                 this.equipped[id] = !!data.equipped?.[id];
             });
 
-            // Radiant Bloom was replaced by the Elemental
-            // Prism (same slot, same price, same Knight gate).
-            // Anyone who already bought Bloom keeps the item
-            // rather than silently losing 240 coins of value.
+            // Renamed items keep their owners: the buyer paid
+            // for the slot, so a rebalance that swaps what
+            // fills it must not silently pocket their coins.
+            //
+            //   Radiant Bloom  -> Elemental Prism   (mage)
+            //   Serrated Blade -> Shadowreach Blades (thief)
+            //
+            // Same price and same boss gate on both sides of
+            // each swap.
             if (data.inventory?.radiantBloom) {
 
                 this.inventory.elementalPrism = true;
                 this.equipped.elementalPrism = !!data.equipped?.radiantBloom;
+
+            }
+
+            if (data.inventory?.serratedBlade) {
+
+                this.inventory.shadowreachBlades = true;
+                this.equipped.shadowreachBlades = !!data.equipped?.serratedBlade;
 
             }
 

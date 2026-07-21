@@ -454,27 +454,41 @@ const VOID_ENCHANT = {
 // Thief - Master of the Blade (Castle Guard tier)
 // =====================================
 //
-// Every 3rd dagger swing unleashes a flurry in front of the
+// Every 2nd dagger swing unleashes a flurry in front of the
 // Thief - 4 extra hits over ~0.6s (one every ~0.14s),
 // independent of whether the triggering swing itself
 // connected.
+//
+// Was every 3rd swing. This is the Thief's only real crowd
+// tool before the Magus tier, so its uptime is what decides
+// whether he can hold a line in the set-3 waves - and the
+// flurry inherits the Shadowreach range bonus too.
 
 const MASTER_OF_BLADE = {
-    TRIGGER_EVERY: 3,
+    TRIGGER_EVERY: 2,
     TICK_DAMAGE: 2,
     TICKS: 4,
     TICK_MS: 143
 };
 
 // =====================================
-// Thief - Serrated Blade (Knight tier)
+// Thief - Shadowreach Blades (Knight tier)
 // =====================================
 //
-// The Thief's wetStone-equivalent - a flat damage bump to the
-// dagger's base hit.
+// The Thief's wetStone-equivalent, but it buys REACH as well
+// as damage. The dagger's 78px range is the shortest weapon in
+// the game, which is exactly what buries the Thief in the
+// set-3 waves (11-14): every hit means stepping inside a pack
+// that can kill in one touch. Longer blades let him cut the
+// front rank without committing his whole body to it.
+//
+// The bonus applies to the swing hitbox, the Master of the
+// Blade flurry, AND the drawn blade (see getDaggerRange in
+// thief.js) - what you see is what you hit.
 
-const SERRATED_BLADE = {
-    BONUS_DAMAGE: 1
+const SHADOWREACH = {
+    BONUS_DAMAGE: 1,
+    BONUS_RANGE: 30
 };
 
 // =====================================
@@ -1027,16 +1041,16 @@ const SHOP_ITEMS = {
         classId: "thief",
         price: 160,
         name: "Master of the Blade",
-        desc: "Every 3rd dagger swing unleashes 4 cuts (2 dmg each) in ~0.6s",
+        desc: "Every 2nd dagger swing unleashes 4 cuts (2 dmg each) in ~0.6s",
         requiresFirstBoss: true,
         equippable: true
     },
 
-    serratedBlade: {
+    shadowreachBlades: {
         classId: "thief",
         price: 220,
-        name: "Serrated Blade",
-        desc: "Dagger deals 1 more base damage",
+        name: "Shadowreach Blades",
+        desc: "Dagger deals 1 more base damage and strikes noticeably further",
         requiresKnightKilled: true,
         equippable: true
     },

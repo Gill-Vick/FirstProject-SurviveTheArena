@@ -615,7 +615,7 @@ const SHOP_ITEM_IDS = [
     // Thief
     "cloak", "throwingKnife", "thiefsWit",
     "voidEnchant", "masterOfBlade",
-    "serratedBlade", "pocketWatch",
+    "shadowreachBlades", "pocketWatch",
     "voltaicFang", "leylineSnare", "moonlightDaggers",
 
     // Mage

@@ -287,13 +287,26 @@ class Thief extends Player {
 
         let damage = THIEF_DAGGER.DAMAGE;
 
-        if (Save.isEquipped("serratedBlade"))
-            damage += SERRATED_BLADE.BONUS_DAMAGE;
+        if (Save.isEquipped("shadowreachBlades"))
+            damage += SHADOWREACH.BONUS_DAMAGE;
 
         if (Save.isEquipped("moonlightDaggers"))
             damage += MOONLIGHT_DAGGERS.BONUS_DAMAGE;
 
         return damage;
+
+    }
+
+    // Reach of the dagger swing. Routed through one method so
+    // the hit test, the Master of the Blade flurry, and the
+    // drawn blade all agree - what you see is what you hit.
+    getDaggerRange() {
+
+        return THIEF_DAGGER.RANGE + (
+            Save.isEquipped("shadowreachBlades")
+                ? SHADOWREACH.BONUS_RANGE
+                : 0
+        );
 
     }
 
@@ -333,7 +346,7 @@ class Thief extends Player {
             const dy = closestY - py;
             const distance = Math.sqrt(dx * dx + dy * dy);
 
-            if (distance > THIEF_DAGGER.RANGE)
+            if (distance > this.getDaggerRange())
                 return;
 
             const angleToEnemy = Math.atan2(dy, dx);
@@ -728,7 +741,7 @@ class Thief extends Player {
             const dy = closestY - py;
             const distance = Math.sqrt(dx * dx + dy * dy);
 
-            if (distance > THIEF_DAGGER.RANGE)
+            if (distance > this.getDaggerRange())
                 return;
 
             const angleToEnemy = Math.atan2(dy, dx);
@@ -904,7 +917,7 @@ class Thief extends Player {
         const arc = THIEF_DAGGER.ARC;
         const currentAngle = this.daggerAngle - arc / 2 + arc * this.swingProgress;
 
-        const bladeLength = THIEF_DAGGER.RANGE;
+        const bladeLength = this.getDaggerRange();
 
         ctx.save();
 
