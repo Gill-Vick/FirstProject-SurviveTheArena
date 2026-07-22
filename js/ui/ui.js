@@ -1906,6 +1906,31 @@ function wrapText(text, x, y, maxWidth, lineHeight) {
 
 }
 
+// The raw engine speed number (0.56, 2.24, ...) means nothing to
+// a player, so the bestiary shows a word plus how it compares to
+// how fast *they* move. Every enemy is slower than the player's
+// base speed, so the tiers describe how easily you can outrun it.
+function describeSpeed(baseSpeed) {
+
+    const percent = Math.round((baseSpeed / PLAYER.SPEED) * 100);
+
+    let label;
+
+    if (percent >= 55)
+        label = "Fast";
+    else if (percent >= 38)
+        label = "Brisk";
+    else if (percent >= 25)
+        label = "Steady";
+    else if (percent >= 18)
+        label = "Slow";
+    else
+        label = "Very slow";
+
+    return `${label} — moves at ${percent}% of your speed`;
+
+}
+
 function drawBestiary() {
 
     const panel = getBestiaryPanelRect();
@@ -2042,7 +2067,7 @@ function drawBestiaryBossPage(type) {
 
     let sy = wrapText(`Health: ${entry.hpScale}`, statsX, statsY + ph(0.045), statsWidth, ph(0.03));
 
-    ctx.fillText(`Speed: ${entry.baseSpeed}`, statsX, sy + ph(0.01));
+    ctx.fillText(`Speed: ${describeSpeed(entry.baseSpeed)}`, statsX, sy + ph(0.01));
 
 }
 
@@ -2085,10 +2110,6 @@ function drawBestiaryDetail() {
     const wave5Hp = entry.hpAtWave(5);
     const wave10Hp = entry.hpAtWave(10);
 
-    // Speed no longer scales per wave - it's a flat combat
-    // multiplier (see getWaveSpeedMultiplier in game.js).
-    const combatSpeed = (entry.baseSpeed * 1.2).toFixed(2);
-
     const statsY = previewY + previewSize + ph(0.08);
 
     ctx.fillStyle = "white";
@@ -2110,8 +2131,7 @@ function drawBestiaryDetail() {
     sy += ph(0.008);
 
     ctx.fillText(`Health on wave 1: ${wave1Hp}   wave 5: ${wave5Hp}   wave 10: ${wave10Hp}`, statsX, sy);
-    ctx.fillText(`Speed: ${entry.baseSpeed}`, statsX, sy + lineGap);
-    ctx.fillText(`Speed while fighting you: ${combatSpeed} (20% faster)`, statsX, sy + lineGap * 2);
+    ctx.fillText(`Speed: ${describeSpeed(entry.baseSpeed)}`, statsX, sy + lineGap);
 
 }
 
