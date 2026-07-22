@@ -2,6 +2,79 @@
 // Enemy Base Class
 // =====================================
 
+// "#rrggbb" (or "#rgb") -> [r, g, b], or null for named CSS
+// colors like "red"/"orange". Only the four bosses' colors are
+// ever passed here and all of them are hex, so the null path
+// just means "leave the color alone".
+
+function parseHexColor(color) {
+
+    if (typeof color !== "string" || color[0] !== "#")
+        return null;
+
+    let hex = color.slice(1);
+
+    if (hex.length === 3)
+        hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+
+    if (hex.length !== 6)
+        return null;
+
+    const value = parseInt(hex, 16);
+
+    if (Number.isNaN(value))
+        return null;
+
+    return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+
+}
+
+// A set of jagged polylines in 0..1 local space, used as a
+// boss's crack pattern (see Enemy.drawCracks). Each starts on
+// a random edge and forks inward in short irregular steps.
+// Rolled once per boss so the damage stays where it landed.
+
+function buildCrackPaths() {
+
+    const paths = [];
+
+    for (let i = 0; i < 5; i++) {
+
+        // Start somewhere on the perimeter.
+        const edge = Math.floor(Math.random() * 4);
+        const along = 0.15 + Math.random() * 0.7;
+
+        let x = edge === 0 ? along : edge === 1 ? 1 : edge === 2 ? along : 0;
+        let y = edge === 0 ? 0 : edge === 1 ? along : edge === 2 ? 1 : along;
+
+        // Head roughly inward, wandering as it goes.
+        let angle = Math.atan2(0.5 - y, 0.5 - x);
+
+        const path = [[x, y]];
+
+        const segments = 3 + Math.floor(Math.random() * 3);
+
+        for (let s = 0; s < segments; s++) {
+
+            angle += (Math.random() - 0.5) * 1.5;
+
+            const step = 0.12 + Math.random() * 0.16;
+
+            x = Math.max(0, Math.min(1, x + Math.cos(angle) * step));
+            y = Math.max(0, Math.min(1, y + Math.sin(angle) * step));
+
+            path.push([x, y]);
+
+        }
+
+        paths.push(path);
+
+    }
+
+    return paths;
+
+}
+
 class Enemy {
 
     constructor(x, y, stats) {
@@ -366,15 +439,26 @@ class Enemy {
         // the slow is visible rather than just felt.
         const chilled = this.chillTimer > 0;
 
-        ctx.shadowBlur = EFFECTS.ENEMY_GLOW;
-        ctx.shadowColor = chilled ? ELEMENTAL_PRISM.ICE_COLOR : this.color;
+        // Wounded bosses run hot and pulse (see getEnrage).
+        const enrage = this.getEnrage();
+
+        ctx.shadowBlur = EFFECTS.ENEMY_GLOW +
+            (enrage ? enrage.pulse * 26 : 0);
+
+        ctx.shadowColor = chilled
+            ? ELEMENTAL_PRISM.ICE_COLOR
+            : enrage
+                ? "rgb(255, 90, 40)"
+                : this.color;
 
         ctx.fillStyle =
             this.flashTimer > 0
                 ? "white"
                 : chilled
                     ? ELEMENTAL_PRISM.ICE_COLOR
-                    : this.color;
+                    : enrage
+                        ? enrage.color
+                        : this.color;
 
         ctx.fillRect(
 
@@ -389,6 +473,9 @@ class Enemy {
         );
 
         ctx.shadowBlur = 0;
+
+        if (enrage)
+            this.drawCracks(enrage);
 
         this.drawHealthBar();
 
@@ -505,6 +592,128 @@ class Enemy {
         );
 
         ctx.restore();
+
+    }
+
+    // =====================================
+    // Boss Enrage (visual only)
+    // =====================================
+    //
+    // Null for anything that isn't a boss under
+    // BOSS_ENRAGE.THRESHOLD health. Otherwise returns the
+    // hot-shifted body color and a 0..1 pulse that beats
+    // faster the closer the boss is to dying - so a long
+    // scaled-HP fight visibly escalates instead of just
+    // draining a bar.
+
+    getEnrage() {
+
+        if (!this.isBoss || this.maxHp <= 0)
+            return null;
+
+        const fraction = Math.max(0, this.hp / this.maxHp);
+
+        if (fraction > BOSS_ENRAGE.THRESHOLD)
+            return null;
+
+        // 0 at the threshold -> 1 at death.
+        const intensity = 1 - fraction / BOSS_ENRAGE.THRESHOLD;
+
+        const period =
+            BOSS_ENRAGE.PULSE_SLOW_MS +
+            (BOSS_ENRAGE.PULSE_FAST_MS - BOSS_ENRAGE.PULSE_SLOW_MS) * intensity;
+
+        const pulse = 0.5 + Math.sin(Date.now() / period) * 0.5;
+
+        return {
+            intensity,
+            pulse,
+            color: this.getHotColor(intensity, pulse)
+        };
+
+    }
+
+    // Body color blended toward BOSS_ENRAGE.HOT_COLOR, with
+    // the pulse riding on top so it visibly throbs.
+    getHotColor(intensity, pulse) {
+
+        const base = parseHexColor(this.color);
+
+        if (!base)
+            return this.color;
+
+        const mix =
+            BOSS_ENRAGE.MAX_TINT * intensity * (0.65 + pulse * 0.35);
+
+        const blend = (from, to) =>
+            Math.round(from + (to - from) * mix);
+
+        return `rgb(${blend(base[0], BOSS_ENRAGE.HOT_COLOR[0])}, ` +
+               `${blend(base[1], BOSS_ENRAGE.HOT_COLOR[1])}, ` +
+               `${blend(base[2], BOSS_ENRAGE.HOT_COLOR[2])})`;
+
+    }
+
+    // Jagged fissures across the boss's plate, glowing from
+    // within. Rolled ONCE per boss and cached in local 0..1
+    // space, so they stay put on the body instead of skittering
+    // every frame; more of them surface as it weakens.
+
+    drawCracks(enrage) {
+
+        if (!this.crackPaths)
+            this.crackPaths = buildCrackPaths();
+
+        const count = Math.max(
+            1,
+            Math.round(this.crackPaths.length * enrage.intensity)
+        );
+
+        ctx.save();
+
+        ctx.lineCap = "round";
+        ctx.shadowBlur = 6 + enrage.pulse * 8;
+        ctx.shadowColor = BOSS_ENRAGE.CRACK_GLOW;
+
+        for (let i = 0; i < count; i++) {
+
+            const path = this.crackPaths[i];
+
+            // Dark fissure with a hot core drawn over it.
+            for (const pass of [
+                { color: BOSS_ENRAGE.CRACK_COLOR, width: this.size * 0.035 },
+                { color: BOSS_ENRAGE.CRACK_GLOW, width: this.size * 0.016 }
+            ]) {
+
+                ctx.strokeStyle = pass.color;
+                ctx.lineWidth = Math.max(1, pass.width);
+                ctx.globalAlpha = pass.color === BOSS_ENRAGE.CRACK_GLOW
+                    ? 0.35 + enrage.pulse * 0.45
+                    : 1;
+
+                ctx.beginPath();
+
+                path.forEach((point, index) => {
+
+                    const px = this.x + point[0] * this.size;
+                    const py = this.y + point[1] * this.size;
+
+                    if (index === 0)
+                        ctx.moveTo(px, py);
+                    else
+                        ctx.lineTo(px, py);
+
+                });
+
+                ctx.stroke();
+
+            }
+
+        }
+
+        ctx.restore();
+
+        ctx.globalAlpha = 1;
 
     }
 

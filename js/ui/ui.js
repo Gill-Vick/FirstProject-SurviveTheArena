@@ -967,6 +967,35 @@ function hitRect(btn, x, y) {
 // to match the throne-room art when the fancier faces exist.
 const UI_FONT = "'Cinzel', 'Trajan Pro', Georgia, 'Times New Roman', serif";
 
+// Largest font size at or below `desired` that fits `text`
+// inside maxWidth.
+//
+// Canvas text neither wraps nor shrinks on its own, so any
+// heading sized off the viewport HEIGHT (as all of these are)
+// runs off the sides of a narrow window - which is how
+// "SURVIVE THE ARENA" became "URVIVE THE AREN". Every large
+// centered heading goes through here.
+//
+// Leaves ctx.font set to the fitted size, so callers can draw
+// immediately without setting it again.
+
+function fitFontSize(text, maxWidth, desired, weight = "bold", family = UI_FONT) {
+
+    ctx.font = `${weight} ${desired}px ${family}`;
+
+    const width = ctx.measureText(text).width;
+
+    if (width <= maxWidth)
+        return desired;
+
+    const fitted = Math.max(8, Math.floor(desired * (maxWidth / width)));
+
+    ctx.font = `${weight} ${fitted}px ${family}`;
+
+    return fitted;
+
+}
+
 // Rounded-rectangle path helper - traces a rounded rect as the
 // current path so it can be filled/stroked/clipped. Written by
 // hand rather than relying on ctx.roundRect for older canvases.
@@ -1255,6 +1284,57 @@ function locketLevelFromSliderX(slider, x) {
 // Menu
 // =====================================
 
+// =====================================
+// Pixel Menu Buttons
+// =====================================
+//
+// Palettes for the three front-door buttons. Each is a flat
+// face with a lighter bevel above and a darker one below, plus
+// a near-black outline - the 16-bit menu look, matched to the
+// keep's own colours (steel green, gilt, leather).
+
+const PIXEL_BUTTON_THEMES = {
+
+    start: {
+        face: "#2f7d3f", light: "#5fc26a", shade: "#1a4a25",
+        outline: "#0d1a10", text: "#f2ffe8", textShadow: "#12331a"
+    },
+
+    armoury: {
+        face: "#b08422", light: "#e8c24d", shade: "#6d4f10",
+        outline: "#1d1405", text: "#fff6d8", textShadow: "#4a3208"
+    },
+
+    bestiary: {
+        face: "#7a4423", light: "#b8763d", shade: "#472312",
+        outline: "#160a04", text: "#ffeddc", textShadow: "#3a1c0c"
+    }
+
+};
+
+function drawPixelMenuButton(btn, label, theme) {
+
+    drawPixelPanel(btn.x, btn.y, btn.width, btn.height, theme);
+
+    // Fit the label inside the plate's inner face, leaving a
+    // margin so glyphs never touch the bevel. Integer scale
+    // keeps every glyph pixel crisp.
+    const scale = fitPixelScale(
+        label,
+        btn.width * 0.72,
+        btn.height * 0.42
+    );
+
+    drawPixelText(
+        label,
+        btn.x + btn.width / 2,
+        btn.y + btn.height / 2,
+        scale,
+        { color: theme.text, shadow: theme.textShadow }
+    );
+
+}
+
 function drawMenu() {
 
     ctx.drawImage(
@@ -1273,8 +1353,12 @@ function drawMenu() {
     if (Game.menuView !== "shop") {
 
         ctx.fillStyle = "white";
-        ctx.font = `bold ${ph(0.09)}px ${UI_FONT}`;
         ctx.textAlign = "center";
+
+        // Sized off height, then clamped to the window's width
+        // so a tall/narrow viewport can't crop the ends off.
+        fitFontSize("SURVIVE THE ARENA", canvas.width * 0.9, ph(0.09));
+
         ctx.fillText("SURVIVE THE ARENA", canvas.width / 2, ph(0.16));
 
     }
@@ -1306,11 +1390,14 @@ function drawMenu() {
         return;
     }
 
-    const btnFont = ph(0.03);
-
-    drawButton(getStartButton(), "START", "lime", "black", btnFont);
-    drawButton(getShopButton(), "ARMOURY", "#c9a227", "black", btnFont);
-    drawButton(getBestiaryButton(), "BESTIARY", "#8B4513", "white", btnFont);
+    // The three front-door buttons use the pixel plate rather
+    // than the glossy medieval one every other button shares.
+    // This screen is the only place the pixel-art background
+    // is the whole picture, and a beveled CSS-style plate on
+    // top of it read as a different game.
+    drawPixelMenuButton(getStartButton(), "START", PIXEL_BUTTON_THEMES.start);
+    drawPixelMenuButton(getShopButton(), "ARMOURY", PIXEL_BUTTON_THEMES.armoury);
+    drawPixelMenuButton(getBestiaryButton(), "BESTIARY", PIXEL_BUTTON_THEMES.bestiary);
 
     drawAudioSettingsButton();
 
@@ -2897,8 +2984,8 @@ function drawWaveMessages() {
     if (Game.waveTransition) {
 
         ctx.textAlign = "center";
-        ctx.font = `${ph(0.08)}px Arial`;
         ctx.fillStyle = "gold";
+        fitFontSize("WAVE COMPLETE", canvas.width * 0.9, ph(0.08), "", "Arial");
         ctx.fillText("WAVE COMPLETE", canvas.width / 2, canvas.height / 2);
 
         // The breather tally: what the wave paid out, and
@@ -2930,8 +3017,8 @@ function drawWaveMessages() {
 function drawGameOver() {
 
     ctx.fillStyle = "white";
-    ctx.font = `bold ${ph(0.09)}px ${UI_FONT}`;
     ctx.textAlign = "center";
+    fitFontSize("GAME OVER", canvas.width * 0.9, ph(0.09));
     ctx.fillText("GAME OVER", canvas.width / 2, ph(0.31));
 
     ctx.font = `${ph(0.045)}px Arial`;
@@ -2982,10 +3069,10 @@ function drawVictory() {
     ctx.save();
 
     ctx.fillStyle = "gold";
-    ctx.font = `bold ${ph(0.1)}px ${UI_FONT}`;
     ctx.textAlign = "center";
     ctx.shadowBlur = 24;
     ctx.shadowColor = "rgba(255, 215, 0, 0.7)";
+    fitFontSize("VICTORY", canvas.width * 0.9, ph(0.1));
     ctx.fillText("VICTORY", canvas.width / 2, ph(0.3));
 
     ctx.restore();

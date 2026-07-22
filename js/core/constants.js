@@ -2001,6 +2001,50 @@ const EFFECTS = {
 };
 
 // =====================================
+// Damage Numbers
+// =====================================
+//
+// Crits are 1.5x a normal hit's size (and pop harder on
+// spawn - see DamageNumber.getScale), so the payoff of
+// stacking crit rate is visible in the fight rather than
+// buried in a stat screen.
+
+const DAMAGE_NUMBER = {
+    SIZE: 22,
+    CRIT_SIZE: 33
+};
+
+// =====================================
+// Boss Enrage (visual)
+// =====================================
+//
+// Below THRESHOLD health a boss visibly turns: its plate
+// cracks, its colour runs hot, and it pulses faster the closer
+// it is to death. Purely presentational - no stat changes -
+// but boss fights are read through escalation, and with HP now
+// scaling every cycle (see BOSS/KING hpAtWave) the late fights
+// are long enough that they need a visible second act.
+//
+// Applied centrally in Enemy.draw, so all four bosses get it.
+
+const BOSS_ENRAGE = {
+
+    THRESHOLD: 0.5,
+
+    // Colour the body drifts toward, and how far at 0 HP.
+    HOT_COLOR: [255, 70, 30],
+    MAX_TINT: 0.55,
+
+    // Pulse period in ms at the threshold vs. at death.
+    PULSE_SLOW_MS: 420,
+    PULSE_FAST_MS: 140,
+
+    CRACK_COLOR: "rgba(20, 5, 2, 0.85)",
+    CRACK_GLOW: "rgba(255, 120, 40, 0.9)"
+
+};
+
+// =====================================
 // Bestiary
 // =====================================
 //
