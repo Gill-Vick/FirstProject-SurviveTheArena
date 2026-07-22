@@ -2027,7 +2027,7 @@ const BESTIARY = {
         desc: "The arena's cannon fodder. Slow-witted but relentless.",
         behavior: "Walks straight toward you for a melee hit.",
         hpAtWave(w) { return 2 + Math.floor((w - 1) / 6); },
-        hpScale: "2 + floor((wave - 1) / 6)",
+        hpScale: "Starts at 2 HP, gains 1 more every 6 waves",
         baseSpeed: ENEMY_TYPES.grunt.SPEED
     },
 
@@ -2039,7 +2039,7 @@ const BESTIARY = {
         desc: "A hulking bruiser that soaks up punishment.",
         behavior: "Slow chase. Immune to knockback.",
         hpAtWave(w) { return 4 + Math.floor((w - 1) / 3); },
-        hpScale: "4 + floor((wave - 1) / 3)",
+        hpScale: "Starts at 4 HP, gains 1 more every 3 waves",
         baseSpeed: ENEMY_TYPES.tank.SPEED
     },
 
@@ -2051,7 +2051,7 @@ const BESTIARY = {
         desc: "Keeps its distance and peppers you with arrows.",
         behavior: "Kites at range, firing arrows on cooldown.",
         hpAtWave(w) { return 2 + Math.floor((w - 1) / 10); },
-        hpScale: "2 + floor((wave - 1) / 10)",
+        hpScale: "Starts at 2 HP, gains 1 more every 10 waves",
         baseSpeed: ENEMY_TYPES.archer.SPEED
     },
 
@@ -2063,7 +2063,7 @@ const BESTIARY = {
         desc: "Fast and fragile — closes gaps in a blink.",
         behavior: "Chases you, then periodically triples speed in a charge.",
         hpAtWave(w) { return 2 + Math.floor((w - 1) / 10); },
-        hpScale: "2 + floor((wave - 1) / 10)",
+        hpScale: "Starts at 2 HP, gains 1 more every 10 waves",
         baseSpeed: ENEMY_TYPES.runner.SPEED
     },
 
@@ -2076,7 +2076,7 @@ const BESTIARY = {
         behavior: "Fires a radial burst, then dashes at the player.",
         lore: "Sworn to hold the arena gate long after the kingdom that built it crumbled to dust. He no longer remembers what he is guarding — only that no one may pass. The rusted weapons of a hundred fallen challengers litter the ground before his post.",
         hpAtWave(w) { return BOSS.BASE_HP + w * BOSS.HP_PER_WAVE; },
-        hpScale: `${BOSS.BASE_HP} + wave × ${BOSS.HP_PER_WAVE}`,
+        hpScale: `${BOSS.BASE_HP} HP, plus ${BOSS.HP_PER_WAVE} for every wave you've reached`,
         baseSpeed: BOSS.SPEED
     },
 
@@ -2089,7 +2089,7 @@ const BESTIARY = {
         behavior: "Dashes to close distance, then swings a heavy sword.",
         lore: "The arena's first champion, knighted by the King himself for surviving every wave. When he knelt and begged leave to rest, the King refused. Now he fights on without end — a mirror held up to every challenger who dreams the same dream he once did.",
         hpAtWave(w) { return KNIGHT.BASE_HP + w * KNIGHT.HP_PER_WAVE; },
-        hpScale: `${KNIGHT.BASE_HP} + wave × ${KNIGHT.HP_PER_WAVE}`,
+        hpScale: `${KNIGHT.BASE_HP} HP, plus ${KNIGHT.HP_PER_WAVE} for every wave you've reached`,
         baseSpeed: KNIGHT.SPEED
     },
 
@@ -2102,7 +2102,7 @@ const BESTIARY = {
         desc: "A pyromancer who turns the floor into lava.",
         behavior: "Holds range and casts burning ground hazards at you.",
         hpAtWave(w) { return 2 + Math.floor((w - 1) / 10); },
-        hpScale: "2 + floor((wave - 1) / 10)",
+        hpScale: "Starts at 2 HP, gains 1 more every 10 waves",
         baseSpeed: ENEMY_TYPES.fireMage.SPEED
     },
 
@@ -2115,7 +2115,7 @@ const BESTIARY = {
         desc: "Raises the dead to overwhelm you.",
         behavior: "Summons skeleton minions on cooldown.",
         hpAtWave(w) { return 3 + Math.floor((w - 1) / 10); },
-        hpScale: "3 + floor((wave - 1) / 10)",
+        hpScale: "Starts at 3 HP, gains 1 more every 10 waves",
         baseSpeed: ENEMY_TYPES.necromancer.SPEED
     },
 
@@ -2128,7 +2128,7 @@ const BESTIARY = {
         desc: "Undead fodder summoned by necromancers.",
         behavior: "Rushes the player quickly but dies easily.",
         hpAtWave(w) { return Math.max(1, Math.floor((2 + Math.floor((w - 1) / 6)) / 2)) + 1; },
-        hpScale: "max(1, floor(grunt HP / 2)) + 1",
+        hpScale: "Half a Grunt's HP (rounded down) plus 1 — never below 2",
         baseSpeed: ENEMY_TYPES.skeleton.SPEED
     },
 
@@ -2140,7 +2140,7 @@ const BESTIARY = {
         desc: "A disciplined knight with shield and lance.",
         behavior: "Blocks hits with a shield, then thrusts or lunges.",
         hpAtWave(w) { return 2 + Math.floor((w - 1) / 6); },
-        hpScale: "2 + floor((wave - 1) / 6)",
+        hpScale: "Starts at 2 HP, gains 1 more every 6 waves",
         baseSpeed: ENEMY_TYPES.lancer.SPEED
     },
 
@@ -2153,7 +2153,7 @@ const BESTIARY = {
         desc: "A living shadow that strikes from behind.",
         behavior: "Vanishes, reappears behind you, then lunges after a telegraph.",
         hpAtWave(w) { return 3 + Math.floor((w - 1) / 8); },
-        hpScale: "3 + floor((wave - 1) / 8)",
+        hpScale: "Starts at 3 HP, gains 1 more every 8 waves",
         baseSpeed: ENEMY_TYPES.shade.SPEED
     },
 
@@ -2166,7 +2166,7 @@ const BESTIARY = {
         desc: "Freezes the ground beneath your feet.",
         behavior: "Casts frost zones that slow your movement and dash.",
         hpAtWave(w) { return 3 + Math.floor((w - 1) / 10); },
-        hpScale: "3 + floor((wave - 1) / 10)",
+        hpScale: "Starts at 3 HP, gains 1 more every 10 waves",
         baseSpeed: ENEMY_TYPES.frostWeaver.SPEED
     },
 
@@ -2179,7 +2179,7 @@ const BESTIARY = {
         desc: "A walking bomb with a lit fuse.",
         behavior: "Chases you and explodes up close or on death - the blast hurts enemies too.",
         hpAtWave(w) { return 2; },
-        hpScale: "2 (fixed)",
+        hpScale: "Always 2 HP — never gets tougher",
         baseSpeed: ENEMY_TYPES.powderKeg.SPEED
     },
 
@@ -2192,7 +2192,7 @@ const BESTIARY = {
         desc: "A field medic for the arena's horrors.",
         behavior: "Stays back and heals injured allies, or shields healthy ones.",
         hpAtWave(w) { return 4 + Math.floor((w - 1) / 8); },
-        hpScale: "4 + floor((wave - 1) / 8)",
+        hpScale: "Starts at 4 HP, gains 1 more every 8 waves",
         baseSpeed: ENEMY_TYPES.bloodCleric.SPEED
     },
 
@@ -2205,7 +2205,7 @@ const BESTIARY = {
         behavior: "Cycles lightning showers, meteors, earth walls, and gale-force winds while stationed mages bombard from both walls.",
         lore: "Court wizard to three kings, and poisoner of at least two of them. The crown keeps him not out of trust but out of terror — no one else can command the storm, split the earth, or call fire from the sky. He duels from the center of the arena like a conductor, his honor guard of weavers and pyromancers chained to the walls by oaths only he can break.",
         hpAtWave(w) { return MAGUS.BASE_HP + w * MAGUS.HP_PER_WAVE; },
-        hpScale: `${MAGUS.BASE_HP} + wave × ${MAGUS.HP_PER_WAVE}`,
+        hpScale: `${MAGUS.BASE_HP} HP, plus ${MAGUS.HP_PER_WAVE} for every wave you've reached`,
         baseSpeed: MAGUS.SPEED
     },
 
@@ -2218,7 +2218,7 @@ const BESTIARY = {
         behavior: "Laser wall barrages, greatsword slashes, and elite summons at half HP.",
         lore: "The mad monarch who turned his own throne room into an arena for his amusement. Wave after wave he watches from above, bored of victories bought with other men's blood. Those his soldiers cannot break, he descends to break himself — greatsword in hand, crown ablaze.",
         hpAtWave(w) { return KING.BASE_HP + w * KING.HP_PER_WAVE; },
-        hpScale: `${KING.BASE_HP} + wave × ${KING.HP_PER_WAVE}`,
+        hpScale: `${KING.BASE_HP} HP, plus ${KING.HP_PER_WAVE} for every wave you've reached`,
         baseSpeed: KING.SPEED
     }
 

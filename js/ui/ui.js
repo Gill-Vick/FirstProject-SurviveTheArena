@@ -2034,8 +2034,15 @@ function drawBestiaryBossPage(type) {
 
     ctx.fillStyle = "#ddd";
     ctx.font = `${ph(0.021)}px Arial`;
-    ctx.fillText(`HP scaling: ${entry.hpScale}`, panel.x + pw(0.05), statsY + ph(0.045));
-    ctx.fillText(`Base speed: ${entry.baseSpeed}`, panel.x + pw(0.05), statsY + ph(0.085));
+
+    // Health reads as a sentence now, so it can be long enough
+    // to need wrapping - flow the speed line off wherever it ends.
+    const statsX = panel.x + pw(0.05);
+    const statsWidth = panel.width - pw(0.1);
+
+    let sy = wrapText(`Health: ${entry.hpScale}`, statsX, statsY + ph(0.045), statsWidth, ph(0.03));
+
+    ctx.fillText(`Speed: ${entry.baseSpeed}`, statsX, sy + ph(0.01));
 
 }
 
@@ -2090,10 +2097,21 @@ function drawBestiaryDetail() {
 
     ctx.fillStyle = "#ddd";
     ctx.font = `${ph(0.023)}px Arial`;
-    ctx.fillText(`HP scaling: ${entry.hpScale}`, panel.x + pw(0.03), statsY + ph(0.05));
-    ctx.fillText(`Wave 1 HP: ${wave1Hp}   Wave 5: ${wave5Hp}   Wave 10: ${wave10Hp}`, panel.x + pw(0.03), statsY + ph(0.09));
-    ctx.fillText(`Base speed: ${entry.baseSpeed}`, panel.x + pw(0.03), statsY + ph(0.13));
-    ctx.fillText(`In combat: ${combatSpeed} (flat ×1.2)`, panel.x + pw(0.03), statsY + ph(0.17));
+
+    // Health is a plain-English sentence, so it may wrap - the
+    // lines below flow from wherever it ends rather than sitting
+    // at fixed offsets.
+    const statsX = panel.x + pw(0.03);
+    const statsWidth = panel.width - pw(0.06);
+    const lineGap = ph(0.04);
+
+    let sy = wrapText(`Health: ${entry.hpScale}`, statsX, statsY + ph(0.05), statsWidth, ph(0.033));
+
+    sy += ph(0.008);
+
+    ctx.fillText(`Health on wave 1: ${wave1Hp}   wave 5: ${wave5Hp}   wave 10: ${wave10Hp}`, statsX, sy);
+    ctx.fillText(`Speed: ${entry.baseSpeed}`, statsX, sy + lineGap);
+    ctx.fillText(`Speed while fighting you: ${combatSpeed} (20% faster)`, statsX, sy + lineGap * 2);
 
 }
 
