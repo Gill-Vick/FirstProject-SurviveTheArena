@@ -103,6 +103,12 @@ class Player {
     // Glow color for the body sprite, or null for none.
     getBodyGlowColor() { return null; }
 
+    // A protective pixel shield bubble drawn around the body,
+    // or null for none. Each class returns its own: the
+    // Warrior's blue shield, the Thief's purple phase-cloak,
+    // the Mage's gold halo ward. See drawBody.
+    getShieldAura() { return null; }
+
     // Kit status lines for the HUD - array of
     // { text, color } objects (see drawHUD in ui.js).
     getHUDStatusLines() { return []; }
@@ -421,11 +427,32 @@ class Player {
 
     drawBody() {
 
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        // Protective shield bubble sits behind the sprite, in
+        // world space so its pixels stay axis-aligned to the
+        // grid instead of spinning with the body's aim.
+        const aura = this.getShieldAura();
+
+        if (aura) {
+
+            const pulse = 0.7 + Math.sin(Date.now() / (aura.pulseMs ?? 260)) * 0.3;
+
+            drawPixelShield(cx, cy, this.size * 0.92, {
+                color: aura.color,
+                glowColor: aura.glowColor ?? aura.color,
+                glintColor: aura.glintColor ?? "#ffffff",
+                alpha: (aura.alpha ?? 0.85) * pulse,
+                fillAlpha: aura.fillAlpha ?? 0.1,
+                unit: Math.max(2, Math.round(this.size * 0.11))
+            });
+
+        }
+
         if (this.invulnTimer > 0 && Math.floor(Date.now() / 80) % 2 === 0)
             ctx.globalAlpha = 0.55;
 
-        const cx = this.x + this.size / 2;
-        const cy = this.y + this.size / 2;
         const drawSize = this.size * PLAYER.VISUAL_SCALE;
 
         ctx.save();

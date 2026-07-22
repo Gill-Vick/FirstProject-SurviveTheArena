@@ -118,6 +118,21 @@ class Mage extends Player {
 
     }
 
+    // Gold halo ward bubble - the Mage's whole defense, so it
+    // shows the moment the ward is charged and up.
+    getShieldAura() {
+
+        return (Save.isEquipped("halo") && this.wardReady)
+            ? {
+                color: "#ffe6a0",
+                glowColor: HALO.COLOR,
+                glintColor: "#fffbe6",
+                pulseMs: 220
+            }
+            : null;
+
+    }
+
     // Amberlight Field - read by Projectile.update, which
     // drags enemy shots inside AMBERLIGHT.RADIUS down to half
     // speed.
@@ -655,12 +670,12 @@ class Mage extends Player {
         if (Save.isEquipped("corona"))
             this.drawCorona();
 
+        // The halo ward bubble is drawn by drawBody via
+        // getShieldAura, same as the Warrior's shield and the
+        // Thief's cloak.
         this.drawBody();
 
         this.drawStaff();
-
-        if (Save.isEquipped("halo") && this.wardReady)
-            this.drawWard();
 
         if (this.scepterFlashTimer > 0)
             this.drawBarrage();
@@ -700,85 +715,76 @@ class Mage extends Player {
 
     }
 
-    drawWard() {
-
-        const cx = this.x + this.size / 2;
-        const cy = this.y + this.size / 2;
-        const pulse = 0.5 + Math.sin(Date.now() / 160) * 0.2;
-
-        ctx.save();
-        ctx.strokeStyle = `rgba(255, 240, 170, ${pulse})`;
-        ctx.lineWidth = 3;
-        ctx.shadowBlur = 14;
-        ctx.shadowColor = HALO.COLOR;
-        ctx.beginPath();
-        ctx.arc(cx, cy, this.size * 0.85, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-
-    }
-
     drawCorona() {
 
         const cx = this.x + this.size / 2;
         const cy = this.y + this.size / 2;
         const pulse = 0.4 + Math.sin(Date.now() / 220) * 0.12;
 
-        ctx.save();
+        // The burn zone as a filled pixel disc, plus a bright
+        // pixel rim marking where enemies start taking ticks.
+        drawPixelDisc(cx, cy, CORONA.RADIUS, {
+            color: "#ffd25a",
+            alpha: 0.14 * pulse + 0.05,
+            unit: 9,
+            dither: 0.45
+        });
 
-        const grad = ctx.createRadialGradient(cx, cy, CORONA.RADIUS * 0.3, cx, cy, CORONA.RADIUS);
-        grad.addColorStop(0, `rgba(255, 210, 90, ${0.12 * pulse})`);
-        grad.addColorStop(1, "rgba(255, 210, 90, 0)");
-
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(cx, cy, CORONA.RADIUS, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.strokeStyle = `rgba(255, 220, 120, ${0.3 * pulse})`;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(cx, cy, CORONA.RADIUS, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.restore();
+        drawPixelRing(cx, cy, CORONA.RADIUS, {
+            color: "#ffdf8a",
+            alpha: 0.35 + pulse * 0.3,
+            unit: 6,
+            glow: 8,
+            glowColor: CORONA.COLOR
+        });
 
     }
 
-    // A wide, faint dome of thickened light. Deliberately
-    // subtle in the middle (it covers a lot of screen) with a
-    // clearer rim, since the rim is the part that matters -
-    // it's where incoming shots start to drag.
+    // A wide, faint dome of thickened light. Subtle in the
+    // middle (it covers a lot of screen) with a clearer rim,
+    // since the rim is the part that matters - it's where
+    // incoming shots start to drag.
     drawAmberlightField() {
 
         const cx = this.x + this.size / 2;
         const cy = this.y + this.size / 2;
         const pulse = 0.5 + Math.sin(Date.now() / 500) * 0.15;
 
+        drawPixelDisc(cx, cy, AMBERLIGHT.RADIUS, {
+            color: "#ffd98a",
+            alpha: 0.07 * pulse,
+            unit: 12,
+            dither: 0.35
+        });
+
+        // Marching dashed pixel rim - the slow boundary.
+        const unit = 7;
+        const gapPhase = Math.floor(Date.now() / 90);
+
         ctx.save();
+        ctx.globalAlpha = 0.3 + pulse * 0.25;
+        ctx.fillStyle = "#ffe2a0";
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = AMBERLIGHT.COLOR;
 
-        const grad = ctx.createRadialGradient(
-            cx, cy, AMBERLIGHT.RADIUS * 0.45,
-            cx, cy, AMBERLIGHT.RADIUS
-        );
-        grad.addColorStop(0, "rgba(255, 217, 138, 0)");
-        grad.addColorStop(1, `rgba(255, 217, 138, ${0.1 * pulse})`);
+        const steps = Math.ceil((AMBERLIGHT.RADIUS * 2 * Math.PI) / unit);
 
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(cx, cy, AMBERLIGHT.RADIUS, 0, Math.PI * 2);
-        ctx.fill();
+        for (let i = 0; i < steps; i++) {
 
-        ctx.strokeStyle = `rgba(255, 226, 160, ${0.28 * pulse})`;
-        ctx.lineWidth = 2;
-        ctx.setLineDash([12, 14]);
-        ctx.lineDashOffset = -Date.now() / 220;
+            if ((i + gapPhase) % 6 >= 3)
+                continue;
 
-        ctx.beginPath();
-        ctx.arc(cx, cy, AMBERLIGHT.RADIUS, 0, Math.PI * 2);
-        ctx.stroke();
+            const a = (i / steps) * Math.PI * 2;
+            ctx.fillRect(
+                pxSnap(cx + Math.cos(a) * AMBERLIGHT.RADIUS, unit),
+                pxSnap(cy + Math.sin(a) * AMBERLIGHT.RADIUS, unit),
+                unit, unit
+            );
+
+        }
 
         ctx.restore();
+        ctx.globalAlpha = 1;
 
     }
 
@@ -802,13 +808,12 @@ class Mage extends Player {
             ctx.save();
             ctx.rotate(ang);
 
-            const grad = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
-            grad.addColorStop(0, "rgba(255, 224, 102, 0)");
-            grad.addColorStop(0.5, `rgba(255, 250, 210, ${0.9 * fade})`);
-            grad.addColorStop(1, "rgba(255, 224, 102, 0)");
-
-            ctx.fillStyle = grad;
-            ctx.fillRect(0, -width / 2, length, width);
+            drawPixelBeam(length, width, {
+                color: SOVEREIGN_SCEPTER.COLOR,
+                coreColor: "#fffad2",
+                alpha: 0.9 * fade,
+                unit: Math.max(3, Math.round(width * 0.24))
+            });
 
             ctx.restore();
 

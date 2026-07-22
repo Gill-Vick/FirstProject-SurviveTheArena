@@ -651,19 +651,15 @@ class Ranger extends Player {
         ctx.translate(cx, cy);
         ctx.rotate(this.stormLaserAngle);
 
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 18;
         ctx.shadowColor = STORMPIERCER.LASER_COLOR;
 
-        const grad = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
-        grad.addColorStop(0, "rgba(155, 89, 182, 0)");
-        grad.addColorStop(0.5, `rgba(230, 220, 255, ${0.95 * fade})`);
-        grad.addColorStop(1, "rgba(155, 89, 182, 0)");
-
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, -width / 2, length, width);
-
-        ctx.fillStyle = `rgba(255, 255, 255, ${0.85 * fade})`;
-        ctx.fillRect(0, -width * 0.12, length, width * 0.24);
+        drawPixelBeam(length, width, {
+            color: STORMPIERCER.LASER_COLOR,
+            coreColor: "#f2ecff",
+            alpha: 0.95 * fade,
+            unit: Math.max(3, Math.round(width * 0.2))
+        });
 
         ctx.restore();
 

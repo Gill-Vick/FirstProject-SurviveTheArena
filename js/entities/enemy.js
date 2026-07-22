@@ -493,83 +493,95 @@ class Enemy {
         const cy = this.y + this.size / 2;
         const pulse = 0.35 + Math.sin(Date.now() / 400) * 0.12;
 
+        // Faint pixel fill marking the protected zone.
+        drawPixelDisc(cx, cy, this.projectileRingRadius, {
+            color: BOSS_RING.COLOR,
+            alpha: pulse * 0.1,
+            unit: 12,
+            dither: 0.5
+        });
+
+        // Rotating dashed pixel rim - a couple of pixels deep so
+        // it reads as a standing barrier, not a hairline.
+        const unit = 6;
+        const gapPhase = Math.floor(Date.now() / 60);
+
         ctx.save();
-
-        // Faint fill so the protected zone is readable.
-        ctx.fillStyle = `rgba(155, 108, 255, ${pulse * 0.12})`;
-        ctx.beginPath();
-        ctx.arc(cx, cy, this.projectileRingRadius, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.strokeStyle = `rgba(155, 108, 255, ${pulse + 0.25})`;
-        ctx.lineWidth = 4;
-        ctx.shadowBlur = 16;
+        ctx.globalAlpha = pulse + 0.3;
+        ctx.fillStyle = BOSS_RING.COLOR;
+        ctx.shadowBlur = 10;
         ctx.shadowColor = BOSS_RING.COLOR;
-        ctx.setLineDash([18, 12]);
-        ctx.lineDashOffset = -Date.now() / 40;
 
-        ctx.beginPath();
-        ctx.arc(cx, cy, this.projectileRingRadius, 0, Math.PI * 2);
-        ctx.stroke();
+        const steps = Math.ceil((this.projectileRingRadius * 2 * Math.PI) / unit);
+
+        for (let i = 0; i < steps; i++) {
+
+            // Dash pattern: 3 cells on, 2 off, marching around.
+            if ((i + gapPhase) % 5 >= 3)
+                continue;
+
+            const a = (i / steps) * Math.PI * 2;
+
+            for (let layer = 0; layer < 2; layer++) {
+
+                const r = this.projectileRingRadius - layer * unit;
+                ctx.fillRect(
+                    pxSnap(cx + Math.cos(a) * r, unit),
+                    pxSnap(cy + Math.sin(a) * r, unit),
+                    unit, unit
+                );
+
+            }
+
+        }
 
         ctx.restore();
+        ctx.globalAlpha = 1;
 
     }
 
-    // Arcane ring around a damage-immune enemy (the Royal
-    // Magus' honor guard) - same idea as the ward shield ring
-    // but in the Magus' blue, so it reads as HIS protection.
+    // Arcane shield around a damage-immune enemy (the Royal
+    // Magus' honor guard) - HIS blue protection.
 
     drawImmuneRing() {
 
-        const pulse = 0.5 + Math.sin(Date.now() / 170) * 0.2;
+        const pulse = 0.6 + Math.sin(Date.now() / 170) * 0.25;
 
-        ctx.save();
-
-        ctx.strokeStyle = `rgba(120, 150, 255, ${pulse})`;
-        ctx.lineWidth = 3;
-        ctx.shadowBlur = 14;
-        ctx.shadowColor = "#3d5af1";
-
-        ctx.beginPath();
-        ctx.arc(
+        drawPixelShield(
             this.x + this.size / 2,
             this.y + this.size / 2,
-            this.size * 0.8,
-            0,
-            Math.PI * 2
+            this.size * 0.85,
+            {
+                color: "#5f7dff",
+                glowColor: "#3d5af1",
+                glintColor: "#c8d4ff",
+                alpha: pulse,
+                fillAlpha: 0.14
+            }
         );
-        ctx.stroke();
-
-        ctx.restore();
 
     }
 
-    // Pale ring around a warded enemy (Blood Cleric's 1-hit
-    // shield) - pulses gently so it reads as active magic.
+    // Pale 1-hit ward bubble (Blood Cleric's shield, elite
+    // grunt/skeleton/lancer wards) - pulses so it reads as
+    // active magic about to pop.
 
     drawWardShield() {
 
-        const pulse = 0.55 + Math.sin(Date.now() / 150) * 0.2;
+        const pulse = 0.6 + Math.sin(Date.now() / 150) * 0.25;
 
-        ctx.save();
-
-        ctx.strokeStyle = `rgba(255, 240, 220, ${pulse})`;
-        ctx.lineWidth = 3;
-        ctx.shadowBlur = 12;
-        ctx.shadowColor = "#ffe8c8";
-
-        ctx.beginPath();
-        ctx.arc(
+        drawPixelShield(
             this.x + this.size / 2,
             this.y + this.size / 2,
-            this.size * 0.75,
-            0,
-            Math.PI * 2
+            this.size * 0.8,
+            {
+                color: "#ffeccb",
+                glowColor: "#ffe8c8",
+                glintColor: "#ffffff",
+                alpha: pulse,
+                fillAlpha: 0.12
+            }
         );
-        ctx.stroke();
-
-        ctx.restore();
 
     }
 
@@ -727,23 +739,42 @@ class Enemy {
         const cy = this.y + this.size / 2;
         const pulse = 0.3 + Math.sin(Date.now() / 300) * 0.1;
 
+        // Broad blocky gold dome - filled disc for the zone plus
+        // a marching dashed pixel rim.
+        drawPixelDisc(cx, cy, this.auraRadius, {
+            color: "#ffc83c",
+            alpha: pulse * 0.14,
+            unit: 12,
+            dither: 0.5
+        });
+
+        const unit = 7;
+        const gapPhase = Math.floor(Date.now() / 50);
+
         ctx.save();
+        ctx.globalAlpha = pulse + 0.25;
+        ctx.fillStyle = "#ffd250";
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = "#ffb020";
 
-        ctx.fillStyle = `rgba(255, 200, 60, ${pulse * 0.16})`;
-        ctx.beginPath();
-        ctx.arc(cx, cy, this.auraRadius, 0, Math.PI * 2);
-        ctx.fill();
+        const steps = Math.ceil((this.auraRadius * 2 * Math.PI) / unit);
 
-        ctx.strokeStyle = `rgba(255, 210, 80, ${pulse + 0.2})`;
-        ctx.lineWidth = 3;
-        ctx.setLineDash([14, 10]);
-        ctx.lineDashOffset = -Date.now() / 50;
+        for (let i = 0; i < steps; i++) {
 
-        ctx.beginPath();
-        ctx.arc(cx, cy, this.auraRadius, 0, Math.PI * 2);
-        ctx.stroke();
+            if ((i + gapPhase) % 5 >= 3)
+                continue;
+
+            const a = (i / steps) * Math.PI * 2;
+            ctx.fillRect(
+                pxSnap(cx + Math.cos(a) * this.auraRadius, unit),
+                pxSnap(cy + Math.sin(a) * this.auraRadius, unit),
+                unit, unit
+            );
+
+        }
 
         ctx.restore();
+        ctx.globalAlpha = 1;
 
     }
 

@@ -489,8 +489,37 @@ class Lancer extends Enemy {
 
         if (this.shieldHits > 0) {
 
-            ctx.fillStyle = "#95a5a6";
-            ctx.fillRect(-8, -18, 6, 36);
+            // A chunky pixel kite-shield held out toward the
+            // player: dark backing, steel face with a bevel,
+            // and one gold stud per hit it can still soak - so
+            // the elite's 3-hit shield reads apart from the
+            // normal 2 at a glance.
+            const px = -14;
+            const halfH = 20;
+
+            // Backing / border.
+            ctx.fillStyle = "#2c3336";
+            ctx.fillRect(px, -halfH, 8, halfH * 2);
+
+            // Steel face.
+            ctx.fillStyle = "#8b9ba1";
+            ctx.fillRect(px + 2, -halfH + 2, 4, halfH * 2 - 4);
+
+            // Lit bevel down the outer edge.
+            ctx.fillStyle = "#c3d0d4";
+            ctx.fillRect(px + 2, -halfH + 2, 4, 4);
+            ctx.fillStyle = "#5f6d72";
+            ctx.fillRect(px + 2, halfH - 4, 4, 2);
+
+            // Hit studs stacked down the face.
+            ctx.fillStyle = "#e8c24d";
+
+            for (let i = 0; i < this.shieldHits; i++) {
+
+                const sy = -halfH + 6 + i * 10;
+                ctx.fillRect(px + 3, sy, 3, 3);
+
+            }
 
         }
 

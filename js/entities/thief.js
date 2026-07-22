@@ -94,6 +94,22 @@ class Thief extends Player {
 
     }
 
+    // Purple phantom bubble during the cloak's phase window -
+    // pulses faster than the others, so it reads as a fleeting
+    // dodge state rather than a standing shield.
+    getShieldAura() {
+
+        return this.invulnTimer > 0 && Save.isEquipped("cloak")
+            ? {
+                color: "#b06ae0",
+                glowColor: CLOAK.GLOW_COLOR,
+                glintColor: "#ead4ff",
+                pulseMs: 130
+            }
+            : null;
+
+    }
+
     updateAbilities() {
 
         if (this.knifeCooldown > 0)

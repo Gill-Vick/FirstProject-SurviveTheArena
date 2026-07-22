@@ -114,6 +114,15 @@ class Warrior extends Player {
 
     }
 
+    // Blue bulwark bubble while a shield charge is up.
+    getShieldAura() {
+
+        return this.shieldActive
+            ? { color: "#4da6ff", glowColor: "#2f7dd6", glintColor: "#d6ecff" }
+            : null;
+
+    }
+
     hasAbilityButton() { return Save.isEquipped("bow"); }
     getAbilityButtonLabel() { return "BOW"; }
     hasSecondaryButton() { return Save.isEquipped("kingsBlade"); }
@@ -838,19 +847,15 @@ class Warrior extends Player {
         ctx.translate(cx, cy);
         ctx.rotate(this.kingsBladeLaserAngle);
 
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 18;
         ctx.shadowColor = KINGS_BLADE.LASER_COLOR;
 
-        const grad = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
-        grad.addColorStop(0, "rgba(0, 191, 255, 0)");
-        grad.addColorStop(0.5, `rgba(200, 245, 255, ${0.95 * fade})`);
-        grad.addColorStop(1, "rgba(0, 191, 255, 0)");
-
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, -width / 2, length, width);
-
-        ctx.fillStyle = `rgba(255, 255, 255, ${0.85 * fade})`;
-        ctx.fillRect(0, -width * 0.12, length, width * 0.24);
+        drawPixelBeam(length, width, {
+            color: KINGS_BLADE.LASER_COLOR,
+            coreColor: "#eaffff",
+            alpha: 0.95 * fade,
+            unit: Math.max(3, Math.round(width * 0.2))
+        });
 
         ctx.restore();
 
