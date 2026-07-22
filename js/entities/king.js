@@ -334,10 +334,13 @@ class King extends Enemy {
         if (this.slashing)
             this.drawKingSlash();
 
-        ctx.fillStyle = KING.COLOR;
-        ctx.font = "bold 22px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("KING", cx, this.y - 28);
+        drawPixelText(
+            "KING",
+            cx,
+            this.y - 30,
+            2,
+            { color: "#c08cff", shadow: "rgba(0, 0, 0, 0.9)" }
+        );
 
         // Walls draw last, on top of everything (including the
         // King himself), so the bullet-hell pattern reads

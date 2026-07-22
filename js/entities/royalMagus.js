@@ -224,10 +224,13 @@ class RoyalMagus extends Enemy {
         this.drawStaff();
         this.drawHat();
 
-        ctx.fillStyle = MAGUS.COLOR;
-        ctx.font = "bold 22px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("ROYAL MAGUS", cx, this.y - 28);
+        drawPixelText(
+            "ROYAL MAGUS",
+            cx,
+            this.y - 30,
+            2,
+            { color: "#8fa0ff", shadow: "rgba(0, 0, 0, 0.9)" }
+        );
 
     }
 

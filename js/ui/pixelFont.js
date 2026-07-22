@@ -59,8 +59,23 @@ const PIXEL_GLYPHS = {
     "-": ["00000", "00000", "00000", "11111", "00000", "00000", "00000"],
     "!": ["00100", "00100", "00100", "00100", "00100", "00000", "00100"],
     ".": ["00000", "00000", "00000", "00000", "00000", "00000", "00100"],
+    ",": ["00000", "00000", "00000", "00000", "00000", "00100", "01000"],
     ":": ["00000", "00100", "00000", "00000", "00000", "00100", "00000"],
-    "'": ["00100", "00100", "00000", "00000", "00000", "00000", "00000"]
+    "'": ["00100", "00100", "00000", "00000", "00000", "00000", "00000"],
+    "/": ["00001", "00010", "00010", "00100", "01000", "01000", "10000"],
+    "+": ["00000", "00100", "00100", "11111", "00100", "00100", "00000"],
+    "%": ["11001", "11010", "00010", "00100", "01000", "01011", "10011"],
+    "(": ["00010", "00100", "01000", "01000", "01000", "00100", "00010"],
+    ")": ["01000", "00100", "00010", "00010", "00010", "00100", "01000"],
+    "?": ["01110", "10001", "00001", "00010", "00100", "00000", "00100"],
+
+    // Multiplication sign - distinct from the letter X, which
+    // is what an uppercased "x" would collide with.
+    "×": ["00000", "10001", "01010", "00100", "01010", "10001", "00000"],
+
+    // Selector arrows (class picker, bestiary pages).
+    "◀": ["00001", "00011", "00111", "01111", "00111", "00011", "00001"],
+    "▶": ["10000", "11000", "11100", "11110", "11100", "11000", "10000"]
 
 };
 
@@ -114,6 +129,10 @@ function drawPixelText(text, cx, cy, scale, opts = {}) {
     const startX = Math.round(cx - totalW / 2);
     const startY = Math.round(cy - totalH / 2);
 
+    // Consecutive lit pixels in a row are drawn as ONE rect
+    // rather than one each. The HUD redraws this every frame,
+    // and a full status readout is a few hundred glyphs - runs
+    // cut the fillRect count by roughly half for free.
     const paint = (offsetX, offsetY, color) => {
 
         ctx.fillStyle = color;
@@ -128,17 +147,28 @@ function drawPixelText(text, cx, cy, scale, opts = {}) {
 
                 const bits = glyph[row];
 
-                for (let col = 0; col < PIXEL_GLYPH_W; col++) {
+                let runStart = -1;
 
-                    if (bits[col] !== "1")
-                        continue;
+                for (let col = 0; col <= PIXEL_GLYPH_W; col++) {
 
-                    ctx.fillRect(
-                        penX + col * scale,
-                        startY + offsetY + row * scale,
-                        scale,
-                        scale
-                    );
+                    const lit = col < PIXEL_GLYPH_W && bits[col] === "1";
+
+                    if (lit && runStart === -1) {
+
+                        runStart = col;
+
+                    } else if (!lit && runStart !== -1) {
+
+                        ctx.fillRect(
+                            penX + runStart * scale,
+                            startY + offsetY + row * scale,
+                            (col - runStart) * scale,
+                            scale
+                        );
+
+                        runStart = -1;
+
+                    }
 
                 }
 
@@ -174,6 +204,176 @@ function drawPixelText(text, cx, cy, scale, opts = {}) {
 //
 // `unit` is the size of one bevel step in screen pixels;
 // scaling it with the button keeps small controls slim.
+
+// Any CSS color -> [r, g, b]. Round-trips through fillStyle,
+// which the browser normalises to "#rrggbb", so named colors
+// ("lime"), shorthand ("#555") and rgb() strings all work
+// without a lookup table of our own.
+const PIXEL_COLOR_CACHE = {};
+
+function toRGB(color) {
+
+    if (PIXEL_COLOR_CACHE[color])
+        return PIXEL_COLOR_CACHE[color];
+
+    const previous = ctx.fillStyle;
+
+    ctx.fillStyle = color;
+    const normalized = ctx.fillStyle;
+    ctx.fillStyle = previous;
+
+    let rgb = [128, 128, 128];
+
+    if (typeof normalized === "string" && normalized[0] === "#") {
+
+        const value = parseInt(normalized.slice(1), 16);
+
+        rgb = [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+
+    }
+
+    PIXEL_COLOR_CACHE[color] = rgb;
+
+    return rgb;
+
+}
+
+function shiftRGB([r, g, b], amount) {
+
+    const move = (c) => amount >= 0
+        ? Math.round(c + (255 - c) * amount)
+        : Math.round(c * (1 + amount));
+
+    return `rgb(${move(r)}, ${move(g)}, ${move(b)})`;
+
+}
+
+// Builds a full pixel-panel palette from a single accent
+// colour. This is what lets every existing drawButton() call
+// site - mode cards, shop buy/equip, bestiary, back buttons -
+// convert to the pixel look without touching any of them.
+//
+// `textColor` is the caller's own label colour; the shadow is
+// derived so light labels get a dark shadow and vice versa.
+
+function pixelPaletteFrom(color, textColor = "#ffffff") {
+
+    const base = toRGB(color);
+    const text = toRGB(textColor);
+
+    const luminance = (text[0] * 0.3 + text[1] * 0.59 + text[2] * 0.11) / 255;
+
+    return {
+        face: shiftRGB(base, 0),
+        light: shiftRGB(base, 0.34),
+        shade: shiftRGB(base, -0.42),
+        outline: shiftRGB(base, -0.78),
+        text: textColor,
+        textShadow: luminance > 0.5
+            ? shiftRGB(base, -0.65)
+            : shiftRGB(base, 0.5)
+    };
+
+}
+
+// =====================================
+// Wrapped Pixel Text
+// =====================================
+//
+// The pixel counterpart to wrapText(): breaks `text` on word
+// boundaries to fit maxWidth and draws each line LEFT-aligned
+// from (x, y), returning the y just past the last line so
+// callers can flow content beneath it.
+//
+// Note drawPixelText centres on its given point, so each line
+// is emitted at its own midline - hence the half-line offset.
+
+function drawPixelTextWrapped(text, x, y, maxWidth, scale, opts = {}) {
+
+    const words = String(text).toUpperCase().split(" ");
+
+    const lineHeight = PIXEL_GLYPH_H * scale + scale * 3;
+
+    const lines = [];
+    let line = "";
+
+    words.forEach(word => {
+
+        const test = line ? `${line} ${word}` : word;
+
+        if (line && measurePixelText(test) * scale > maxWidth) {
+
+            lines.push(line);
+            line = word;
+
+        } else {
+
+            line = test;
+
+        }
+
+    });
+
+    if (line)
+        lines.push(line);
+
+    lines.forEach((text, i) => {
+
+        drawPixelText(
+            text,
+            x + measurePixelText(text) * scale / 2,
+            y + i * lineHeight + PIXEL_GLYPH_H * scale / 2,
+            scale,
+            opts
+        );
+
+    });
+
+    return y + lines.length * lineHeight;
+
+}
+
+// =====================================
+// Pixel Frame
+// =====================================
+//
+// The window/card counterpart to drawPixelPanel: a dark
+// translucent interior inside a chunky two-tone border, with
+// the corners knocked off. Used for anything that holds
+// content rather than being clicked - shop rows, bestiary
+// cards, HUD backdrops, mode cards.
+
+function drawPixelFrame(x, y, w, h, opts = {}) {
+
+    const u = Math.max(2, Math.round(opts.unit ?? 3));
+
+    x = Math.round(x);
+    y = Math.round(y);
+    w = Math.round(w);
+    h = Math.round(h);
+
+    const border = opts.border ?? "#6b5a3e";
+    const borderDark = opts.borderDark ?? "#2a2116";
+    const fill = opts.fill ?? "rgba(12, 9, 6, 0.72)";
+
+    ctx.save();
+
+    // Outer dark band, corners clipped.
+    ctx.fillStyle = borderDark;
+    ctx.fillRect(x + u, y, w - u * 2, h);
+    ctx.fillRect(x, y + u, w, h - u * 2);
+
+    // Inner lighter border.
+    ctx.fillStyle = border;
+    ctx.fillRect(x + u, y + u, w - u * 2, h - u * 2);
+
+    // Interior.
+    ctx.fillStyle = fill;
+    ctx.fillRect(x + u * 2, y + u * 2, w - u * 4, h - u * 4);
+
+    ctx.restore();
+
+}
 
 function drawPixelPanel(x, y, w, h, colors, unit) {
 

@@ -372,29 +372,37 @@ function drawPauseVolumeSliders(panel) {
         const slider = getPauseVolumeSlider(i);
         const value = Save[entry.key];
 
-        ctx.fillStyle = "white";
-        ctx.font = `bold ${ph(0.018)}px ${UI_FONT}`;
-        ctx.textAlign = "left";
-        ctx.fillText(
+        const labelScale = Math.max(1, Math.round(ph(0.018) / PIXEL_GLYPH_H));
+        const labelX = panel.x + panel.width * 0.07;
+
+        drawPixelText(
             entry.label,
-            panel.x + panel.width * 0.07,
-            slider.y + slider.height * 0.9
+            labelX + measurePixelText(entry.label) * labelScale / 2,
+            slider.y + slider.height / 2,
+            labelScale,
+            { color: "#f6efdd", shadow: "rgba(0, 0, 0, 0.85)" }
         );
 
-        // Track, filled portion, knob.
-        ctx.fillStyle = "#333";
+        // Track, filled portion, knob - hard-edged to match
+        // the rest of the pixel chrome.
+        const u = Math.max(2, Math.round(slider.height * 0.3));
+
+        ctx.fillStyle = "#1a1610";
+        ctx.fillRect(slider.x - u, slider.y - u, slider.width + u * 2, slider.height + u * 2);
+
+        ctx.fillStyle = "#3a342c";
         ctx.fillRect(slider.x, slider.y, slider.width, slider.height);
 
         ctx.fillStyle = "#c9a227";
         ctx.fillRect(slider.x, slider.y, slider.width * value, slider.height);
 
-        ctx.fillStyle = "white";
-        ctx.fillRect(
-            slider.x + slider.width * value - pw(0.003),
-            slider.y - slider.height * 0.3,
-            pw(0.006),
-            slider.height * 1.6
-        );
+        const knobW = Math.max(4, Math.round(slider.height * 0.7));
+        const knobX = Math.round(slider.x + slider.width * value);
+
+        ctx.fillStyle = "#0f0c08";
+        ctx.fillRect(knobX - knobW / 2 - u, slider.y - u, knobW + u * 2, slider.height + u * 2);
+        ctx.fillStyle = "#f6efdd";
+        ctx.fillRect(knobX - knobW / 2, slider.y - u * 0.5, knobW, slider.height + u);
 
     });
 
@@ -438,19 +446,25 @@ function drawPauseMenu() {
     ctx.lineWidth = Math.max(3, ph(0.005));
     ctx.strokeRect(panel.x, panel.y, panel.width, panel.height);
 
-    ctx.fillStyle = "white";
-    ctx.font = `bold ${ph(0.045)}px ${UI_FONT}`;
-    ctx.textAlign = "center";
-    ctx.fillText("PAUSED", canvas.width / 2, panel.y + ph(0.065));
+    drawPixelText(
+        "PAUSED",
+        canvas.width / 2,
+        panel.y + ph(0.055),
+        fitPixelScale("PAUSED", panel.width * 0.6, ph(0.05)),
+        { color: "#f6efdd", shadow: "#6b4c0d" }
+    );
 
     drawButton(getPauseResumeButton(), "RESUME", "lime", "black", ph(0.026));
 
     if (Game.mode === "custom") {
 
-        ctx.fillStyle = "#f1c40f";
-        ctx.font = `bold ${ph(0.026)}px Arial`;
-        ctx.textAlign = "center";
-        ctx.fillText(`Wave: ${Game.wave}`, canvas.width / 2, panel.y + ph(0.26));
+        drawPixelText(
+            `WAVE ${Game.wave}`,
+            canvas.width / 2,
+            panel.y + ph(0.252),
+            Math.max(1, Math.round(ph(0.026) / PIXEL_GLYPH_H)),
+            { color: "#f1c40f", shadow: "rgba(0, 0, 0, 0.85)" }
+        );
 
         PAUSE_WAVE_DELTAS.forEach((delta, i) => {
 
@@ -542,36 +556,36 @@ function drawAudioSettingsButton() {
 
     const b = getAudioSettingsButton();
 
-    drawButton(b, "", "#333", "white", 1);
+    drawButton(b, "", "#4a4a52", "white", 1);
 
-    // Headphones: an arc for the band, two capsules for the
-    // ear cups hanging off its ends.
-    const cx = b.x + b.width / 2;
-    const cy = b.y + b.height / 2;
-    const r = b.width * 0.26;
+    // Headphones drawn on the same pixel grid as everything
+    // else: a stepped band (three blocks, so the arc reads as
+    // pixel-art rather than a smooth stroke) over two solid
+    // ear cups.
+    const p = Math.max(2, Math.round(b.width * 0.085));
+
+    const cx = Math.round(b.x + b.width / 2);
+    const cy = Math.round(b.y + b.height / 2);
 
     ctx.save();
 
-    ctx.strokeStyle = "white";
-    ctx.lineWidth = b.width * 0.09;
-    ctx.lineCap = "round";
+    ctx.fillStyle = "#e8e8f0";
 
-    ctx.beginPath();
-    ctx.arc(cx, cy + r * 0.25, r, Math.PI, Math.PI * 2);
-    ctx.stroke();
+    // Band: flat crown with a stepped shoulder each side, so
+    // the arc reads as pixel-art rather than a smooth stroke.
+    ctx.fillRect(cx - p * 2, cy - p * 3, p * 4, p);
+    ctx.fillRect(cx - p * 3, cy - p * 2, p, p);
+    ctx.fillRect(cx + p * 2, cy - p * 2, p, p);
 
-    ctx.fillStyle = "white";
+    // Ear cups hanging off the band's ends.
+    ctx.fillRect(cx - p * 4, cy - p, p * 2, p * 3);
+    ctx.fillRect(cx + p * 2, cy - p, p * 2, p * 3);
 
-    const cupW = b.width * 0.16;
-    const cupH = b.width * 0.3;
-
-    [cx - r, cx + r].forEach(x => {
-
-        ctx.beginPath();
-        ctx.roundRect(x - cupW / 2, cy + r * 0.15, cupW, cupH, cupW / 2);
-        ctx.fill();
-
-    });
+    // Darker inner face on each cup so they read as solid
+    // objects instead of flat tabs.
+    ctx.fillStyle = "#7d7d8c";
+    ctx.fillRect(cx - p * 3, cy, p, p * 2);
+    ctx.fillRect(cx + p * 2, cy, p, p * 2);
 
     ctx.restore();
 
@@ -587,10 +601,13 @@ function drawAudioSettingsMenu() {
     ctx.lineWidth = Math.max(3, ph(0.005));
     ctx.strokeRect(panel.x, panel.y, panel.width, panel.height);
 
-    ctx.fillStyle = "white";
-    ctx.font = `bold ${ph(0.045)}px ${UI_FONT}`;
-    ctx.textAlign = "center";
-    ctx.fillText("AUDIO", canvas.width / 2, panel.y + ph(0.09));
+    drawPixelText(
+        "AUDIO",
+        canvas.width / 2,
+        panel.y + ph(0.08),
+        fitPixelScale("AUDIO", panel.width * 0.6, ph(0.05)),
+        { color: "#f6efdd", shadow: "#6b4c0d" }
+    );
 
     drawPauseVolumeSliders(panel);
 
@@ -794,29 +811,46 @@ function getShopEquipButton(index) {
 
 }
 
+// Repeatable items (crit, locket) show a level slider instead
+// of an equip button. It sits in the row's right-hand control
+// area - just left of the Buy plate, where the equip button
+// would otherwise be - and vertically centred, so it no longer
+// runs across the item's own price line on the left.
 function getShopCritSlider(index) {
 
-    const { rowHeight, rowStart, marginX } = getShopRowMetrics();
+    const { rowHeight, rowStart } = getShopRowMetrics();
+    const btn = getShopBtnSize();
+
+    const width = pw(0.16);
 
     return {
-        x: marginX,
-        y: rowStart + index * rowHeight + ph(0.068),
-        width: pw(0.18),
+        x: canvas.width - btn.width - pw(0.055) - width,
+        y: rowStart + index * rowHeight + rowHeight / 2 - ph(0.01),
+        width,
         height: ph(0.02)
     };
 
 }
 
 // Stage picker rect for any staged item's row (bow, shield,
-// cloak, dagger).
+// cloak, dagger, halo, sunburst).
+//
+// Lives in the row's right-hand control area, same as the
+// crit/locket sliders - but one slot further left, because a
+// staged item shows BOTH an equip and a buy plate while a
+// repeatable one only shows buy. Sat on the left before, where
+// it crowded the item's own price / "MAX LEVEL" line.
 function getShopStageSlider(index) {
 
-    const { rowHeight, rowStart, marginX } = getShopRowMetrics();
+    const { rowHeight, rowStart } = getShopRowMetrics();
+    const btn = getShopBtnSize();
+
+    const width = pw(0.12);
 
     return {
-        x: marginX + pw(0.19),
-        y: rowStart + index * rowHeight + ph(0.045),
-        width: pw(0.09),
+        x: canvas.width - btn.width * 2 - pw(0.075) - width,
+        y: rowStart + index * rowHeight + rowHeight / 2 - ph(0.014),
+        width,
         height: ph(0.028)
     };
 
@@ -1029,83 +1063,98 @@ function roundRectPath(x, y, w, h, r) {
 
 function drawButton(btn, label, fill, textColor, fontSize) {
 
-    const size = fontSize ?? ph(0.028);
     const { x, y, width: w, height: h } = btn;
 
-    const radius = Math.min(h * 0.3, ph(0.016));
-    const border = Math.max(1.5, Math.min(w, h) * 0.06);
+    const palette = pixelPaletteFrom(fill, textColor ?? "#ffffff");
 
-    ctx.save();
+    // Bevel step scales with the button so shop arrows and
+    // wave-jump deltas stay slim while menu plates get a
+    // chunky border.
+    drawPixelPanel(x, y, w, h, palette, Math.min(w, h) * 0.09);
 
-    // Seat the plate on the surface with a soft drop shadow.
-    ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-    ctx.shadowBlur = Math.max(2, h * 0.14);
-    ctx.shadowOffsetY = Math.max(1, h * 0.07);
+    // fontSize is the caller's intent for how big the label
+    // should read; convert it to the nearest whole pixel scale
+    // and then clamp so it always fits the plate.
+    //
+    // The height budget is generous (0.55) because glyphs are
+    // exactly 7px tall with no ascenders/descenders to leave
+    // room for - a tighter budget rounded small square buttons
+    // (the class arrows) down to a 5x7 speck.
+    const wanted = Math.max(1, Math.round((fontSize ?? ph(0.028)) / PIXEL_GLYPH_H));
+    const fits = fitPixelScale(label, w * 0.78, h * 0.55);
 
-    roundRectPath(x, y, w, h, radius);
-    ctx.fillStyle = fill;
-    ctx.fill();
-
-    ctx.shadowColor = "transparent";
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetY = 0;
-
-    // Forged-metal bevel, layered over whatever the fill was so
-    // every button reads as a raised plate regardless of accent.
-    roundRectPath(x, y, w, h, radius);
-    ctx.save();
-    ctx.clip();
-    const sheen = ctx.createLinearGradient(0, y, 0, y + h);
-    sheen.addColorStop(0, "rgba(255, 255, 255, 0.32)");
-    sheen.addColorStop(0.45, "rgba(255, 255, 255, 0.04)");
-    sheen.addColorStop(0.55, "rgba(0, 0, 0, 0.04)");
-    sheen.addColorStop(1, "rgba(0, 0, 0, 0.40)");
-    ctx.fillStyle = sheen;
-    ctx.fillRect(x, y, w, h);
-    ctx.restore();
-
-    // Dark outer seat...
-    roundRectPath(x, y, w, h, radius);
-    ctx.strokeStyle = "rgba(20, 14, 8, 0.75)";
-    ctx.lineWidth = border;
-    ctx.stroke();
-
-    // ...wrapped in a gilt inner frame - the shared medieval cue.
-    const inset = border * 0.85;
-    roundRectPath(
-        x + inset,
-        y + inset,
-        w - inset * 2,
-        h - inset * 2,
-        Math.max(0.5, radius - inset)
+    drawPixelText(
+        label,
+        x + w / 2,
+        y + h / 2,
+        Math.min(wanted, fits),
+        { color: palette.text, shadow: palette.textShadow }
     );
-    ctx.strokeStyle = "rgba(201, 162, 39, 0.9)";
-    ctx.lineWidth = Math.max(1, border * 0.55);
-    ctx.stroke();
-
-    // Engraved serif label with a carved drop-shadow.
-    ctx.font = `bold ${size}px ${UI_FONT}`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "alphabetic";
-
-    const cx = x + w / 2;
-    const ty = y + h / 2 + size * 0.35;
-
-    ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
-    ctx.fillText(label, cx + Math.max(1, size * 0.03), ty + Math.max(1, size * 0.05));
-    ctx.fillStyle = textColor;
-    ctx.fillText(label, cx, ty);
-
-    ctx.restore();
 
 }
 
-function drawCoinDisplay(x, y, size) {
+// Coin readout: a small pixel coin sprite followed by the
+// count, seated on a dark plate so it stays legible over the
+// bright stained glass behind it. `x, y` stays the anchor the
+// callers already pass (left edge, text baseline-ish), and the
+// plate is drawn around that.
 
-    ctx.fillStyle = "gold";
-    ctx.font = `bold ${size}px Arial`;
-    ctx.textAlign = "left";
-    ctx.fillText(`Coins: ${Save.coins}`, x, y);
+function drawCoinDisplay(x, y, size, alignRight = false) {
+
+    const text = String(Save.coins);
+    const scale = Math.max(1, Math.round(size / PIXEL_GLYPH_H));
+
+    const coinSize = scale * 5;
+    const gap = scale * 2;
+    const textW = measurePixelText(text) * scale;
+
+    const padX = scale * 3;
+    const padY = scale * 3;
+
+    const innerW = coinSize + gap + textW;
+    const innerH = Math.max(coinSize, PIXEL_GLYPH_H * scale);
+
+    // Right-aligned callers pass the RIGHT edge, so the plate
+    // grows leftward as the coin count gets longer instead of
+    // running off the screen (which is what clipped "Coins:"
+    // on a narrow viewport).
+    if (alignRight)
+        x = x - innerW;
+
+    const panelX = x - padX;
+    const panelY = y - innerH / 2 - padY;
+    const panelW = innerW + padX * 2;
+    const panelH = innerH + padY * 2;
+
+    drawPixelFrame(panelX, panelY, panelW, panelH, {
+        unit: Math.max(2, scale),
+        border: "#6b5a3e",
+        borderDark: "#231b12",
+        fill: "rgba(10, 8, 5, 0.8)"
+    });
+
+    // Chunky pixel coin: dark rim, gold face, one highlight
+    // pip - reads as a coin at any size without a sprite.
+    const coinX = Math.round(x);
+    const coinY = Math.round(y - coinSize / 2);
+
+    ctx.fillStyle = "#6b4c0d";
+    ctx.fillRect(coinX + scale, coinY, coinSize - scale * 2, coinSize);
+    ctx.fillRect(coinX, coinY + scale, coinSize, coinSize - scale * 2);
+
+    ctx.fillStyle = "#e8c24d";
+    ctx.fillRect(coinX + scale, coinY + scale, coinSize - scale * 2, coinSize - scale * 2);
+
+    ctx.fillStyle = "#fff2b8";
+    ctx.fillRect(coinX + scale * 1.5, coinY + scale * 1.5, scale, scale);
+
+    drawPixelText(
+        text,
+        x + coinSize + gap + textW / 2,
+        y,
+        scale,
+        { color: "#ffe066", shadow: "#4a3208" }
+    );
 
 }
 
@@ -1149,28 +1198,54 @@ function drawStageIndicator(slider, currentStage, itemId) {
         STAGE_SLIDER_STYLE[itemId] ?? STAGE_SLIDER_FALLBACK;
 
     const segW = slider.width / 3;
-    const boxW = segW * 0.85;
-    const fontSize = slider.height * 0.65;
+    const boxW = segW * 0.82;
 
-    ctx.font = `${fontSize}px Arial`;
-    ctx.textAlign = "center";
+    const u = Math.max(2, Math.round(slider.height * 0.16));
+
+    // One shared glyph scale across all three segments, so the
+    // stage letters don't change size from box to box.
+    const scale = labels.reduce(
+        (min, label) => Math.min(
+            min,
+            fitPixelScale(label, boxW * 0.8, slider.height * 0.7)
+        ),
+        99
+    );
 
     for (let s = 1; s <= 3; s++) {
 
-        const segX = slider.x + (s - 1) * segW;
+        const segX = Math.round(slider.x + (s - 1) * segW);
+        const active = s === currentStage;
 
-        ctx.fillStyle = s === currentStage ? activeColor : "#444";
-        ctx.fillRect(segX, slider.y, boxW, slider.height);
+        // Seated pixel box - lit face for the equipped stage,
+        // dark iron for the others.
+        ctx.fillStyle = "#12100b";
+        ctx.fillRect(segX - u, Math.round(slider.y) - u, boxW + u * 2, slider.height + u * 2);
 
-        ctx.fillStyle = s === currentStage ? "black" : "#aaa";
-        ctx.fillText(labels[s - 1], segX + boxW / 2, slider.y + slider.height * 0.72);
+        ctx.fillStyle = active ? activeColor : "#3a352c";
+        ctx.fillRect(segX, Math.round(slider.y), boxW, slider.height);
 
+        drawPixelText(
+            labels[s - 1],
+            segX + boxW / 2,
+            slider.y + slider.height / 2,
+            scale,
+            {
+                color: active ? "#0f0c08" : "#9c9384",
+                shadow: active ? null : "rgba(0, 0, 0, 0.6)"
+            }
+        );
+
+        // Chevron between boxes, as pixel blocks.
         if (s < 3) {
 
-            ctx.fillStyle = "#888";
-            ctx.font = `${fontSize * 0.75}px Arial`;
-            ctx.fillText("→", segX + segW * 0.95, slider.y + slider.height * 0.72);
-            ctx.font = `${fontSize}px Arial`;
+            const cx = segX + boxW + (segW - boxW) / 2 - u;
+            const cy = slider.y + slider.height / 2;
+
+            ctx.fillStyle = "#7a7264";
+            ctx.fillRect(cx, Math.round(cy - u * 1.5), u, u);
+            ctx.fillRect(cx + u, Math.round(cy - u / 2), u, u);
+            ctx.fillRect(cx, Math.round(cy + u / 2), u, u);
 
         }
 
@@ -1190,34 +1265,57 @@ function stageFromSliderX(slider, x) {
 
 }
 
-function drawCritSlider(slider, value, maxLevel) {
+// Shared body for both level sliders: a pixel track with a
+// square knob, and its readout stacked ABOVE the bar. The
+// label used to sit to the right, which ran it straight under
+// the Buy plate now that the slider lives in the control area.
+function drawLevelSlider(slider, pct, label, accent) {
 
-    ctx.fillStyle = "#333";
+    const u = Math.max(2, Math.round(slider.height * 0.28));
+
+    ctx.save();
+
+    // Track.
+    ctx.fillStyle = "#1a1610";
+    ctx.fillRect(slider.x - u, slider.y - u, slider.width + u * 2, slider.height + u * 2);
+    ctx.fillStyle = "#3a342c";
     ctx.fillRect(slider.x, slider.y, slider.width, slider.height);
 
-    const pct = maxLevel > 0 ? value / maxLevel : 0;
-
-    ctx.fillStyle = "#4da6ff";
+    // Filled portion.
+    ctx.fillStyle = accent;
     ctx.fillRect(slider.x, slider.y, slider.width * pct, slider.height);
 
-    const knobX = slider.x + slider.width * pct;
-    const knobRadius = slider.height * 0.55;
+    // Square knob, snapped to whole pixels.
+    const knobX = Math.round(slider.x + slider.width * pct);
+    const knobW = Math.max(4, Math.round(slider.height * 0.7));
 
-    ctx.fillStyle = "white";
-    ctx.beginPath();
-    ctx.arc(knobX, slider.y + slider.height / 2, knobRadius, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillStyle = "#0f0c08";
+    ctx.fillRect(knobX - knobW / 2 - u, slider.y - u, knobW + u * 2, slider.height + u * 2);
+    ctx.fillStyle = "#f6efdd";
+    ctx.fillRect(knobX - knobW / 2, slider.y - u * 0.5, knobW, slider.height + u);
+
+    ctx.restore();
+
+    drawPixelText(
+        label,
+        slider.x + slider.width / 2,
+        slider.y - slider.height * 0.9,
+        Math.max(1, fitPixelScale(label, slider.width, slider.height * 0.8)),
+        { color: accent, shadow: "rgba(0, 0, 0, 0.85)" }
+    );
+
+}
+
+function drawCritSlider(slider, value, maxLevel) {
 
     const equippedPct = Math.round(Save.getEquippedCritChance() * 100);
     const maxPct = Math.round(Save.getCritChance() * 100);
 
-    ctx.fillStyle = "#4da6ff";
-    ctx.font = `${slider.height * 0.9}px Arial`;
-    ctx.textAlign = "left";
-    ctx.fillText(
-        `Equipped: ${equippedPct}%  (owned up to ${maxPct}%)`,
-        slider.x + slider.width + slider.height,
-        slider.y + slider.height * 0.75
+    drawLevelSlider(
+        slider,
+        maxLevel > 0 ? value / maxLevel : 0,
+        `CRIT ${equippedPct}% / ${maxPct}%`,
+        "#4da6ff"
     );
 
 }
@@ -1237,32 +1335,14 @@ function critLevelFromSliderX(slider, x) {
 
 function drawLocketSlider(slider, value, maxLevel) {
 
-    ctx.fillStyle = "#333";
-    ctx.fillRect(slider.x, slider.y, slider.width, slider.height);
-
-    const pct = maxLevel > 0 ? value / maxLevel : 0;
-
-    ctx.fillStyle = "#ff69b4";
-    ctx.fillRect(slider.x, slider.y, slider.width * pct, slider.height);
-
-    const knobX = slider.x + slider.width * pct;
-    const knobRadius = slider.height * 0.55;
-
-    ctx.fillStyle = "white";
-    ctx.beginPath();
-    ctx.arc(knobX, slider.y + slider.height / 2, knobRadius, 0, Math.PI * 2);
-    ctx.fill();
-
     const equippedPct = Math.round(Save.getEquippedCharmChance() * 100);
     const maxPct = Math.round(Save.getCharmChance() * 100);
 
-    ctx.fillStyle = "#ff69b4";
-    ctx.font = `${slider.height * 0.9}px Arial`;
-    ctx.textAlign = "left";
-    ctx.fillText(
-        `Equipped: ${equippedPct}%  (owned up to ${maxPct}%)`,
-        slider.x + slider.width + slider.height,
-        slider.y + slider.height * 0.75
+    drawLevelSlider(
+        slider,
+        maxLevel > 0 ? value / maxLevel : 0,
+        `CHARM ${equippedPct}% / ${maxPct}%`,
+        "#ff69b4"
     );
 
 }
@@ -1284,56 +1364,15 @@ function locketLevelFromSliderX(slider, x) {
 // Menu
 // =====================================
 
-// =====================================
-// Pixel Menu Buttons
-// =====================================
-//
-// Palettes for the three front-door buttons. Each is a flat
-// face with a lighter bevel above and a darker one below, plus
-// a near-black outline - the 16-bit menu look, matched to the
-// keep's own colours (steel green, gilt, leather).
-
-const PIXEL_BUTTON_THEMES = {
-
-    start: {
-        face: "#2f7d3f", light: "#5fc26a", shade: "#1a4a25",
-        outline: "#0d1a10", text: "#f2ffe8", textShadow: "#12331a"
-    },
-
-    armoury: {
-        face: "#b08422", light: "#e8c24d", shade: "#6d4f10",
-        outline: "#1d1405", text: "#fff6d8", textShadow: "#4a3208"
-    },
-
-    bestiary: {
-        face: "#7a4423", light: "#b8763d", shade: "#472312",
-        outline: "#160a04", text: "#ffeddc", textShadow: "#3a1c0c"
-    }
-
+// The keep's palette - muted enough that the pixel plates sit
+// in the great hall rather than glowing on top of it. Used for
+// the three front-door buttons; every other button passes its
+// own accent straight to drawButton.
+const MENU_ACCENTS = {
+    start: "#2f7d3f",
+    armoury: "#b08422",
+    bestiary: "#7a4423"
 };
-
-function drawPixelMenuButton(btn, label, theme) {
-
-    drawPixelPanel(btn.x, btn.y, btn.width, btn.height, theme);
-
-    // Fit the label inside the plate's inner face, leaving a
-    // margin so glyphs never touch the bevel. Integer scale
-    // keeps every glyph pixel crisp.
-    const scale = fitPixelScale(
-        label,
-        btn.width * 0.72,
-        btn.height * 0.42
-    );
-
-    drawPixelText(
-        label,
-        btn.x + btn.width / 2,
-        btn.y + btn.height / 2,
-        scale,
-        { color: theme.text, shadow: theme.textShadow }
-    );
-
-}
 
 function drawMenu() {
 
@@ -1352,18 +1391,32 @@ function drawMenu() {
     // Armoury draws its own header in the same spot.
     if (Game.menuView !== "shop") {
 
-        ctx.fillStyle = "white";
-        ctx.textAlign = "center";
+        // fitPixelScale clamps to the window, so the title can
+        // never crop the way the old height-sized serif did.
+        //
+        // The width budget also has to clear the coin plate in
+        // the top-right corner: the title is centred, so its
+        // half-width must stop short of where that plate
+        // starts, or a long coin count gets run over.
+        const titleScale = fitPixelScale(
+            "SURVIVE THE ARENA",
+            canvas.width * 0.66,
+            ph(0.1)
+        );
 
-        // Sized off height, then clamped to the window's width
-        // so a tall/narrow viewport can't crop the ends off.
-        fitFontSize("SURVIVE THE ARENA", canvas.width * 0.9, ph(0.09));
-
-        ctx.fillText("SURVIVE THE ARENA", canvas.width / 2, ph(0.16));
+        // Gilt drop shadow under a bone-white face, so it
+        // still reads as a title plate rather than body text.
+        drawPixelText(
+            "SURVIVE THE ARENA",
+            canvas.width / 2,
+            ph(0.14),
+            titleScale,
+            { color: "#f6efdd", shadow: "#6b4c0d" }
+        );
 
     }
 
-    drawCoinDisplay(canvas.width - pw(0.17), ph(0.09), ph(0.032));
+    drawCoinDisplay(canvas.width - pw(0.025), ph(0.085), ph(0.032), true);
 
     if (Game.menuView === "modeSelect") {
         drawModeSelect();
@@ -1395,9 +1448,11 @@ function drawMenu() {
     // This screen is the only place the pixel-art background
     // is the whole picture, and a beveled CSS-style plate on
     // top of it read as a different game.
-    drawPixelMenuButton(getStartButton(), "START", PIXEL_BUTTON_THEMES.start);
-    drawPixelMenuButton(getShopButton(), "ARMOURY", PIXEL_BUTTON_THEMES.armoury);
-    drawPixelMenuButton(getBestiaryButton(), "BESTIARY", PIXEL_BUTTON_THEMES.bestiary);
+    const btnFont = ph(0.03);
+
+    drawButton(getStartButton(), "START", MENU_ACCENTS.start, "#f2ffe8", btnFont);
+    drawButton(getShopButton(), "ARMOURY", MENU_ACCENTS.armoury, "#fff6d8", btnFont);
+    drawButton(getBestiaryButton(), "BESTIARY", MENU_ACCENTS.bestiary, "#ffeddc", btnFont);
 
     drawAudioSettingsButton();
 
@@ -1405,10 +1460,13 @@ function drawMenu() {
 
 function drawModeSelect() {
 
-    ctx.fillStyle = "#ccc";
-    ctx.font = `${ph(0.028)}px ${UI_FONT}`;
-    ctx.textAlign = "center";
-    ctx.fillText("CHOOSE YOUR TRIAL", canvas.width / 2, ph(0.24));
+    drawPixelText(
+        "CHOOSE YOUR TRIAL",
+        canvas.width / 2,
+        ph(0.235),
+        fitPixelScale("CHOOSE YOUR TRIAL", canvas.width * 0.6, ph(0.03)),
+        { color: "#d8d0c0", shadow: "rgba(0, 0, 0, 0.85)" }
+    );
 
     drawButton(getModeSelectBackButton(), "BACK", "#555", "white", ph(0.024));
 
@@ -1454,33 +1512,14 @@ function drawModeSelect() {
 
 function drawModeCard(card, title, lore, accent, compact = false, footer = null) {
 
-    const cardRadius = ph(0.014);
-
-    roundRectPath(card.x, card.y, card.width, card.height, cardRadius);
-    const cardGrad = ctx.createLinearGradient(0, card.y, 0, card.y + card.height);
-    cardGrad.addColorStop(0, "rgba(30, 24, 18, 0.82)");
-    cardGrad.addColorStop(1, "rgba(12, 10, 8, 0.88)");
-    ctx.fillStyle = cardGrad;
-    ctx.fill();
-
-    // Accent outer frame with a thin gilt inner line, echoing
-    // the buttons so the whole menu reads as one set.
-    roundRectPath(card.x, card.y, card.width, card.height, cardRadius);
-    ctx.strokeStyle = accent;
-    ctx.lineWidth = Math.max(3, ph(0.006));
-    ctx.stroke();
-
-    const giltInset = ph(0.008);
-    roundRectPath(
-        card.x + giltInset,
-        card.y + giltInset,
-        card.width - giltInset * 2,
-        card.height - giltInset * 2,
-        Math.max(1, cardRadius - giltInset)
-    );
-    ctx.strokeStyle = "rgba(201, 162, 39, 0.55)";
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    // Pixel frame in the mode's own accent, so each trial reads
+    // as its own plate on the same rack.
+    drawPixelFrame(card.x, card.y, card.width, card.height, {
+        unit: Math.max(2, Math.round(ph(0.005))),
+        border: accent,
+        borderDark: "#15110c",
+        fill: "rgba(16, 13, 10, 0.86)"
+    });
 
     // Half-height cards squeeze every offset/font down so the
     // same anatomy (title, divider, lore) still fits.
@@ -1491,17 +1530,28 @@ function drawModeCard(card, title, lore, accent, compact = false, footer = null)
     const loreFont = compact ? ph(0.018) : ph(0.021);
     const loreLine = compact ? ph(0.027) : ph(0.032);
 
-    ctx.fillStyle = accent;
-    ctx.font = `bold ${titleFont}px ${UI_FONT}`;
-    ctx.textAlign = "center";
-    ctx.fillText(title, card.x + card.width / 2, card.y + titleY);
+    drawPixelText(
+        title,
+        card.x + card.width / 2,
+        card.y + titleY - titleFont * 0.3,
+        fitPixelScale(title, card.width * 0.8, titleFont),
+        { color: accent, shadow: "rgba(0, 0, 0, 0.85)" }
+    );
 
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(card.x + pw(0.02), card.y + dividerY);
-    ctx.lineTo(card.x + card.width - pw(0.02), card.y + dividerY);
-    ctx.stroke();
+    // Divider as a dashed run of pixel blocks rather than a
+    // hairline, so it belongs to the same grid as the frame.
+    const dashY = Math.round(card.y + dividerY);
+    const dashUnit = Math.max(2, Math.round(ph(0.004)));
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
+
+    for (
+        let dx = card.x + pw(0.02);
+        dx < card.x + card.width - pw(0.02);
+        dx += dashUnit * 3
+    ) {
+        ctx.fillRect(Math.round(dx), dashY, dashUnit * 2, dashUnit);
+    }
 
     ctx.fillStyle = "#e8d9b8";
     ctx.font = `italic ${loreFont}px Georgia, serif`;
@@ -1516,24 +1566,30 @@ function drawModeCard(card, title, lore, accent, compact = false, footer = null)
 
     // Optional high-score line pinned to the card's bottom edge.
     if (footer) {
-        ctx.fillStyle = accent;
-        ctx.font = `bold ${compact ? ph(0.02) : ph(0.024)}px ${UI_FONT}`;
-        ctx.textAlign = "center";
-        ctx.fillText(
+
+        const footerSize = compact ? ph(0.02) : ph(0.024);
+
+        drawPixelText(
             footer,
             card.x + card.width / 2,
-            card.y + card.height - ph(0.028)
+            card.y + card.height - ph(0.032),
+            fitPixelScale(footer, card.width * 0.8, footerSize),
+            { color: accent, shadow: "rgba(0, 0, 0, 0.85)" }
         );
+
     }
 
 }
 
 function drawShop() {
 
-    ctx.fillStyle = "white";
-    ctx.font = `bold ${ph(0.055)}px ${UI_FONT}`;
-    ctx.textAlign = "center";
-    ctx.fillText("ARMOURY", canvas.width / 2, ph(0.08));
+    drawPixelText(
+        "ARMOURY",
+        canvas.width / 2,
+        ph(0.07),
+        fitPixelScale("ARMOURY", canvas.width * 0.5, ph(0.06)),
+        { color: "#f6efdd", shadow: "#6b4c0d" }
+    );
 
     drawButton(getShopBackButton(), "BACK", "#555", "white", ph(0.024));
 
@@ -1545,10 +1601,16 @@ function drawShop() {
     drawButton(getArmouryClassArrowButton(-1), "◀", "#333", "white", ph(0.026));
     drawButton(getArmouryClassArrowButton(1), "▶", "#333", "white", ph(0.026));
 
-    ctx.fillStyle = "#c9a227";
-    ctx.font = `bold ${ph(0.04)}px ${UI_FONT}`;
-    ctx.textAlign = "center";
-    ctx.fillText(selectedClass.name, canvas.width / 2, ph(0.152));
+    // Kept inside the gap between the two class arrows (they
+    // sit at +/- pw(0.13), half a button wide each) so a long
+    // class name can't run under them.
+    drawPixelText(
+        selectedClass.name,
+        canvas.width / 2,
+        ph(0.138),
+        fitPixelScale(selectedClass.name, canvas.width * 0.18, ph(0.04)),
+        { color: "#e8c24d", shadow: "rgba(0, 0, 0, 0.85)" }
+    );
 
     // Re-clamp the scroll in case the canvas resized or the
     // class list changed since the last scroll input.
@@ -1584,24 +1646,78 @@ function drawShop() {
         const blockReason = Save.getPurchaseBlockReason(id);
         const canBuy = Save.canPurchase(id);
 
-        ctx.fillStyle = "rgba(0,0,0,0.45)";
-        ctx.fillRect(marginX, rowY - ph(0.008), canvas.width - marginX * 2, rowHeight - ph(0.01));
+        // Each item sits in its own pixel frame - owned rows
+        // get a warmer border so what you already have reads
+        // apart from what you're shopping for.
+        drawPixelFrame(
+            marginX,
+            rowY - ph(0.008),
+            canvas.width - marginX * 2,
+            rowHeight - ph(0.01),
+            {
+                unit: Math.max(2, Math.round(ph(0.004))),
+                border: owned || Save.owns(id) ? "#6b5a3e" : "#3c3730",
+                borderDark: "#171310",
+                fill: "rgba(8, 7, 5, 0.62)"
+            }
+        );
 
-        ctx.fillStyle = "white";
-        ctx.font = `bold ${ph(0.026)}px Arial`;
+        const textX = marginX + pw(0.02);
+        const nameScale = Math.max(1, Math.round(ph(0.024) / PIXEL_GLYPH_H));
+
+        // Item NAME in the pixel face (short, uppercase, reads
+        // great) - the description stays in a normal typeface
+        // because a 5x7 bitmap turns a full sentence of prose
+        // into a wall of blocks.
+        drawPixelText(
+            item.name,
+            textX + measurePixelText(item.name) * nameScale / 2,
+            rowY + ph(0.017),
+            nameScale,
+            { color: "#f6efdd", shadow: "rgba(0, 0, 0, 0.85)" }
+        );
+
+        ctx.font = `${ph(0.018)}px Arial`;
+        ctx.fillStyle = "#c2bcae";
         ctx.textAlign = "left";
-        ctx.fillText(item.name, marginX + pw(0.015), rowY + ph(0.02));
+        ctx.fillText(item.desc, textX, rowY + ph(0.045));
 
-        ctx.font = `${ph(0.018)}px Arial`;
-        ctx.fillStyle = "#ccc";
-        ctx.fillText(item.desc, marginX + pw(0.015), rowY + ph(0.045));
-
-        ctx.fillStyle = "gold";
-        ctx.font = `${ph(0.018)}px Arial`;
+        // Price line: pixel coin + amount, matching the HUD's
+        // coin readout so "what things cost" looks the same
+        // everywhere.
         if (staged && Save.getStage(id) >= Save.getMaxStage(id)) {
-            ctx.fillText("Max level reached", marginX + pw(0.015), rowY + ph(0.065));
+
+            drawPixelText(
+                "MAX LEVEL",
+                textX + measurePixelText("MAX LEVEL") * nameScale / 2,
+                rowY + ph(0.066),
+                Math.max(1, nameScale - 1),
+                { color: "#7fdc7f", shadow: "rgba(0, 0, 0, 0.8)" }
+            );
+
         } else {
-            ctx.fillText(`${item.price} coins`, marginX + pw(0.015), rowY + ph(0.065));
+
+            const priceText = String(item.price);
+            const priceScale = Math.max(1, nameScale - 1);
+            const pip = priceScale * 4;
+
+            ctx.fillStyle = "#6b4c0d";
+            ctx.fillRect(textX, rowY + ph(0.066) - pip / 2, pip, pip);
+            ctx.fillStyle = "#e8c24d";
+            ctx.fillRect(
+                textX + priceScale, rowY + ph(0.066) - pip / 2 + priceScale,
+                pip - priceScale * 2, pip - priceScale * 2
+            );
+
+            drawPixelText(
+                priceText,
+                textX + pip + priceScale * 2 +
+                    measurePixelText(priceText) * priceScale / 2,
+                rowY + ph(0.066),
+                priceScale,
+                { color: "#ffe066", shadow: "rgba(0, 0, 0, 0.8)" }
+            );
+
         }
 
         // Staged items get the 3-segment stage picker, in two
@@ -1881,48 +1997,29 @@ function drawBestiaryCard(cell, type, entry, unlocked) {
     // still lines up.
     const plateH = ph(0.058);
 
-    // Portrait tile with a soft drop shadow.
-    ctx.save();
-    ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-    ctx.shadowBlur = cell.width * 0.1;
-    ctx.shadowOffsetY = cell.width * 0.04;
-    roundRectPath(cell.x, cell.y, cell.width, cell.height, r);
-    ctx.fillStyle = unlocked ? "#241f19" : "#1a1714";
-    ctx.fill();
-    ctx.restore();
-
-    // Vertical sheen so the tile reads as carved stone.
-    ctx.save();
-    roundRectPath(cell.x, cell.y, cell.width, cell.height, r);
-    ctx.clip();
-    const g = ctx.createLinearGradient(0, cell.y, 0, cell.y + cell.height);
-    g.addColorStop(0, unlocked ? "rgba(120, 92, 58, 0.5)" : "rgba(70, 64, 56, 0.35)");
-    g.addColorStop(1, "rgba(0, 0, 0, 0.4)");
-    ctx.fillStyle = g;
-    ctx.fillRect(cell.x, cell.y, cell.width, cell.height);
-    ctx.restore();
+    // Portrait tile: a pixel frame, gilt for entries you've
+    // met and dull iron for the ones you haven't.
+    drawPixelFrame(cell.x, cell.y, cell.width, cell.height, {
+        unit: Math.max(2, Math.round(cell.width * 0.035)),
+        border: unlocked ? "#a8842c" : "#4a443a",
+        borderDark: "#120e0a",
+        fill: unlocked ? "rgba(36, 31, 25, 0.95)" : "rgba(20, 18, 16, 0.95)"
+    });
 
     // Creature glyph / sealed silhouette.
     drawEnemyPreview(type, cell.x, cell.y, cell.width, cell.height, unlocked);
-
-    // Gilt frame.
-    roundRectPath(cell.x, cell.y, cell.width, cell.height, r);
-    ctx.strokeStyle = unlocked ? "rgba(201, 162, 39, 0.9)" : "rgba(120, 100, 62, 0.5)";
-    ctx.lineWidth = Math.max(1.5, cell.width * 0.03);
-    ctx.stroke();
 
     // Nameplate banner beneath the portrait.
     const plateX = cell.x + cell.width * 0.04;
     const plateW = cell.width * 0.92;
     const plateY = cell.y + cell.height + gap;
 
-    roundRectPath(plateX, plateY, plateW, plateH, plateH * 0.28);
-    ctx.fillStyle = "rgba(18, 12, 8, 0.85)";
-    ctx.fill();
-    roundRectPath(plateX, plateY, plateW, plateH, plateH * 0.28);
-    ctx.strokeStyle = unlocked ? "rgba(201, 162, 39, 0.65)" : "rgba(120, 100, 62, 0.35)";
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    drawPixelFrame(plateX, plateY, plateW, plateH, {
+        unit: Math.max(2, Math.round(cell.width * 0.022)),
+        border: unlocked ? "#6b5a3e" : "#3a352d",
+        borderDark: "#120e0a",
+        fill: "rgba(14, 11, 8, 0.92)"
+    });
 
     // "Elite Frost Weaver" on one line doesn't fit the plate at
     // any legible size, so elites get the rank on its own gold
@@ -1935,35 +2032,30 @@ function drawBestiaryCard(cell, type, entry, unlocked) {
 
     const centerX = cell.x + cell.width / 2;
 
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-
     if (isElite) {
 
-        ctx.fillStyle = "rgba(255, 215, 0, 0.9)";
-        ctx.font = `bold ${Math.max(7, cell.width * 0.11)}px ${UI_FONT}`;
-        ctx.fillText("ELITE", centerX, plateY + plateH * 0.28);
+        drawPixelText(
+            "ELITE",
+            centerX,
+            plateY + plateH * 0.3,
+            fitPixelScale("ELITE", plateW * 0.8, plateH * 0.3),
+            { color: "#ffd700", shadow: "rgba(0, 0, 0, 0.85)" }
+        );
 
     }
 
-    // Shrink the name until it fits the plate so long ones
-    // (Necromancer, Frost Weaver) don't spill past the frame.
-    let fontSize = Math.max(9, cell.width * 0.15);
-    ctx.font = `bold ${fontSize}px ${UI_FONT}`;
-    const maxLabelW = plateW * 0.9;
-    while (fontSize > 8 && ctx.measureText(label).width > maxLabelW) {
-        fontSize -= 1;
-        ctx.font = `bold ${fontSize}px ${UI_FONT}`;
-    }
-
-    ctx.fillStyle = unlocked ? "#f2e4c2" : "#8a7a5a";
-    ctx.fillText(
+    // fitPixelScale already shrinks long names (Necromancer,
+    // Frost Weaver) to the plate, so no measure-and-step loop.
+    drawPixelText(
         label,
         centerX,
-        plateY + (isElite ? plateH * 0.68 : plateH / 2)
+        plateY + (isElite ? plateH * 0.7 : plateH / 2),
+        fitPixelScale(label, plateW * 0.86, isElite ? plateH * 0.32 : plateH * 0.5),
+        {
+            color: unlocked ? "#f2e4c2" : "#8a7a5a",
+            shadow: "rgba(0, 0, 0, 0.85)"
+        }
     );
-
-    ctx.textBaseline = "alphabetic";
 
 }
 
@@ -2151,22 +2243,33 @@ function drawBestiary() {
         ? "BESTIARY"
         : (bossUnlocked ? BESTIARY[bossType].name.toUpperCase() : "???");
 
-    ctx.fillStyle = isCreaturePage ? "white" : "gold";
-    ctx.font = `bold ${ph(0.05)}px ${UI_FONT}`;
-    ctx.textAlign = "center";
-    ctx.fillText(title, canvas.width / 2, ph(0.185));
+    // Held inside the gap between the page arrows (they sit at
+    // +/- pw(0.19), half a button wide each) so a long boss
+    // name can't run under them.
+    drawPixelText(
+        title,
+        canvas.width / 2,
+        ph(0.175),
+        fitPixelScale(title, canvas.width * 0.28, ph(0.05)),
+        {
+            color: isCreaturePage ? "#f6efdd" : "#ffd23f",
+            shadow: "#6b4c0d"
+        }
+    );
 
     drawButton(getBestiaryPageArrowButton(-1), "◀", "#3a2a20", "white", ph(0.026));
     drawButton(getBestiaryPageArrowButton(1), "▶", "#3a2a20", "white", ph(0.026));
 
-    ctx.fillStyle = "#d0b58a";
-    ctx.font = `italic ${ph(0.02)}px ${UI_FONT}`;
-    ctx.fillText(
-        isCreaturePage
-            ? `Creatures — page ${page + 1} / ${getBestiaryPageCount()}`
-            : `Boss — page ${page + 1} / ${getBestiaryPageCount()}`,
+    const subtitle = isCreaturePage
+        ? `CREATURES - PAGE ${page + 1} / ${getBestiaryPageCount()}`
+        : `BOSS - PAGE ${page + 1} / ${getBestiaryPageCount()}`;
+
+    drawPixelText(
+        subtitle,
         canvas.width / 2,
-        ph(0.235)
+        ph(0.228),
+        fitPixelScale(subtitle, canvas.width * 0.4, ph(0.022)),
+        { color: "#d0b58a", shadow: "rgba(0, 0, 0, 0.85)" }
     );
 
     if (!isCreaturePage) {
@@ -2207,12 +2310,18 @@ function drawBestiaryBossPage(type) {
     const textX = previewX + previewSize + pw(0.04);
     const textWidth = panel.x + panel.width - pw(0.04) - textX;
 
+    const proseScale = Math.max(1, Math.round(ph(0.018) / PIXEL_GLYPH_H));
+
     if (!unlocked) {
 
-        ctx.fillStyle = "#a08560";
-        ctx.font = `${ph(0.028)}px Arial`;
-        ctx.textAlign = "left";
-        ctx.fillText("Defeat this foe to unlock its page.", textX, previewY + ph(0.06));
+        drawPixelTextWrapped(
+            "DEFEAT THIS FOE TO UNLOCK ITS PAGE.",
+            textX,
+            previewY + ph(0.045),
+            textWidth,
+            proseScale,
+            { color: "#a08560", shadow: "rgba(0, 0, 0, 0.85)" }
+        );
 
         return;
 
@@ -2224,52 +2333,71 @@ function drawBestiaryBossPage(type) {
     // downward from the running y, so a long line (e.g. the
     // Royal Magus's behavior) pushes the rest down instead of
     // spilling off the right edge of the panel.
-    let textY = previewY + ph(0.035);
+    let textY = previewY + ph(0.02);
 
-    ctx.fillStyle = "#eee";
-    ctx.font = `${ph(0.024)}px Arial`;
-    textY = wrapText(entry.desc, textX, textY, textWidth, ph(0.032));
+    textY = drawPixelTextWrapped(
+        entry.desc,
+        textX, textY, textWidth, proseScale,
+        { color: "#ede5d3", shadow: "rgba(0, 0, 0, 0.85)" }
+    );
 
-    textY += ph(0.02);
+    textY += ph(0.018);
 
-    ctx.fillStyle = "#c9a227";
-    ctx.font = `bold ${ph(0.02)}px Arial`;
-    textY = wrapText(`Behavior: ${entry.behavior}`, textX, textY, textWidth, ph(0.028));
+    textY = drawPixelTextWrapped(
+        `BEHAVIOR: ${entry.behavior}`,
+        textX, textY, textWidth, proseScale,
+        { color: "#e8c24d", shadow: "rgba(0, 0, 0, 0.85)" }
+    );
 
-    textY += ph(0.02);
+    textY += ph(0.018);
 
-    // Lore, wrapped, in italics under a thin divider
-    ctx.strokeStyle = "rgba(201, 162, 39, 0.5)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(textX, textY);
-    ctx.lineTo(textX + textWidth, textY);
-    ctx.stroke();
+    // Divider as pixel dashes rather than a hairline.
+    const dashUnit = Math.max(2, Math.round(ph(0.004)));
 
-    textY += ph(0.035);
+    ctx.fillStyle = "rgba(201, 162, 39, 0.5)";
 
-    ctx.fillStyle = "#e8d9b8";
-    ctx.font = `italic ${ph(0.022)}px Georgia, serif`;
-    wrapText(entry.lore, textX, textY, textWidth, ph(0.037));
+    for (let dx = textX; dx < textX + textWidth; dx += dashUnit * 3)
+        ctx.fillRect(Math.round(dx), Math.round(textY), dashUnit * 2, dashUnit);
+
+    textY += ph(0.028);
+
+    // Lore keeps a touch more air between lines - it's the
+    // flavour paragraph, not a stat readout.
+    drawPixelTextWrapped(
+        entry.lore,
+        textX, textY, textWidth, proseScale,
+        { color: "#c9bda4", shadow: "rgba(0, 0, 0, 0.85)" }
+    );
 
     // Stats block along the bottom of the panel
     const statsY = panel.y + panel.height - ph(0.19);
 
-    ctx.fillStyle = "white";
-    ctx.font = `bold ${ph(0.026)}px ${UI_FONT}`;
-    ctx.fillText("Stats", panel.x + pw(0.05), statsY);
+    const headScale = Math.max(1, Math.round(ph(0.026) / PIXEL_GLYPH_H));
 
-    ctx.fillStyle = "#ddd";
-    ctx.font = `${ph(0.021)}px Arial`;
+    drawPixelText(
+        "STATS",
+        panel.x + pw(0.05) + measurePixelText("STATS") * headScale / 2,
+        statsY - ph(0.008),
+        headScale,
+        { color: "#f6efdd", shadow: "rgba(0, 0, 0, 0.85)" }
+    );
 
     // Health reads as a sentence now, so it can be long enough
     // to need wrapping - flow the speed line off wherever it ends.
     const statsX = panel.x + pw(0.05);
     const statsWidth = panel.width - pw(0.1);
 
-    let sy = wrapText(`Health: ${entry.hpScale}`, statsX, statsY + ph(0.045), statsWidth, ph(0.03));
+    const sy = drawPixelTextWrapped(
+        `HEALTH: ${entry.hpScale}`,
+        statsX, statsY + ph(0.025), statsWidth, proseScale,
+        { color: "#ded6c4", shadow: "rgba(0, 0, 0, 0.85)" }
+    );
 
-    ctx.fillText(`Speed: ${describeSpeed(entry.baseSpeed)}`, statsX, sy + ph(0.01));
+    drawPixelTextWrapped(
+        `SPEED: ${describeSpeed(entry.baseSpeed)}`,
+        statsX, sy + ph(0.006), statsWidth, proseScale,
+        { color: "#ded6c4", shadow: "rgba(0, 0, 0, 0.85)" }
+    );
 
 }
 
@@ -2517,23 +2645,49 @@ function drawBestiaryDetail() {
     const notesX = panel.x + panel.width * 0.46;
     const notesWidth = panel.width * 0.5;
 
-    ctx.fillStyle = entry.isBoss ? "gold" : "white";
-    ctx.font = `bold ${ph(0.05)}px ${UI_FONT}`;
-    ctx.textAlign = "left";
-    ctx.fillText(entry.name, textX, previewY + ph(0.05));
+    // Headings and stat lines go pixel; the two prose
+    // paragraphs below (desc/behavior) and the field-notes
+    // journal stay in a proportional face - a 5x7 bitmap turns
+    // a wrapped sentence into a wall of blocks.
+    const nameScale = fitPixelScale(entry.name, textWidth, ph(0.05));
 
-    // desc and behavior wrap like the boss page's do - the
-    // elites' twists are a sentence or two long and used to
-    // run straight off the right edge of the tome.
-    ctx.fillStyle = "#ccc";
-    ctx.font = `${ph(0.026)}px Arial`;
-    let textY = wrapText(entry.desc, textX, previewY + ph(0.12), textWidth, ph(0.034));
+    drawPixelText(
+        entry.name,
+        textX + measurePixelText(entry.name) * nameScale / 2,
+        previewY + ph(0.035),
+        nameScale,
+        {
+            color: entry.isBoss ? "#ffd23f" : "#f6efdd",
+            shadow: "rgba(0, 0, 0, 0.85)"
+        }
+    );
+
+    ctx.textAlign = "left";
+
+    // desc and behavior wrap - the elites' twists are a
+    // sentence or two long and used to run straight off the
+    // right edge of the tome.
+    const proseScale = Math.max(1, Math.round(ph(0.019) / PIXEL_GLYPH_H));
+
+    let textY = drawPixelTextWrapped(
+        entry.desc,
+        textX,
+        previewY + ph(0.1),
+        textWidth,
+        proseScale,
+        { color: "#ded6c4", shadow: "rgba(0, 0, 0, 0.85)" }
+    );
 
     textY += ph(0.012);
 
-    ctx.fillStyle = "#aaa";
-    ctx.font = `${ph(0.023)}px Arial`;
-    textY = wrapText(`Behavior: ${entry.behavior}`, textX, textY, textWidth, ph(0.031));
+    textY = drawPixelTextWrapped(
+        `BEHAVIOR: ${entry.behavior}`,
+        textX,
+        textY,
+        textWidth,
+        proseScale,
+        { color: "#b3aa98", shadow: "rgba(0, 0, 0, 0.85)" }
+    );
 
     const wave1Hp = entry.hpAtWave(1);
     const wave5Hp = entry.hpAtWave(5);
@@ -2546,26 +2700,50 @@ function drawBestiaryDetail() {
         textY + ph(0.05)
     );
 
-    ctx.fillStyle = "white";
-    ctx.font = `bold ${ph(0.028)}px ${UI_FONT}`;
-    ctx.fillText("Stats", panel.x + pw(0.03), statsY);
+    const headScale = Math.max(1, Math.round(ph(0.028) / PIXEL_GLYPH_H));
 
-    ctx.fillStyle = "#ddd";
-    ctx.font = `${ph(0.023)}px Arial`;
+    drawPixelText(
+        "STATS",
+        panel.x + pw(0.03) + measurePixelText("STATS") * headScale / 2,
+        statsY - ph(0.008),
+        headScale,
+        { color: "#f6efdd", shadow: "rgba(0, 0, 0, 0.85)" }
+    );
 
     // Health is a plain-English sentence, so it may wrap - the
     // lines below flow from wherever it ends rather than sitting
     // at fixed offsets.
     const statsX = panel.x + pw(0.03);
     const statsWidth = notesX - pw(0.03) - statsX;
-    const lineGap = ph(0.04);
 
-    let sy = wrapText(`Health: ${entry.hpScale}`, statsX, statsY + ph(0.05), statsWidth, ph(0.033));
+    let sy = drawPixelTextWrapped(
+        `HEALTH: ${entry.hpScale}`,
+        statsX,
+        statsY + ph(0.03),
+        statsWidth,
+        proseScale,
+        { color: "#ded6c4", shadow: "rgba(0, 0, 0, 0.85)" }
+    );
 
-    sy += ph(0.008);
+    sy += ph(0.012);
 
-    ctx.fillText(`Health on wave 1: ${wave1Hp}   wave 5: ${wave5Hp}   wave 10: ${wave10Hp}`, statsX, sy);
-    ctx.fillText(`Speed: ${describeSpeed(entry.baseSpeed)}`, statsX, sy + lineGap);
+    // The stat rows WRAP at the same scale as the health line
+    // above rather than shrinking to fit on one line. Fitting
+    // them to width meant the longest row (Speed) dictated the
+    // scale for all of them, rendering the whole block at half
+    // the size of the sentence directly above it.
+    [
+        `WAVE 1: ${wave1Hp}   WAVE 5: ${wave5Hp}   WAVE 10: ${wave10Hp}`,
+        `SPEED: ${describeSpeed(entry.baseSpeed)}`
+    ].forEach(row => {
+
+        sy = drawPixelTextWrapped(
+            row,
+            statsX, sy + ph(0.006), statsWidth, proseScale,
+            { color: "#ded6c4", shadow: "rgba(0, 0, 0, 0.85)" }
+        );
+
+    });
 
     // Blank journal page in what used to be dead space, sat
     // below the blurb so a long wrapped behavior never lands
@@ -2868,99 +3046,138 @@ function handleMenuMouseUp() {
 
 function drawHUD() {
 
-    // Pause control, top-center ("II" glyph). P toggles too.
+    // Pause control, top-center - a pixel plate with two
+    // chunky bars, matching the menu buttons.
     const pauseBtn = getPauseButton();
 
-    const pauseRadius = Math.min(pauseBtn.height * 0.3, ph(0.014));
+    drawPixelPanel(
+        pauseBtn.x, pauseBtn.y, pauseBtn.width, pauseBtn.height,
+        pixelPaletteFrom("#3c3630", "#e8d9b8"),
+        pauseBtn.width * 0.09
+    );
 
-    roundRectPath(pauseBtn.x, pauseBtn.y, pauseBtn.width, pauseBtn.height, pauseRadius);
-    ctx.fillStyle = "rgba(28, 24, 21, 0.72)";
-    ctx.fill();
+    const barW = Math.max(2, Math.round(pauseBtn.width * 0.14));
+    const barH = Math.round(pauseBtn.height * 0.42);
+    const barY = Math.round(pauseBtn.y + (pauseBtn.height - barH) / 2);
 
-    roundRectPath(pauseBtn.x, pauseBtn.y, pauseBtn.width, pauseBtn.height, pauseRadius);
-    ctx.strokeStyle = "rgba(201, 162, 39, 0.85)";
-    ctx.lineWidth = Math.max(1.5, pauseBtn.width * 0.04);
-    ctx.stroke();
-
-    const barW = pauseBtn.width * 0.16;
-    const barH = pauseBtn.height * 0.5;
-    const barY = pauseBtn.y + (pauseBtn.height - barH) / 2;
-
-    ctx.fillStyle = "#e8d9b8";
-    ctx.fillRect(pauseBtn.x + pauseBtn.width * 0.3 - barW / 2, barY, barW, barH);
-    ctx.fillRect(pauseBtn.x + pauseBtn.width * 0.7 - barW / 2, barY, barW, barH);
+    ctx.fillStyle = "#f0e2c2";
+    ctx.fillRect(Math.round(pauseBtn.x + pauseBtn.width * 0.34 - barW / 2), barY, barW, barH);
+    ctx.fillRect(Math.round(pauseBtn.x + pauseBtn.width * 0.66 - barW / 2), barY, barW, barH);
 
     if (Game.immortal) {
 
-        ctx.fillStyle = "#f1c40f";
-        ctx.font = `bold ${ph(0.022)}px Arial`;
-        ctx.textAlign = "center";
-        ctx.fillText(
+        drawPixelText(
             "IMMORTAL",
             canvas.width / 2,
-            pauseBtn.y + pauseBtn.height + ph(0.032)
+            pauseBtn.y + pauseBtn.height + ph(0.028),
+            Math.max(1, Math.round(ph(0.022) / PIXEL_GLYPH_H)),
+            { color: "#f1c40f", shadow: "#4a3d05" }
         );
 
     }
 
-    ctx.fillStyle = "white";
-    ctx.font = `bold ${ph(0.035)}px Arial`;
-    ctx.textAlign = "left";
-
-    ctx.fillText(`Wave: ${Game.wave}`, pw(0.015), ph(0.05));
+    // =====================================
+    // Status readout (top-left)
+    // =====================================
+    //
+    // Wave, run timer, dash charges and the class's own kit
+    // lines, stacked on one dark pixel plate so they stay
+    // readable over any arena. The plate is sized to its
+    // contents so it never reserves empty space for a class
+    // that reports fewer lines (the Mage has no dash row).
 
     const realElapsedSecs = Game.elapsedTime / 1000;
     const minutes = Math.floor(realElapsedSecs / 60);
     const seconds = Math.floor(realElapsedSecs % 60);
-    const timeText = `${minutes}:${seconds.toString().padStart(2, "0")}`;
 
-    ctx.fillText(timeText, pw(0.015), ph(0.095));
+    const rows = [
+        { text: `WAVE ${Game.wave}`, color: "#ffffff" },
+        { text: `${minutes}:${seconds.toString().padStart(2, "0")}`, color: "#c8c2b4" }
+    ];
 
-    // The Mage has no dash (getDashSlotCount 0) - skip the line
-    // entirely so the HUD doesn't show a phantom "Dash: READY".
+    // The Mage has no dash (getDashSlotCount 0) - skip the row
+    // entirely so the HUD doesn't show a phantom "DASH READY".
     const dashSlots = player.getDashSlotCount();
 
     if (dashSlots > 0) {
 
-        const getDashText = (cd) => {
-            if (cd <= 0)
-                return "READY";
-            const realDashSecs = (cd / 1000).toFixed(1);
-            return `${realDashSecs}s`;
-        };
+        const dashText = (cd) => cd <= 0 ? "READY" : `${(cd / 1000).toFixed(1)}S`;
 
-        const dash1 = getDashText(player.dashCooldowns[0]);
-        const dash2 = dashSlots >= 2
-            ? getDashText(player.dashCooldowns[1])
-            : null;
+        const charges = [];
 
-        ctx.fillText(
-            dash2
-                ? `Dash: ${dash1} | ${dash2}`
-                : `Dash: ${dash1}`,
-            pw(0.015),
-            ph(0.14)
-        );
+        for (let i = 0; i < dashSlots; i++)
+            charges.push(dashText(player.dashCooldowns[i]));
+
+        rows.push({
+            text: `DASH ${charges.join(" / ")}`,
+            color: player.dashCooldowns[0] <= 0 ? "#9fd8ff" : "#7c8794"
+        });
 
     }
-
-    drawCoinDisplay(pw(0.015), ph(0.185), ph(0.03));
-
-    let nextLineY = ph(0.23);
-    const lineStep = ph(0.045);
 
     // Kit status lines (Warrior: bow/King's Blade/shield,
     // Ranger: dagger/storm lance) - each class reports its
     // own (see getHUDStatusLines).
     player.getHUDStatusLines().forEach(line => {
 
-        ctx.fillStyle = line.color;
-        ctx.font = `bold ${ph(0.035)}px Arial`;
-        ctx.fillText(line.text, pw(0.015), nextLineY);
-
-        nextLineY += lineStep;
+        rows.push({ text: line.text.toUpperCase(), color: line.color });
 
     });
+
+    // Pick the scale from the WIDEST row, not from viewport
+    // height alone: the bitmap face is a fixed 6px per
+    // character, so a long kit line ("KING'S BLADE: READY
+    // RMB") is far wider than the same string in a
+    // proportional font and would otherwise swallow the top
+    // of the screen. The plate is capped at a third of the
+    // width and the glyphs shrink to honour that.
+    const widestUnits = rows.reduce(
+        (max, row) => Math.max(max, measurePixelText(row.text)),
+        1
+    );
+
+    const scale = Math.max(1, Math.min(
+        Math.round(ph(0.024) / PIXEL_GLYPH_H),
+        Math.floor(canvas.width * 0.30 / widestUnits)
+    ));
+
+    const lineH = PIXEL_GLYPH_H * scale + scale * 3;
+    const padding = scale * 4;
+
+    const widest = widestUnits * scale;
+
+    const plateX = pw(0.012);
+    const plateY = ph(0.025);
+    const plateW = widest + padding * 2;
+    const plateH = rows.length * lineH + padding * 2 - scale * 3;
+
+    drawPixelFrame(plateX, plateY, plateW, plateH, {
+        unit: Math.max(2, scale),
+        border: "#5a5040",
+        borderDark: "#1b1710",
+        fill: "rgba(8, 7, 5, 0.68)"
+    });
+
+    rows.forEach((row, i) => {
+
+        drawPixelText(
+            row.text,
+            plateX + padding + measurePixelText(row.text) * scale / 2,
+            plateY + padding + i * lineH + PIXEL_GLYPH_H * scale / 2,
+            scale,
+            { color: row.color, shadow: "rgba(0, 0, 0, 0.85)" }
+        );
+
+    });
+
+    // Same glyph scale as the rows above it, so the purse
+    // reads as part of the same readout rather than a second,
+    // louder panel.
+    drawCoinDisplay(
+        plateX + padding,
+        plateY + plateH + lineH,
+        scale * PIXEL_GLYPH_H
+    );
 
 }
 
@@ -2974,36 +3191,63 @@ function drawWaveMessages() {
 
         Game.waveMessageTimer--;
 
-        ctx.textAlign = "center";
-        ctx.font = `${ph(0.07)}px Arial`;
-        ctx.fillStyle = "white";
-        ctx.fillText(`WAVE ${Game.wave}`, canvas.width / 2, ph(0.21));
+        const label = `WAVE ${Game.wave}`;
+
+        drawPixelText(
+            label,
+            canvas.width / 2,
+            ph(0.21),
+            fitPixelScale(label, canvas.width * 0.7, ph(0.09)),
+            { color: "#ffffff", shadow: "rgba(0, 0, 0, 0.9)" }
+        );
 
     }
 
     if (Game.waveTransition) {
 
-        ctx.textAlign = "center";
-        ctx.fillStyle = "gold";
-        fitFontSize("WAVE COMPLETE", canvas.width * 0.9, ph(0.08), "", "Arial");
-        ctx.fillText("WAVE COMPLETE", canvas.width / 2, canvas.height / 2);
+        const bannerScale =
+            fitPixelScale("WAVE COMPLETE", canvas.width * 0.8, ph(0.1));
 
-        // The breather tally: what the wave paid out, and
-        // that the dash came back with it.
-        ctx.font = `${ph(0.04)}px Arial`;
-        ctx.fillStyle = "#ffe28a";
-        ctx.fillText(
-            `+${Game.waveCoins} coins`,
+        drawPixelText(
+            "WAVE COMPLETE",
             canvas.width / 2,
-            canvas.height / 2 + ph(0.065)
+            canvas.height / 2,
+            bannerScale,
+            { color: "#ffd23f", shadow: "rgba(0, 0, 0, 0.9)" }
         );
 
-        ctx.font = `${ph(0.028)}px Arial`;
-        ctx.fillStyle = "#9fd8ff";
-        ctx.fillText(
-            "Dash refunded",
-            canvas.width / 2,
-            canvas.height / 2 + ph(0.11)
+        // The payout, placed below the banner's ACTUAL bottom
+        // edge. Pixel text is centred on its midline, so a
+        // fixed offset collided with the banner as soon as the
+        // glyph scale grew on a wide window.
+        const tally = `+${Game.waveCoins}`;
+        const tallyScale = Math.max(1, Math.round(bannerScale * 0.6));
+
+        const gap = PIXEL_GLYPH_H * bannerScale / 2 +
+                    PIXEL_GLYPH_H * tallyScale / 2 +
+                    bannerScale * 4;
+
+        const coinPip = tallyScale * 5;
+        const tallyW = measurePixelText(tally) * tallyScale;
+        const blockW = coinPip + tallyScale * 2 + tallyW;
+
+        const blockX = canvas.width / 2 - blockW / 2;
+        const tallyY = canvas.height / 2 + gap;
+
+        ctx.fillStyle = "#6b4c0d";
+        ctx.fillRect(blockX, tallyY - coinPip / 2, coinPip, coinPip);
+        ctx.fillStyle = "#e8c24d";
+        ctx.fillRect(
+            blockX + tallyScale, tallyY - coinPip / 2 + tallyScale,
+            coinPip - tallyScale * 2, coinPip - tallyScale * 2
+        );
+
+        drawPixelText(
+            tally,
+            blockX + coinPip + tallyScale * 2 + tallyW / 2,
+            tallyY,
+            tallyScale,
+            { color: "#ffe066", shadow: "rgba(0, 0, 0, 0.9)" }
         );
 
     }

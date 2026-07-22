@@ -133,7 +133,11 @@ function startWave() {
     Game.waveActive = true;
     Game.waveSpawning = true;
     Game.waveTransition = false;
-    Game.waveMessageTimer = 120;
+    // Frames the "WAVE n" banner holds for (ticked down once
+    // per draw in drawWaveMessages). Was 120 - a full two
+    // seconds of a big banner sitting over the arena while the
+    // wave was already spawning in behind it.
+    Game.waveMessageTimer = 45;
 
     // Coins earned this wave, tallied by onEnemyKilled and
     // shown on the wave-clear banner.

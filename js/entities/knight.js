@@ -303,13 +303,12 @@ class Knight extends Enemy {
 
     drawLabel() {
 
-        ctx.fillStyle = KNIGHT.COLOR;
-        ctx.font = "bold 20px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText(
-            "Knight",
+        drawPixelText(
+            "KNIGHT",
             this.x + this.size / 2,
-            this.y - 20
+            this.y - 22,
+            2,
+            { color: "#8fa8c4", shadow: "rgba(0, 0, 0, 0.9)" }
         );
 
     }

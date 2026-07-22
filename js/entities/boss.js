@@ -115,13 +115,12 @@ class Boss extends Enemy {
     }
 
     drawLabel() {
-        ctx.fillStyle = BOSS.COLOR;
-        ctx.font = "bold 20px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText(
+        drawPixelText(
             BOSS.DISPLAY_NAME,
             this.x + this.size / 2,
-            this.y - 20
+            this.y - 22,
+            2,
+            { color: "#ff6b5a", shadow: "rgba(0, 0, 0, 0.9)" }
         );
     }
 
