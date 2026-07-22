@@ -2186,6 +2186,222 @@ function drawBestiaryBossPage(type) {
 
 }
 
+// =====================================
+// Bestiary Field Notes
+// =====================================
+//
+// The detail page's bottom-right was dead space, so it's a
+// blank journal page the player writes on themselves - the
+// game never puts anything in it. Notes are per creature
+// (elites keep their own) and saved as they're typed.
+//
+// The writing surface is a real <textarea> parked over the
+// drawn page rather than canvas-rendered text: that gets the
+// caret, selection, wrapping and the mobile keyboard for
+// free. Everything below just keeps it lined up with the
+// canvas and in sync with the save.
+//
+// bestiaryNotesArea is set by the draw pass while the page is
+// on screen and cleared every frame before it - so the field
+// hides itself the moment the page stops being drawn, no
+// matter how the player left it.
+
+let bestiaryNotesArea = null;
+let bestiaryNotesLoadedType = null;
+let bestiaryNotesSaveTimer = null;
+
+function clearBestiaryNotesArea() {
+
+    bestiaryNotesArea = null;
+
+}
+
+function getBestiaryNotesElement() {
+
+    return document.getElementById("bestiaryNotes");
+
+}
+
+// The journal page: parchment leaf, heading, margin rule and
+// ruled writing lines. Returns the inner writing area (canvas
+// space) the textarea gets parked over.
+function drawBestiaryNotesPage(x, y, width, height, type) {
+
+    const pad = Math.min(width, height) * 0.06;
+    const r = ph(0.012);
+
+    ctx.save();
+
+    // Parchment leaf, lifted off the tome with a soft shadow.
+    ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
+    ctx.shadowBlur = ph(0.02);
+    ctx.shadowOffsetY = ph(0.005);
+    roundRectPath(x, y, width, height, r);
+    const leaf = ctx.createLinearGradient(0, y, 0, y + height);
+    leaf.addColorStop(0, "#efe3c4");
+    leaf.addColorStop(1, "#dccfa8");
+    ctx.fillStyle = leaf;
+    ctx.fill();
+    ctx.restore();
+
+    roundRectPath(x, y, width, height, r);
+    ctx.strokeStyle = "rgba(120, 92, 48, 0.8)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Heading + rule under it.
+    const headingY = y + pad + ph(0.022);
+
+    ctx.fillStyle = "#6b4a22";
+    ctx.font = `bold ${ph(0.021)}px ${UI_FONT}`;
+    ctx.textAlign = "left";
+    ctx.fillText("FIELD NOTES", x + pad, headingY);
+
+    ctx.strokeStyle = "rgba(120, 92, 48, 0.45)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x + pad, headingY + ph(0.012));
+    ctx.lineTo(x + width - pad, headingY + ph(0.012));
+    ctx.stroke();
+
+    // Writing area: indented past a red margin rule, ruled in
+    // lines the textarea's line-height matches so the text
+    // sits ON them rather than drifting between them.
+    const textTop = headingY + ph(0.032);
+    const textLeft = x + pad * 2.2;
+    const textRight = x + width - pad;
+    const textBottom = y + height - pad;
+
+    const lineHeight = ph(0.035);
+    const fontSize = ph(0.024);
+
+    ctx.strokeStyle = "rgba(160, 60, 50, 0.35)";
+    ctx.beginPath();
+    ctx.moveTo(textLeft - pad * 0.5, textTop - ph(0.02));
+    ctx.lineTo(textLeft - pad * 0.5, textBottom);
+    ctx.stroke();
+
+    ctx.strokeStyle = "rgba(120, 92, 48, 0.28)";
+
+    for (
+        let lineY = textTop + lineHeight * 0.25;
+        lineY <= textBottom;
+        lineY += lineHeight
+    ) {
+
+        ctx.beginPath();
+        ctx.moveTo(textLeft, lineY);
+        ctx.lineTo(textRight, lineY);
+        ctx.stroke();
+
+    }
+
+    bestiaryNotesArea = {
+        type,
+        x: textLeft,
+        y: textTop - ph(0.024),
+        width: textRight - textLeft,
+        height: textBottom - textTop + ph(0.024),
+        fontSize,
+        lineHeight
+    };
+
+}
+
+// Parks the textarea over the drawn page (converting canvas
+// space to CSS pixels, which differ on touch devices - see
+// syncCanvasResolution), or hides it when the page is gone.
+function syncBestiaryNotesField() {
+
+    const el = getBestiaryNotesElement();
+
+    if (!el)
+        return;
+
+    const area = bestiaryNotesArea;
+
+    if (!area) {
+
+        if (el.style.display !== "none") {
+
+            commitBestiaryNote();
+            el.blur();
+            el.style.display = "none";
+            bestiaryNotesLoadedType = null;
+
+        }
+
+        return;
+
+    }
+
+    // Switching creatures mid-view: flush the old note before
+    // the field is refilled with the new one.
+    if (bestiaryNotesLoadedType !== area.type) {
+
+        commitBestiaryNote();
+
+        el.value = Save.getBestiaryNote(area.type);
+        bestiaryNotesLoadedType = area.type;
+
+    }
+
+    const rect = canvas.getBoundingClientRect();
+
+    const scaleX = rect.width / canvas.width;
+    const scaleY = rect.height / canvas.height;
+
+    el.style.display = "block";
+    el.style.left = `${rect.left + window.scrollX + area.x * scaleX}px`;
+    el.style.top = `${rect.top + window.scrollY + area.y * scaleY}px`;
+    el.style.width = `${area.width * scaleX}px`;
+    el.style.height = `${area.height * scaleY}px`;
+    el.style.fontSize = `${area.fontSize * scaleY}px`;
+    el.style.lineHeight = `${area.lineHeight * scaleY}px`;
+
+}
+
+function commitBestiaryNote() {
+
+    const el = getBestiaryNotesElement();
+
+    if (!el || !bestiaryNotesLoadedType)
+        return;
+
+    Save.setBestiaryNote(bestiaryNotesLoadedType, el.value);
+
+}
+
+// Saving on every keystroke would rewrite the whole save
+// object per letter, so writes settle briefly first.
+function initBestiaryNotesField() {
+
+    const el = getBestiaryNotesElement();
+
+    if (!el)
+        return;
+
+    el.addEventListener("input", () => {
+
+        clearTimeout(bestiaryNotesSaveTimer);
+        bestiaryNotesSaveTimer = setTimeout(commitBestiaryNote, 400);
+
+    });
+
+    el.addEventListener("blur", () => {
+
+        clearTimeout(bestiaryNotesSaveTimer);
+        commitBestiaryNote();
+
+    });
+
+    // Closing or reloading mid-sentence still keeps the note.
+    window.addEventListener("beforeunload", commitBestiaryNote);
+
+}
+
+initBestiaryNotesField();
+
 function drawBestiaryDetail() {
 
     const type = Game.bestiarySelected;
@@ -2208,6 +2424,11 @@ function drawBestiaryDetail() {
 
     const textX = previewX + previewSize + pw(0.03);
     const textWidth = panel.x + panel.width - pw(0.04) - textX;
+
+    // The notes page owns the right half below the blurb, so
+    // the stats keep to the left column beside it.
+    const notesX = panel.x + panel.width * 0.46;
+    const notesWidth = panel.width * 0.5;
 
     ctx.fillStyle = entry.isBoss ? "gold" : "white";
     ctx.font = `bold ${ph(0.05)}px ${UI_FONT}`;
@@ -2249,7 +2470,7 @@ function drawBestiaryDetail() {
     // lines below flow from wherever it ends rather than sitting
     // at fixed offsets.
     const statsX = panel.x + pw(0.03);
-    const statsWidth = panel.width - pw(0.06);
+    const statsWidth = notesX - pw(0.03) - statsX;
     const lineGap = ph(0.04);
 
     let sy = wrapText(`Health: ${entry.hpScale}`, statsX, statsY + ph(0.05), statsWidth, ph(0.033));
@@ -2258,6 +2479,22 @@ function drawBestiaryDetail() {
 
     ctx.fillText(`Health on wave 1: ${wave1Hp}   wave 5: ${wave5Hp}   wave 10: ${wave10Hp}`, statsX, sy);
     ctx.fillText(`Speed: ${describeSpeed(entry.baseSpeed)}`, statsX, sy + lineGap);
+
+    // Blank journal page in what used to be dead space, sat
+    // below the blurb so a long wrapped behavior never lands
+    // on top of it.
+    const notesY = Math.max(
+        previewY + previewSize * 0.55,
+        textY + ph(0.04)
+    );
+
+    drawBestiaryNotesPage(
+        notesX,
+        notesY,
+        notesWidth,
+        panel.y + panel.height - ph(0.05) - notesY,
+        type
+    );
 
 }
 

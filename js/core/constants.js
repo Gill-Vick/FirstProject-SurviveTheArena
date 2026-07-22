@@ -2242,6 +2242,9 @@ const BESTIARY = {
 // which is also what markBestiaryKill records on an elite
 // kill (see onEnemyKilled in game.js).
 
+// How much a player can write on one creature's notes page.
+const BESTIARY_NOTE_MAX_LENGTH = 600;
+
 function eliteBestiaryKey(type) {
 
     return `elite${type[0].toUpperCase()}${type.slice(1)}`;

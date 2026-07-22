@@ -9,6 +9,30 @@ canvas {
     display: block;
 }
 
+/* Field-notes page (bestiary detail). Positioned and sized
+   from ui.js in canvas space; everything here is just the
+   ink-on-parchment look - the page itself is drawn on the
+   canvas underneath, so this stays transparent. */
+#bestiaryNotes {
+    position: absolute;
+    display: none;
+    margin: 0;
+    padding: 0;
+    border: none;
+    outline: none;
+    resize: none;
+    overflow-y: auto;
+    background: transparent;
+    color: #2f2418;
+    font-family: Georgia, "Times New Roman", serif;
+    font-style: italic;
+    caret-color: #6b3f1d;
+}
+
+#bestiaryNotes::placeholder {
+    color: rgba(90, 70, 45, 0.55);
+}
+
 /* body {
     margin: 0;
     overflow: hidden;

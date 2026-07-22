@@ -690,6 +690,13 @@ function cleanupEntities() {
 
 function draw() {
 
+    // The bestiary's notes field is an HTML overlay, so it has
+    // to be told when its page is no longer on screen. Cleared
+    // here and re-set by the page's own draw, then synced at
+    // the end of the frame - whatever the state does in
+    // between.
+    clearBestiaryNotesArea();
+
     // 1. FLOOR
 
     drawArenaFloor();
@@ -741,6 +748,8 @@ function draw() {
     }
 
     ctx.restore();
+
+    syncBestiaryNotesField();
 }
 
 function drawPlayingScene() {

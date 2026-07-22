@@ -166,6 +166,12 @@ const Save = {
 
     bestiaryUnlocked: {},
 
+    // Player-written field notes, keyed by bestiary type the
+    // same way bestiaryUnlocked is ("grunt", "eliteGrunt").
+    // Whatever the player works out about a foe lives here -
+    // the game never writes to it.
+    bestiaryNotes: {},
+
     load() {
 
         try {
@@ -262,6 +268,7 @@ const Save = {
             }
 
             this.bestiaryUnlocked = { ...(data.bestiaryUnlocked ?? {}) };
+            this.bestiaryNotes = { ...(data.bestiaryNotes ?? {}) };
 
         } catch (e) {}
 
@@ -309,7 +316,8 @@ const Save = {
             equippedSunburstStage: this.equippedSunburstStage,
             inventory: { ...this.inventory },
             equipped: { ...this.equipped },
-            bestiaryUnlocked: { ...this.bestiaryUnlocked }
+            bestiaryUnlocked: { ...this.bestiaryUnlocked },
+            bestiaryNotes: { ...this.bestiaryNotes }
 
         }));
 
@@ -872,6 +880,30 @@ const Save = {
             return;
 
         this.bestiaryUnlocked[type] = true;
+        this.persist();
+
+    },
+
+    getBestiaryNote(type) {
+
+        return this.bestiaryNotes[type] ?? "";
+
+    },
+
+    // Capped so a stuck key can't grow the save without limit.
+    // An emptied note drops its key instead of storing "".
+    setBestiaryNote(type, text) {
+
+        const trimmed = (text ?? "").slice(0, BESTIARY_NOTE_MAX_LENGTH);
+
+        if (this.getBestiaryNote(type) === trimmed)
+            return;
+
+        if (trimmed)
+            this.bestiaryNotes[type] = trimmed;
+        else
+            delete this.bestiaryNotes[type];
+
         this.persist();
 
     }

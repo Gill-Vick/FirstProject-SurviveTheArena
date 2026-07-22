@@ -261,6 +261,13 @@ canvas.addEventListener("contextmenu", (e) => {
 
 window.addEventListener("keydown", (e) => {
 
+    // Typing in the bestiary's notes page is just typing -
+    // without this, writing "m" mutes the game and the keys
+    // map fills up with letters that stay "held" after the
+    // field loses focus.
+    if (isTypingInNotes(e))
+        return;
+
     keys[e.key.toLowerCase()] = true;
 
     if (
@@ -310,6 +317,17 @@ window.addEventListener("keydown", (e) => {
 
 window.addEventListener("keyup", (e) => {
 
+    if (isTypingInNotes(e))
+        return;
+
     keys[e.key.toLowerCase()] = false;
 
 });
+
+// True while the key event belongs to the bestiary notes
+// field (see getNotesElement in ui.js).
+function isTypingInNotes(e) {
+
+    return e.target && e.target.id === "bestiaryNotes";
+
+}

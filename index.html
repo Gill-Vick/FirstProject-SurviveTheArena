@@ -9,6 +9,16 @@
 
     <canvas id="gameCanvas"></canvas>
 
+    <!-- The bestiary's field-notes page. A real textarea rather
+         than canvas-drawn text so typing, selection, the caret
+         and the mobile keyboard all just work; ui.js parks it
+         over the notes page it draws and hides it everywhere
+         else. -->
+    <textarea id="bestiaryNotes"
+              maxlength="600"
+              spellcheck="false"
+              placeholder="Write what you learn about this foe..."></textarea>
+
     <!-- ===================================== -->
     <!-- Load order rules:                      -->
     <!--                                        -->
