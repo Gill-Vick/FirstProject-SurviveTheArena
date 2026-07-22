@@ -458,7 +458,14 @@ function onEnemyKilled(enemy) {
 
     }
 
-    Save.markBestiaryKill(enemy.type);
+    // Elites have their own bestiary page (they play nothing
+    // like their base form), so they unlock separately -
+    // killing a plain Grunt never reveals the Elite Grunt.
+    Save.markBestiaryKill(
+        enemy.isElite
+            ? eliteBestiaryKey(enemy.type)
+            : enemy.type
+    );
 
     Game.screenShake = EFFECTS.SHAKE_ON_KILL;
 

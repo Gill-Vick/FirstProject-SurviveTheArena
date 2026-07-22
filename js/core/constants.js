@@ -2004,12 +2004,14 @@ const EFFECTS = {
 // Bestiary
 // =====================================
 //
-// Page 0 of the bestiary is a grid of the normal enemies;
+// The creatures grid lists every normal enemy followed
+// immediately by its elite version (grunt, elite grunt, tank,
+// elite tank, ...), split across as many pages as it takes;
 // every boss then gets its own dedicated page (with lore),
 // flipped through with arrows like the Armoury's class
 // selector.
 
-const BESTIARY_NORMAL_ORDER = [
+const BESTIARY_BASE_ORDER = [
     "grunt", "tank", "archer", "runner",
     "fireMage", "necromancer", "skeleton", "lancer",
     "shade", "frostWeaver", "powderKeg", "bloodCleric"
@@ -2223,3 +2225,135 @@ const BESTIARY = {
     }
 
 };
+
+// =====================================
+// Elite Bestiary Entries
+// =====================================
+//
+// Elites aren't separate enemy classes (see makeElite in
+// entities/elite.js), so their pages aren't written out by
+// hand either - each one is generated from its base entry
+// with ELITE's generic buffs applied. Only the signature
+// twist is per-type, and that's the whole reason elites get
+// their own page: the stat buffs are identical across the
+// board, but the twists play completely differently.
+//
+// Keys are "elite" + the base type ("grunt" -> "eliteGrunt"),
+// which is also what markBestiaryKill records on an elite
+// kill (see onEnemyKilled in game.js).
+
+function eliteBestiaryKey(type) {
+
+    return `elite${type[0].toUpperCase()}${type.slice(1)}`;
+
+}
+
+const BESTIARY_ELITE_TWISTS = {
+
+    grunt: {
+        desc: "A gilded brute that shrugs off the first blow.",
+        behavior: `Walks straight at you like any Grunt, but carries a shield that soaks one hit before damage starts sticking.`
+    },
+
+    tank: {
+        desc: "A walking fortress that makes its allies untouchable.",
+        behavior: `Gives off an aura - every OTHER enemy standing inside it takes no damage at all. The Tank itself can still be hurt, so kill it first.`
+    },
+
+    archer: {
+        desc: "An archer who fires a spray instead of a shot.",
+        behavior: `Looses a fan of ${ELITE.ARCHER_FAN_COUNT} arrows at once, so sidestepping one can still walk you into another.`
+    },
+
+    runner: {
+        desc: "Nothing new - just far faster and far harder to kill.",
+        behavior: `Chases and charges exactly like a Runner, with no extra trick. The doubled health and higher speed are the whole threat.`
+    },
+
+    fireMage: {
+        desc: "A pyromancer who sets the whole floor alight.",
+        behavior: `Same burning ground, but each patch comes out much wider - it can cut off a third of the arena at once.`
+    },
+
+    necromancer: {
+        desc: "A master who never comes to you.",
+        behavior: `Hangs back at range instead of marching in, and every skeleton it raises is itself elite - you have to chew through the horde to reach it.`
+    },
+
+    skeleton: {
+        desc: "Undead fodder with a shield and a blade.",
+        behavior: `Soaks one hit before taking damage, and swings a dagger that kills from just outside touching range.`
+    },
+
+    lancer: {
+        desc: "A shield-bearer for the entire wave.",
+        behavior: `Its shield takes ${ELITE.LANCER_SHIELD_HITS} hits, it lunges whether the shield is up or not, and every few seconds it hands nearby allies a one-hit shield of their own.`
+    },
+
+    shade: {
+        desc: "A smaller, quicker assassin - the only elite that shrinks.",
+        behavior: `Vanishes and reappears far more often than a normal Shade, with a shorter telegraph and a faster lunge.`
+    },
+
+    frostWeaver: {
+        desc: "An ice-caster that freezes a whole lane.",
+        behavior: `Instead of one frost patch, it lays a full row of ice running from itself straight through wherever you're standing.`
+    },
+
+    powderKeg: {
+        desc: "A bomb that keeps going off after it dies.",
+        behavior: `Its death blast scatters ${ELITE.KEG_CLUSTER_COUNT} cluster bombs around the crater, each burning its own patch of ground a moment later.`
+    },
+
+    bloodCleric: {
+        desc: "A medic who makes the whole wave harder to kill.",
+        behavior: `Heals more per channel, hands out shields twice as fast, and its shields also speed up whoever's carrying them.`
+    }
+
+};
+
+BESTIARY_BASE_ORDER.forEach(type => {
+
+    const base = BESTIARY[type];
+    const twist = BESTIARY_ELITE_TWISTS[type];
+
+    // Elite shades shrink instead of growing (makeElite undoes
+    // the generic size-up for them), so the portrait follows.
+    const sizeScale = type === "shade"
+        ? ELITE.SHADE_SIZE_SCALE
+        : ELITE.SIZE_MULTIPLIER;
+
+    BESTIARY[eliteBestiaryKey(type)] = {
+
+        name: `Elite ${base.name}`,
+        color: base.color,
+        size: base.size * sizeScale,
+        isBoss: false,
+        isElite: true,
+        emoji: base.emoji,
+
+        desc: twist.desc,
+        behavior: twist.behavior,
+
+        hpAtWave(w) {
+            return Math.round(base.hpAtWave(w) * ELITE.HP_MULTIPLIER);
+        },
+
+        hpScale: `${ELITE.HP_MULTIPLIER}× a ${base.name}'s health, at every wave`,
+
+        baseSpeed: Number(
+            (base.baseSpeed * ELITE.SPEED_MULTIPLIER).toFixed(2)
+        )
+
+    };
+
+});
+
+// Base creature followed by its elite: grunt, elite grunt,
+// tank, elite tank, and so on. The bestiary grid pages this
+// list; keeping each pair adjacent means they never split
+// across a page boundary (12 per page, both lists even).
+
+const BESTIARY_NORMAL_ORDER = BESTIARY_BASE_ORDER.flatMap(
+    type => [type, eliteBestiaryKey(type)]
+);

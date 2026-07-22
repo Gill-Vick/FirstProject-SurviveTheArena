@@ -853,43 +853,85 @@ function getBestiaryPanelRect() {
 
 }
 
-function getBestiaryGridMetrics() {
+// Creatures per grid page. The full list (every enemy plus
+// its elite) is far too long for one grid, so it's paged.
+const BESTIARY_PER_PAGE = 12;
 
-    // Page 0 only holds the normal enemies now (bosses live
-    // on their own pages), so 4 columns × 2 rows gives every
-    // cell plenty of room.
-    const cols = 4;
-    const rows = Math.ceil(BESTIARY_NORMAL_ORDER.length / cols);
+function getBestiaryGridMetrics() {
 
     const panel = getBestiaryPanelRect();
 
     // Generous gaps so cells (and their name labels) read as
     // clearly separate instead of packed edge-to-edge.
-    const gapX = pw(0.03);
+    const gapX = pw(0.02);
     const gapY = ph(0.085);
 
-    const gridTop = ph(0.34);
+    // Starts just under the page subtitle (ph(0.235)) - the
+    // old ph(0.34) left an empty band across the top of the
+    // tome that the cells could have been using.
+    const gridTop = ph(0.30);
 
-    // The bottom row's name label hangs ~ph(0.05) below its
-    // cell, so that strip is reserved here - otherwise a
-    // 3-row grid's last labels poke out of the panel.
-    const gridBottom = panel.y + panel.height - ph(0.045) - ph(0.05);
+    // The bottom row's nameplate hangs ph(0.008) + ph(0.058)
+    // below its cell, so that strip is reserved here -
+    // otherwise the last row's plates poke out of the panel.
+    const gridBottom = panel.y + panel.height - ph(0.045) - ph(0.07);
 
     const availableWidth = panel.width - pw(0.04);
     const availableHeight = gridBottom - gridTop;
 
-    const cellFromWidth = (availableWidth - gapX * (cols - 1)) / cols;
-    const cellFromHeight = (availableHeight - gapY * (rows - 1)) / rows;
+    // Cells are square, so whichever axis is tighter caps how
+    // big they get - and that depends on the window's shape.
+    // A fixed 4x3 wasted most of a wide panel's width (cells
+    // came out a third of the size the width allowed, clumped
+    // in the middle); 6x2 wastes a tall one's height. So try
+    // each even column count and keep whichever gives the
+    // biggest cell: 6x2 on a wide screen, 4x3 on a portrait
+    // one. Even counts only, so a creature and its elite stay
+    // side by side rather than wrapping apart.
+    let best = null;
 
-    // Capped by whichever axis is tighter, so the grid never
-    // overflows the panel - it just spans however much of the
-    // wider axis it can while staying square.
-    const cell = Math.min(cellFromWidth, cellFromHeight);
+    [2, 4, 6].forEach(cols => {
 
-    const usedWidth = cell * cols + gapX * (cols - 1);
+        const rows = Math.ceil(BESTIARY_PER_PAGE / cols);
+
+        const cell = Math.min(
+            (availableWidth - gapX * (cols - 1)) / cols,
+            (availableHeight - gapY * (rows - 1)) / rows
+        );
+
+        if (!best || cell > best.cell)
+            best = { cols, rows, cell };
+
+    });
+
+    const { cols, rows, cell } = best;
+
+    // When height is the binding constraint the row would sit
+    // in a narrow clump mid-panel, so the leftover width is
+    // pushed into the gaps to spread the cells out. Capped so
+    // a very wide, very short window doesn't scatter them.
+    const spreadGapX = Math.min(
+        gapX + (availableWidth - (cell * cols + gapX * (cols - 1))) / (cols - 1),
+        cell * 0.5
+    );
+
+    const usedWidth = cell * cols + spreadGapX * (cols - 1);
     const gridX = panel.x + pw(0.02) + (availableWidth - usedWidth) / 2;
 
-    return { cols, rows, gridX, gridY: gridTop, gapX, gapY, cell };
+    // Centered in the leftover height too, so a tall window
+    // doesn't leave the grid stranded at the top of the tome.
+    const usedHeight = cell * rows + gapY * (rows - 1);
+    const gridY = gridTop + Math.max(0, availableHeight - usedHeight) / 2;
+
+    return {
+        cols,
+        rows,
+        gridX,
+        gridY,
+        gapX: spreadGapX,
+        gapY,
+        cell
+    };
 
 }
 
@@ -1620,6 +1662,26 @@ function drawEnemyPreview(type, x, y, w, h, unlocked) {
     ctx.fillStyle = entry.color;
     ctx.fillRect(dx, dy, drawSize, drawSize);
 
+    // Elites wear the same gold ring here as they do in the
+    // arena, so the card matches what you're looking at when
+    // one shows up mid-wave.
+    if (entry.isElite) {
+
+        const inset = Math.max(2, drawSize * 0.05);
+
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = ELITE.GLOW_COLOR;
+        ctx.strokeStyle = ELITE.GLOW_COLOR;
+        ctx.lineWidth = Math.max(2, drawSize * 0.06);
+        ctx.strokeRect(
+            dx - inset,
+            dy - inset,
+            drawSize + inset * 2,
+            drawSize + inset * 2
+        );
+
+    }
+
     if (entry.emoji) {
 
         ctx.shadowBlur = 0;
@@ -1726,7 +1788,11 @@ function drawBestiaryCard(cell, type, entry, unlocked) {
 
     const r = cell.width * 0.08;
     const gap = ph(0.008);
-    const plateH = ph(0.038);
+
+    // Tall enough for the elites' two-line "ELITE / name"
+    // plate. Kept uniform across every card so a row of plates
+    // still lines up.
+    const plateH = ph(0.058);
 
     // Portrait tile with a soft drop shadow.
     ctx.save();
@@ -1771,9 +1837,29 @@ function drawBestiaryCard(cell, type, entry, unlocked) {
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    const label = unlocked ? entry.name : "? ? ?";
+    // "Elite Frost Weaver" on one line doesn't fit the plate at
+    // any legible size, so elites get the rank on its own gold
+    // line above the creature's name.
+    const isElite = unlocked && entry.isElite;
 
-    // Shrink the label until it fits the plate so long names
+    const label = unlocked
+        ? (isElite ? entry.name.replace(/^Elite /, "") : entry.name)
+        : "? ? ?";
+
+    const centerX = cell.x + cell.width / 2;
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    if (isElite) {
+
+        ctx.fillStyle = "rgba(255, 215, 0, 0.9)";
+        ctx.font = `bold ${Math.max(7, cell.width * 0.11)}px ${UI_FONT}`;
+        ctx.fillText("ELITE", centerX, plateY + plateH * 0.28);
+
+    }
+
+    // Shrink the name until it fits the plate so long ones
     // (Necromancer, Frost Weaver) don't spill past the frame.
     let fontSize = Math.max(9, cell.width * 0.15);
     ctx.font = `bold ${fontSize}px ${UI_FONT}`;
@@ -1784,9 +1870,12 @@ function drawBestiaryCard(cell, type, entry, unlocked) {
     }
 
     ctx.fillStyle = unlocked ? "#f2e4c2" : "#8a7a5a";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(label, cell.x + cell.width / 2, plateY + plateH / 2);
+    ctx.fillText(
+        label,
+        centerX,
+        plateY + (isElite ? plateH * 0.68 : plateH / 2)
+    );
+
     ctx.textBaseline = "alphabetic";
 
 }
@@ -1836,9 +1925,29 @@ function drawBestiaryPortrait(type, x, y, size, unlocked) {
 // per boss (BESTIARY_BOSS_ORDER), with lore - flipped through
 // with arrows like the Armoury's class selector.
 
+// Pages run: creature grids first, then one page per boss.
+function getBestiaryCreaturePageCount() {
+
+    return Math.ceil(BESTIARY_NORMAL_ORDER.length / BESTIARY_PER_PAGE);
+
+}
+
 function getBestiaryPageCount() {
 
-    return 1 + BESTIARY_BOSS_ORDER.length;
+    return getBestiaryCreaturePageCount() + BESTIARY_BOSS_ORDER.length;
+
+}
+
+// The creatures shown on a given grid page, or an empty list
+// if that page is a boss page.
+function getBestiaryPageTypes(page) {
+
+    if (page >= getBestiaryCreaturePageCount())
+        return [];
+
+    const start = page * BESTIARY_PER_PAGE;
+
+    return BESTIARY_NORMAL_ORDER.slice(start, start + BESTIARY_PER_PAGE);
 
 }
 
@@ -1941,15 +2050,21 @@ function drawBestiary() {
 
     const page = Game.bestiaryPage;
 
-    const bossType = page > 0 ? BESTIARY_BOSS_ORDER[page - 1] : null;
+    const creaturePages = getBestiaryCreaturePageCount();
+    const isCreaturePage = page < creaturePages;
+
+    const bossType = isCreaturePage
+        ? null
+        : BESTIARY_BOSS_ORDER[page - creaturePages];
+
     const bossUnlocked = bossType ? Save.isBestiaryUnlocked(bossType) : false;
 
     // Page title + arrows (the boss's name once discovered)
-    const title = page === 0
+    const title = isCreaturePage
         ? "BESTIARY"
         : (bossUnlocked ? BESTIARY[bossType].name.toUpperCase() : "???");
 
-    ctx.fillStyle = page === 0 ? "white" : "gold";
+    ctx.fillStyle = isCreaturePage ? "white" : "gold";
     ctx.font = `bold ${ph(0.05)}px ${UI_FONT}`;
     ctx.textAlign = "center";
     ctx.fillText(title, canvas.width / 2, ph(0.185));
@@ -1960,14 +2075,14 @@ function drawBestiary() {
     ctx.fillStyle = "#d0b58a";
     ctx.font = `italic ${ph(0.02)}px ${UI_FONT}`;
     ctx.fillText(
-        page === 0
-            ? `Creatures — page 1 / ${getBestiaryPageCount()}`
+        isCreaturePage
+            ? `Creatures — page ${page + 1} / ${getBestiaryPageCount()}`
             : `Boss — page ${page + 1} / ${getBestiaryPageCount()}`,
         canvas.width / 2,
         ph(0.235)
     );
 
-    if (page > 0) {
+    if (!isCreaturePage) {
 
         drawBestiaryBossPage(bossType);
 
@@ -1975,7 +2090,7 @@ function drawBestiary() {
 
     }
 
-    BESTIARY_NORMAL_ORDER.forEach((type, i) => {
+    getBestiaryPageTypes(page).forEach((type, i) => {
 
         const cell = getBestiaryCell(i);
         const entry = BESTIARY[type];
@@ -2000,7 +2115,7 @@ function drawBestiaryBossPage(type) {
     const previewX = panel.x + pw(0.05);
     const previewY = ph(0.30);
 
-    drawBestiaryPortrait(type, previewX, previewY, previewSize, previewSize, unlocked);
+    drawBestiaryPortrait(type, previewX, previewY, previewSize, unlocked);
 
     const textX = previewX + previewSize + pw(0.04);
     const textWidth = panel.x + panel.width - pw(0.04) - textX;
@@ -2089,28 +2204,39 @@ function drawBestiaryDetail() {
     const previewY = panel.y + ph(0.09);
     const previewSize = Math.min(pw(0.16), panel.height * 0.4);
 
-    drawBestiaryPortrait(type, previewX, previewY, previewSize, previewSize, true);
+    drawBestiaryPortrait(type, previewX, previewY, previewSize, true);
 
     const textX = previewX + previewSize + pw(0.03);
+    const textWidth = panel.x + panel.width - pw(0.04) - textX;
 
     ctx.fillStyle = entry.isBoss ? "gold" : "white";
     ctx.font = `bold ${ph(0.05)}px ${UI_FONT}`;
     ctx.textAlign = "left";
     ctx.fillText(entry.name, textX, previewY + ph(0.05));
 
+    // desc and behavior wrap like the boss page's do - the
+    // elites' twists are a sentence or two long and used to
+    // run straight off the right edge of the tome.
     ctx.fillStyle = "#ccc";
     ctx.font = `${ph(0.026)}px Arial`;
-    ctx.fillText(entry.desc, textX, previewY + ph(0.12));
+    let textY = wrapText(entry.desc, textX, previewY + ph(0.12), textWidth, ph(0.034));
+
+    textY += ph(0.012);
 
     ctx.fillStyle = "#aaa";
     ctx.font = `${ph(0.023)}px Arial`;
-    ctx.fillText(`Behavior: ${entry.behavior}`, textX, previewY + ph(0.17));
+    textY = wrapText(`Behavior: ${entry.behavior}`, textX, textY, textWidth, ph(0.031));
 
     const wave1Hp = entry.hpAtWave(1);
     const wave5Hp = entry.hpAtWave(5);
     const wave10Hp = entry.hpAtWave(10);
 
-    const statsY = previewY + previewSize + ph(0.08);
+    // Normally the stats sit below the portrait, but a long
+    // wrapped behavior can reach past it - push them clear.
+    const statsY = Math.max(
+        previewY + previewSize + ph(0.08),
+        textY + ph(0.05)
+    );
 
     ctx.fillStyle = "white";
     ctx.font = `bold ${ph(0.028)}px ${UI_FONT}`;
@@ -2276,12 +2402,9 @@ function handleMenuClick(x, y) {
             return;
         }
 
-        // Only the creatures grid (page 0) has clickable
-        // cells - boss pages already show everything.
-        if (Game.bestiaryPage !== 0)
-            return;
-
-        BESTIARY_NORMAL_ORDER.forEach((type, i) => {
+        // Only the creature grids have clickable cells - boss
+        // pages already show everything.
+        getBestiaryPageTypes(Game.bestiaryPage).forEach((type, i) => {
 
             if (!Save.isBestiaryUnlocked(type))
                 return;
