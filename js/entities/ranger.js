@@ -706,7 +706,8 @@ class Ranger extends Player {
 
             Game.enemies.forEach(e => {
 
-                if (e.isDead())
+                // Bosses are lightning-immune (see boss ctors).
+                if (e.isDead() || e.lightningImmune)
                     return;
 
                 const cx = e.x + e.size / 2;
@@ -738,7 +739,9 @@ class Ranger extends Player {
 
         Game.enemies.forEach(e => {
 
-            if (e === hitEnemy || e.isDead())
+            // Bosses are lightning-immune, so lightning never
+            // chains to them (see boss ctors).
+            if (e === hitEnemy || e.isDead() || e.lightningImmune)
                 return;
 
             const cx = e.x + e.size / 2;

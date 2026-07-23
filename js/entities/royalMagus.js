@@ -34,6 +34,7 @@ class RoyalMagus extends Enemy {
         this.type = "royalMagus";
         this.isBoss = true;
         this.knockbackImmune = true;
+        this.lightningImmune = true;
         this.charmImmune = true;
         // Mirror the (possibly Endless-scaled) hp set by super().
         this.maxHp = this.hp;
@@ -800,42 +801,44 @@ class MagusFirestorm {
 
         const fade = Math.min(1, this.life / 1429);
         const flicker = 0.85 + Math.sin(Date.now() / 90) * 0.15;
+        const unit = Math.max(3, Math.round(this.radius * 0.045));
 
-        ctx.save();
+        // Same pixel-fire language as the Fire Mage's burning
+        // ground (drawPixelZone), just bigger and hotter: a
+        // scorched outer patch, a brighter core, and pixel
+        // flame licks orbiting the rim.
+        drawPixelZone(this.x, this.y, this.radius, {
+            fill: "#c83200",
+            rim: "#ff8a00",
+            fillAlpha: 0.32 * fade * flicker,
+            rimAlpha: 0.55 * fade,
+            unit,
+            glow: 8,
+            glowColor: "#ff5a00"
+        });
 
-        let heat = ctx.createRadialGradient(
-            this.x, this.y, this.radius * 0.1,
-            this.x, this.y, this.radius
-        );
-        heat.addColorStop(0, `rgba(255, 170, 40, ${0.45 * fade * flicker})`);
-        heat.addColorStop(0.6, `rgba(255, 90, 0, ${0.35 * fade})`);
-        heat.addColorStop(1, `rgba(180, 40, 0, ${0.15 * fade})`);
+        drawPixelDisc(this.x, this.y, this.radius * 0.6, {
+            color: "#ff8a1a",
+            alpha: 0.3 * fade * flicker,
+            unit,
+            dither: 0.5
+        });
 
-        ctx.fillStyle = heat;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fill();
+        const licks = 8;
 
-        ctx.strokeStyle = `rgba(255, 140, 0, ${0.55 * fade})`;
-        ctx.lineWidth = 3;
-        ctx.stroke();
+        for (let i = 0; i < licks; i++) {
 
-        // Licks of flame around the rim.
-        ctx.fillStyle = `rgba(255, 200, 80, ${0.5 * fade * flicker})`;
-
-        for (let i = 0; i < 10; i++) {
-
-            const a = (Math.PI * 2 * i) / 10 + Date.now() / 900;
+            const a = (Math.PI * 2 * i) / licks + Date.now() / 900;
             const fx = this.x + Math.cos(a) * this.radius * 0.85;
             const fy = this.y + Math.sin(a) * this.radius * 0.85;
 
-            ctx.beginPath();
-            ctx.ellipse(fx, fy, 6, 14, a + Math.PI / 2, 0, Math.PI * 2);
-            ctx.fill();
+            drawPixelIcon("flame", fx, fy, Math.max(2, unit * 0.8), {
+                color: "#ffcc55",
+                alpha: 0.6 * fade * flicker,
+                shadow: "rgba(120, 30, 0, 0.5)"
+            });
 
         }
-
-        ctx.restore();
 
     }
 

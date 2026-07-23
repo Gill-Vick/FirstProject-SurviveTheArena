@@ -16,6 +16,10 @@ class Boss extends Enemy {
         this.type = "boss";
         this.isBoss = true;
         this.knockbackImmune = true;
+        // Bosses shrug off chain lightning (Stormfletch Arrows,
+        // Voltaic Fang) - see the lightningImmune checks in
+        // ranger.js / thief.js.
+        this.lightningImmune = true;
         this.projectileRingRadius = BOSS_RING.RADIUS;
         this.attackCooldown = BOSS.ATTACK_COOLDOWN;
 

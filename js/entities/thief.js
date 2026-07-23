@@ -812,7 +812,9 @@ class Thief extends Player {
 
             Game.enemies.forEach(e => {
 
-                if (visited.has(e) || e.isDead())
+                // Bosses are lightning-immune, so the arc never
+                // hops to them (see boss ctors).
+                if (visited.has(e) || e.isDead() || e.lightningImmune)
                     return;
 
                 const ex = e.x + e.size / 2;

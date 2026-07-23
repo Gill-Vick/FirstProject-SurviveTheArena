@@ -16,6 +16,7 @@ class King extends Enemy {
         this.type = "king";
         this.isBoss = true;
         this.knockbackImmune = true;
+        this.lightningImmune = true;
         this.charmImmune = true;
         this.projectileRingRadius = BOSS_RING.RADIUS;
         // Mirror the (possibly Endless-scaled) hp set by super().
