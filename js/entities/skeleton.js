@@ -129,13 +129,13 @@ class Skeleton extends Enemy {
 
         super.draw();
 
-        ctx.fillStyle = "#ddd";
-        ctx.font = "bold 14px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText(
-            "💀",
+        // Pixel skull on the body (was a 💀 emoji).
+        drawPixelIcon(
+            "skull",
             this.x + this.size / 2,
-            this.y + this.size / 2 + 5
+            this.y + this.size / 2,
+            2,
+            { color: "#2a2a2a", shadow: "rgba(255, 255, 255, 0.5)" }
         );
 
     }

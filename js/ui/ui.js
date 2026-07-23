@@ -1857,19 +1857,21 @@ function drawEnemyPreview(type, x, y, w, h, unlocked) {
 
     const scale = Math.min(w, h) / entry.size;
     const drawSize = entry.size * scale * 0.85;
-    const dx = x + (w - drawSize) / 2;
-    const dy = y + (h - drawSize) / 2;
+    const cx = x + w / 2;
+    const cy = y + h / 2;
 
-    ctx.shadowBlur = 12;
-    ctx.shadowColor = entry.color;
-    ctx.fillStyle = entry.color;
-    ctx.fillRect(dx, dy, drawSize, drawSize);
+    // Same baked pixel body the enemy uses in the arena, so a
+    // bestiary card matches what actually walks in mid-wave.
+    drawPixelBody(cx, cy, drawSize, {
+        color: entry.color,
+        glow: 10,
+        glowColor: entry.color
+    });
 
-    // Elites wear the same gold ring here as they do in the
-    // arena, so the card matches what you're looking at when
-    // one shows up mid-wave.
+    // Elites wear the same gold ring here as they do in the arena.
     if (entry.isElite) {
 
+        const half = drawSize / 2;
         const inset = Math.max(2, drawSize * 0.05);
 
         ctx.shadowBlur = 15;
@@ -1877,35 +1879,46 @@ function drawEnemyPreview(type, x, y, w, h, unlocked) {
         ctx.strokeStyle = ELITE.GLOW_COLOR;
         ctx.lineWidth = Math.max(2, drawSize * 0.06);
         ctx.strokeRect(
-            dx - inset,
-            dy - inset,
+            cx - half - inset,
+            cy - half - inset,
             drawSize + inset * 2,
             drawSize + inset * 2
         );
-
-    }
-
-    if (entry.emoji) {
-
         ctx.shadowBlur = 0;
-        ctx.font = `${Math.floor(drawSize * 0.45)}px Arial`;
-        ctx.textAlign = "center";
-        ctx.fillText(entry.emoji, x + w / 2, y + h / 2 + drawSize * 0.12);
 
     }
 
-    if (type === "king") {
+    // Pixel type badge (replaces the old emoji), mapped from
+    // the creature's base type so an elite shows its base
+    // form's mark.
+    const icon = BESTIARY_PREVIEW_ICONS[type.replace(/^elite/, "").replace(/^./, c => c.toLowerCase())];
 
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = "gold";
-        ctx.font = `${Math.floor(drawSize * 0.35)}px Arial`;
-        ctx.fillText("♛", x + w / 2, dy - 4);
+    if (icon) {
+
+        drawPixelIcon(icon.name, cx, cy + drawSize * 0.08, Math.max(1, drawSize * icon.scale), {
+            color: icon.color
+        });
 
     }
+
+    if (type === "king")
+        drawPixelIcon("crown", cx, cy - drawSize * 0.42, Math.max(1, drawSize * 0.06), { color: "#ffd54a" });
 
     ctx.restore();
 
 }
+
+// Which pixel badge each creature wears on its bestiary card.
+// Keyed by base type; elites reuse their base form's mark.
+const BESTIARY_PREVIEW_ICONS = {
+    fireMage: { name: "flame", color: "#ff7a1a", scale: 0.06 },
+    frostWeaver: { name: "frost", color: "#aef0ff", scale: 0.05 },
+    necromancer: { name: "skull", color: "#d6b3ff", scale: 0.06 },
+    skeleton: { name: "skull", color: "#2a2a2a", scale: 0.05 },
+    shade: { name: "dagger", color: "#c9b7ff", scale: 0.05 },
+    powderKeg: { name: "bomb", color: "#20160f", scale: 0.05 },
+    bloodCleric: { name: "cross", color: "#c0392b", scale: 0.055 }
+};
 
 // =====================================
 // Bestiary theming helpers

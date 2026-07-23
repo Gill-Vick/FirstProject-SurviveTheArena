@@ -442,37 +442,58 @@ class Enemy {
         // Wounded bosses run hot and pulse (see getEnrage).
         const enrage = this.getEnrage();
 
-        ctx.shadowBlur = EFFECTS.ENEMY_GLOW +
-            (enrage ? enrage.pulse * 26 : 0);
-
-        ctx.shadowColor = chilled
-            ? ELEMENTAL_PRISM.ICE_COLOR
-            : enrage
-                ? "rgb(255, 90, 40)"
-                : this.color;
-
-        ctx.fillStyle =
+        // Body colour: white hit-flash, else ice / enrage / base.
+        const bodyColor =
             this.flashTimer > 0
-                ? "white"
+                ? "#ffffff"
                 : chilled
                     ? ELEMENTAL_PRISM.ICE_COLOR
                     : enrage
                         ? enrage.color
                         : this.color;
 
-        ctx.fillRect(
+        const glowColor = chilled
+            ? ELEMENTAL_PRISM.ICE_COLOR
+            : enrage
+                ? "rgb(255, 90, 40)"
+                : this.color;
 
-            this.x,
+        const midX = this.x + this.size / 2;
+        const midY = this.y + this.size / 2;
 
-            this.y,
+        // Enrage pulse rides BEHIND the body as a cheap pulsing
+        // disc rather than an animated shadowBlur - a cached
+        // sprite can't animate its own glow, so the throb lives
+        // in a separate aura the body then sits on top of.
+        if (enrage) {
 
+            drawPixelDisc(
+                midX,
+                midY,
+                this.size * (0.65 + enrage.pulse * 0.3),
+                {
+                    color: "rgb(255, 90, 40)",
+                    alpha: 0.2 + enrage.pulse * 0.3,
+                    unit: Math.max(3, Math.round(this.size / 12))
+                }
+            );
+
+        }
+
+        // The old smooth fillRect + soft shadowBlur is now a
+        // baked pixel sprite (hard outline, bevel, grain). Its
+        // glow is baked in and tighter than the old blur so the
+        // pixel edges stay crisp.
+        drawPixelBody(
+            midX,
+            midY,
             this.size,
-
-            this.size
-
+            {
+                color: bodyColor,
+                glow: EFFECTS.ENEMY_GLOW * 0.4,
+                glowColor
+            }
         );
-
-        ctx.shadowBlur = 0;
 
         if (enrage)
             this.drawCracks(enrage);

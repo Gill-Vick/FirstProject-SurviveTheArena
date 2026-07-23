@@ -273,6 +273,294 @@ function drawPixelSquare(cx, cy, halfSize, opts = {}) {
 
 }
 
+// Resolve any CSS color string ("red", "#8B4513", ...) to an
+// [r,g,b] triple. Uses a 1x1 probe canvas; only ever called at
+// bake time (once per unique sprite), and memoized on top of
+// that, so the getImageData cost is negligible.
+const _rgbCache = new Map();
+let _rgbProbe = null;
+
+function _resolveRgb(color) {
+
+    if (_rgbCache.has(color))
+        return _rgbCache.get(color);
+
+    if (!_rgbProbe) {
+        _rgbProbe = document.createElement("canvas");
+        _rgbProbe.width = _rgbProbe.height = 1;
+    }
+
+    const c = _rgbProbe.getContext("2d", { willReadFrequently: true });
+    c.clearRect(0, 0, 1, 1);
+    c.fillStyle = color;
+    c.fillRect(0, 0, 1, 1);
+
+    const d = c.getImageData(0, 0, 1, 1).data;
+    const rgb = [d[0], d[1], d[2]];
+
+    _rgbCache.set(color, rgb);
+
+    return rgb;
+
+}
+
+// =====================================
+// Pixel Body (enemy sprite)
+// =====================================
+//
+// The blocky "creature" that replaces the smooth fillRect +
+// soft shadowBlur every enemy used to draw. That soft glow was
+// the main thing that read as un-pixel next to the tiled floor
+// and the pixel HUD. This bakes a chunky sprite instead: a
+// hard dark outline, a lit top-left / shadowed bottom-right
+// bevel (same trick as the floor stones), a woven interior
+// dither for texture, and a tight glow baked in so the body
+// still pops on the dark stone.
+//
+// Cached like every other shape - the sprite only depends on
+// size + colour + glow, not screen position - so an enemy body
+// is a single drawImage per frame, and the whole wave shares
+// one bitmap per (type-colour, size). `size` is the full side
+// length; the sprite is centered on (cx, cy).
+//
+// opts: color, glow, glowColor, alpha
+function drawPixelBody(cx, cy, size, opts = {}) {
+
+    const s = Math.max(4, Math.round(size));
+    const color = opts.color ?? "#ffffff";
+    const glow = opts.glow ?? 0;
+    const glowColor = opts.glowColor ?? color;
+
+    // Chunky texels, but always enough cells for an outline, a
+    // bevel ring and an interior.
+    const unit = Math.max(3, Math.round(s / 9));
+    const cells = Math.max(4, Math.ceil(s / unit));
+    const drawn = cells * unit;
+
+    const pad = glow ? glow + unit : 0;
+    const dim = drawn + pad * 2;
+
+    const key = `body|${cells}|${unit}|${color}|${glow}|${glowColor}`;
+
+    const bmp = _getPixelShape(key, dim, dim, (c) => {
+
+        const [r, g, b] = _resolveRgb(color);
+
+        const shade = (f) => `rgb(${
+            Math.max(0, Math.min(255, Math.round(r * f)))}, ${
+            Math.max(0, Math.min(255, Math.round(g * f)))}, ${
+            Math.max(0, Math.min(255, Math.round(b * f)))})`;
+
+        // Baked glow: one blurred silhouette pass, then the
+        // crisp cells on top with no shadow.
+        if (glow) {
+            c.save();
+            c.shadowBlur = glow;
+            c.shadowColor = glowColor;
+            c.fillStyle = color;
+            c.fillRect(pad, pad, drawn, drawn);
+            c.restore();
+        }
+
+        for (let iy = 0; iy < cells; iy++) {
+
+            for (let ix = 0; ix < cells; ix++) {
+
+                const edge =
+                    ix === 0 || iy === 0 ||
+                    ix === cells - 1 || iy === cells - 1;
+
+                let f;
+
+                if (edge) {
+
+                    // Hard dark outline.
+                    f = 0.34;
+
+                } else {
+
+                    // Woven two-tone base for texture.
+                    f = ((ix + iy) & 1) ? 1.06 : 0.9;
+
+                    // Bevel: lit inner top/left, shadowed inner
+                    // bottom/right (only when there's room, so
+                    // tiny bodies don't collapse to all-bevel).
+                    if (cells >= 6) {
+                        if (ix === 1 || iy === 1) f = 1.32;
+                        if (ix === cells - 2 || iy === cells - 2) f = 0.66;
+                    }
+
+                    // A scatter of darker grain cells, hashed
+                    // from the position so it's stable per bake.
+                    const h = (ix * 73 + iy * 151) % 17;
+                    if (h < 3) f *= 0.82;
+
+                }
+
+                c.fillStyle = shade(f);
+                c.fillRect(pad + ix * unit, pad + iy * unit, unit, unit);
+
+            }
+
+        }
+
+    });
+
+    ctx.save();
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = opts.alpha ?? 1;
+    ctx.drawImage(bmp, Math.round(cx - drawn / 2 - pad), Math.round(cy - drawn / 2 - pad));
+    ctx.restore();
+    ctx.globalAlpha = 1;
+
+}
+
+// =====================================
+// Pixel Icons (caster badges)
+// =====================================
+//
+// Small bitmap glyphs that replace the smooth emoji (🔥 ❄ 💀)
+// the caster enemies used to float above themselves - those
+// were the last un-pixel thing on the enemies. Each glyph is
+// rows of "1"/"0", drawn on a dark one-cell drop shadow so it
+// stays readable over any body, and cached like every other
+// shape (it only depends on glyph + cell + colour).
+
+const PIXEL_ICONS = {
+
+    // Flame teardrop.
+    flame: [
+        "00100",
+        "00100",
+        "01110",
+        "01110",
+        "11111",
+        "11111",
+        "01110"
+    ],
+
+    // Six-point snowflake.
+    frost: [
+        "0001000",
+        "1001001",
+        "0101010",
+        "0011100",
+        "1111111",
+        "0011100",
+        "0101010",
+        "1001001",
+        "0001000"
+    ],
+
+    // Skull with two eye sockets.
+    skull: [
+        "011110",
+        "111111",
+        "101101",
+        "111111",
+        "010010",
+        "111111",
+        "010100"
+    ],
+
+    // Medic cross (Blood Cleric).
+    cross: [
+        "001100",
+        "001100",
+        "111111",
+        "111111",
+        "001100",
+        "001100"
+    ],
+
+    // Dagger, point up (Shade).
+    dagger: [
+        "00100",
+        "00100",
+        "00100",
+        "00100",
+        "11111",
+        "00100",
+        "00100",
+        "00100"
+    ],
+
+    // Round bomb with a lit fuse (Powder Keg).
+    bomb: [
+        "0000100",
+        "0001000",
+        "0011100",
+        "0111110",
+        "1111111",
+        "1111111",
+        "0111110"
+    ],
+
+    // Three-point crown (King).
+    crown: [
+        "1010101",
+        "1111111",
+        "1111111",
+        "0111110"
+    ]
+
+};
+
+// Draws a PIXEL_ICONS glyph centered on (cx, cy). `cell` is the
+// block size; `opts.color`, `opts.shadow`, `opts.alpha`.
+function drawPixelIcon(name, cx, cy, cell, opts = {}) {
+
+    const rows = PIXEL_ICONS[name];
+
+    if (!rows)
+        return;
+
+    const u = Math.max(1, Math.round(cell));
+    const color = opts.color ?? "#ffffff";
+    const shadow = opts.shadow ?? "rgba(0, 0, 0, 0.75)";
+
+    const cols = rows[0].length;
+    const w = cols * u;
+    const h = rows.length * u;
+    const pad = u; // room for the drop shadow
+
+    const key = `icon|${name}|${u}|${color}|${shadow}`;
+
+    const bmp = _getPixelShape(key, w + pad, h + pad, (c) => {
+
+        const paint = (ox, oy, fill) => {
+
+            c.fillStyle = fill;
+
+            for (let ry = 0; ry < rows.length; ry++) {
+
+                const bits = rows[ry];
+
+                for (let rx = 0; rx < cols; rx++) {
+
+                    if (bits[rx] === "1")
+                        c.fillRect(ox + rx * u, oy + ry * u, u, u);
+
+                }
+
+            }
+
+        };
+
+        paint(u, u, shadow);
+        paint(0, 0, color);
+
+    });
+
+    ctx.save();
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = opts.alpha ?? 1;
+    ctx.drawImage(bmp, Math.round(cx - w / 2), Math.round(cy - h / 2));
+    ctx.restore();
+    ctx.globalAlpha = 1;
+
+}
+
 // A rectangular beam rendered as a lattice of pixel blocks -
 // the "laser" counterpart to the discs. Drawn in local space:
 // the caller translates/rotates so the beam runs along +x from

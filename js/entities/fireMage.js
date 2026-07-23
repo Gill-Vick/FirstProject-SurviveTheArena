@@ -88,13 +88,13 @@ class FireMage extends Enemy {
 
         super.draw();
 
-        ctx.fillStyle = "#ff4500";
-        ctx.font = "bold 22px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText(
-            "🔥",
+        // Pixel flame badge (was a 🔥 emoji).
+        drawPixelIcon(
+            "flame",
             this.x + this.size / 2,
-            this.y - 8
+            this.y - 12,
+            3,
+            { color: "#ff7a1a" }
         );
 
     }

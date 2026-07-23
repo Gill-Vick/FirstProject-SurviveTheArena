@@ -144,13 +144,13 @@ class FrostWeaver extends Enemy {
 
         super.draw();
 
-        ctx.fillStyle = "#7fd4f0";
-        ctx.font = "bold 22px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText(
-            "❄",
+        // Pixel snowflake badge (was a ❄ emoji).
+        drawPixelIcon(
+            "frost",
             this.x + this.size / 2,
-            this.y - 8
+            this.y - 12,
+            3,
+            { color: "#aef0ff" }
         );
 
     }

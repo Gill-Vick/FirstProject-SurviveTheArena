@@ -124,13 +124,13 @@ class Necromancer extends Enemy {
 
         super.draw();
 
-        ctx.fillStyle = "#9b59b6";
-        ctx.font = "bold 20px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText(
-            "☠",
+        // Pixel skull badge (was a ☠ emoji).
+        drawPixelIcon(
+            "skull",
             this.x + this.size / 2,
-            this.y - 8
+            this.y - 12,
+            3,
+            { color: "#d6b3ff" }
         );
 
     }
