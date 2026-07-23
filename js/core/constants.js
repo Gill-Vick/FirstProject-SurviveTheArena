@@ -545,12 +545,13 @@ const LEYLINE_SNARE = {
 //
 // The Thief's ultimate: +1 dagger damage (stacks with Serrated
 // Blade), a second dash charge, and every dagger swing leaves
-// a lingering purple flame patch at the point of attack -
-// anyone standing in it takes a tick of damage every ~1.4s
-// for as long as it lingers.
+// a lingering purple flame patch (a square scorch, not a
+// circle) at the point of attack - anyone standing in it takes
+// a tick of damage every ~1.4s for as long as it lingers.
 
 const MOONLIGHT_DAGGERS = {
     BONUS_DAMAGE: 1,
+    // Half the side length of the square burn patch.
     TRAIL_RADIUS: 45,
     TRAIL_DURATION_MS: 4286,
     TRAIL_TICK_MS: 1429,

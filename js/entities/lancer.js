@@ -446,22 +446,20 @@ class Lancer extends Enemy {
 
     drawRectTelegraph(cx, cy, angle, length, width, fill, dashed) {
 
+        // Pull the alpha out of the incoming rgba() so the pixel
+        // lattice matches the old telegraph's opacity.
+        const alpha = parseFloat(fill.match(/[\d.]+\)$/)?.[0]) || 0.4;
+
         ctx.save();
 
         ctx.translate(cx, cy);
         ctx.rotate(angle);
 
-        ctx.fillStyle = fill;
-        ctx.strokeStyle = fill.replace(/[\d.]+\)$/, "0.9)");
-        ctx.lineWidth = 2;
-
-        if (dashed)
-            ctx.setLineDash([10, 6]);
-
-        ctx.beginPath();
-        ctx.rect(0, -width / 2, length, width);
-        ctx.fill();
-        ctx.stroke();
+        drawPixelRectZone(length, width, {
+            color: fill.replace(/rgba?\(([^,]+,[^,]+,[^,]+),.*/, "rgb($1)"),
+            alpha,
+            unit: Math.max(3, Math.round(width * 0.12))
+        });
 
         ctx.restore();
 

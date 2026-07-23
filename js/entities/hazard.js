@@ -57,18 +57,15 @@ class FireCast {
 
         const alpha = 0.35 + Math.sin(Date.now() / 80) * 0.15;
 
-        ctx.save();
-
-        ctx.strokeStyle = `rgba(255, 40, 0, ${alpha})`;
-        ctx.fillStyle = `rgba(255, 60, 0, ${alpha * 0.35})`;
-        ctx.lineWidth = 3;
-
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.restore();
+        // Pulsing pixel warning ring where the fire will land.
+        drawPixelZone(this.x, this.y, this.radius, {
+            fill: "#ff4400",
+            rim: "#ff5a1a",
+            fillAlpha: alpha * 0.35,
+            rimAlpha: alpha + 0.2,
+            glow: 8,
+            glowColor: "#ff4400"
+        });
 
     }
 
@@ -141,36 +138,40 @@ class FrostZone {
         const fade = Math.min(1, this.life / 857);
         const shimmer = 0.75 + Math.sin(Date.now() / 200) * 0.1;
 
+        // Frozen ground as a pixel patch.
+        drawPixelZone(this.x, this.y, radius, {
+            fill: "#96d7f0",
+            rim: "#c8f0ff",
+            fillAlpha: 0.22 * fade * shimmer,
+            rimAlpha: 0.55 * fade
+        });
+
+        // Crystalline spokes drawn as short pixel runs, so it
+        // reads as ice rather than a plain water disc.
+        const unit = Math.max(2, Math.round(radius * 0.055));
+
         ctx.save();
-
-        ctx.fillStyle = `rgba(150, 215, 240, ${0.22 * fade * shimmer})`;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.strokeStyle = `rgba(200, 240, 255, ${0.55 * fade})`;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-
-        // Crystalline spokes so it reads as ice, not water.
-        ctx.strokeStyle = `rgba(220, 245, 255, ${0.3 * fade})`;
-        ctx.lineWidth = 1.5;
+        ctx.globalAlpha = 0.35 * fade;
+        ctx.fillStyle = "#dcf5ff";
 
         for (let i = 0; i < 6; i++) {
 
             const a = (Math.PI / 3) * i + Math.PI / 12;
 
-            ctx.beginPath();
-            ctx.moveTo(this.x, this.y);
-            ctx.lineTo(
-                this.x + Math.cos(a) * radius * 0.85,
-                this.y + Math.sin(a) * radius * 0.85
-            );
-            ctx.stroke();
+            for (let r = radius * 0.2; r < radius * 0.85; r += unit) {
+
+                ctx.fillRect(
+                    pxSnap(this.x + Math.cos(a) * r, unit),
+                    pxSnap(this.y + Math.sin(a) * r, unit),
+                    unit, unit
+                );
+
+            }
 
         }
 
         ctx.restore();
+        ctx.globalAlpha = 1;
 
     }
 
@@ -252,43 +253,33 @@ class KegKillZone {
 
         const grow = Math.min(1, this.age / 429);
         const flicker = 0.85 + Math.sin(Date.now() / 110) * 0.15;
+        const radius = this.radius * grow;
 
+        // Scorched crater as a dark pixel disc with a smoldering
+        // rim marking the lethal edge.
+        drawPixelZone(this.x, this.y, radius, {
+            fill: "#3c1408",
+            rim: "#ff5a14",
+            fillAlpha: 0.45,
+            rimAlpha: 0.4 * flicker,
+            dither: 0.7
+        });
+
+        // Embers glowing in the ash - single lit cells.
         ctx.save();
 
-        // Scorched crater.
-        let scorch = ctx.createRadialGradient(
-            this.x, this.y, this.radius * 0.15,
-            this.x, this.y, this.radius * grow
-        );
-        scorch.addColorStop(0, "rgba(30, 12, 6, 0.55)");
-        scorch.addColorStop(0.65, "rgba(60, 20, 8, 0.4)");
-        scorch.addColorStop(1, "rgba(90, 30, 10, 0.12)");
-
-        ctx.fillStyle = scorch;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius * grow, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Smoldering rim so the lethal edge reads clearly.
-        ctx.strokeStyle = `rgba(255, 90, 20, ${0.4 * flicker})`;
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius * grow, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // Embers glowing in the ash.
         this.embers.forEach(e => {
 
             const glow = 0.35 + Math.sin(Date.now() / 160 + e.phase) * 0.3;
 
-            ctx.fillStyle = `rgba(255, 120, 30, ${Math.max(0, glow)})`;
-            ctx.beginPath();
-            ctx.arc(e.x, e.y, 3, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.globalAlpha = Math.max(0, glow);
+            ctx.fillStyle = "#ff781e";
+            ctx.fillRect(pxSnap(e.x, 3), pxSnap(e.y, 3), 3, 3);
 
         });
 
         ctx.restore();
+        ctx.globalAlpha = 1;
 
     }
 
@@ -385,43 +376,41 @@ class MageIceField {
         const fade = Math.min(1, this.life / 800);
         const shimmer = 0.8 + Math.sin(Date.now() / 180) * 0.12;
 
+        drawPixelZone(this.x, this.y, radius, {
+            fill: "#8cdcff",
+            rim: "#c8f0ff",
+            fillAlpha: 0.2 * fade * shimmer,
+            rimAlpha: 0.6 * fade,
+            glow: 10,
+            glowColor: ELEMENTAL_PRISM.ICE_COLOR
+        });
+
+        // Denser frost shards than the weaver's patch, so the
+        // Prism's ice reads as jagged rather than smooth.
+        const unit = Math.max(2, Math.round(radius * 0.05));
+
         ctx.save();
-
-        ctx.fillStyle = `rgba(140, 220, 255, ${0.2 * fade * shimmer})`;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.strokeStyle = `rgba(200, 240, 255, ${0.6 * fade})`;
-        ctx.lineWidth = 2;
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = ELEMENTAL_PRISM.ICE_COLOR;
-        ctx.stroke();
-
-        // Frost shards so it reads as jagged ice, distinct
-        // from the weaver's smoother patches.
-        ctx.strokeStyle = `rgba(225, 248, 255, ${0.4 * fade})`;
-        ctx.lineWidth = 1.5;
-        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 0.4 * fade;
+        ctx.fillStyle = "#e1f8ff";
 
         for (let i = 0; i < 8; i++) {
 
             const a = (Math.PI / 4) * i + Math.PI / 16;
 
-            ctx.beginPath();
-            ctx.moveTo(
-                this.x + Math.cos(a) * radius * 0.25,
-                this.y + Math.sin(a) * radius * 0.25
-            );
-            ctx.lineTo(
-                this.x + Math.cos(a) * radius * 0.9,
-                this.y + Math.sin(a) * radius * 0.9
-            );
-            ctx.stroke();
+            for (let r = radius * 0.25; r < radius * 0.9; r += unit) {
+
+                ctx.fillRect(
+                    pxSnap(this.x + Math.cos(a) * r, unit),
+                    pxSnap(this.y + Math.sin(a) * r, unit),
+                    unit, unit
+                );
+
+            }
 
         }
 
         ctx.restore();
+        ctx.globalAlpha = 1;
 
     }
 
@@ -511,30 +500,27 @@ class ClusterBomb {
         const urgency = 1 - this.timer / ELITE.KEG_CLUSTER_FUSE;
         const pulse = 0.25 + Math.sin(Date.now() / 40) * 0.15;
 
-        ctx.save();
-
-        // Blast-radius warning, same language as the keg's own
-        // fuse circle.
-        ctx.strokeStyle = `rgba(255, 60, 20, ${pulse + urgency * 0.35})`;
-        ctx.fillStyle = `rgba(255, 80, 20, ${pulse * 0.3})`;
-        ctx.lineWidth = 2.5;
-
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
+        // Blast-radius warning, same pixel language as the keg's
+        // own fuse circle.
+        drawPixelZone(this.x, this.y, this.radius, {
+            fill: "#ff5014",
+            rim: "#ff3c14",
+            fillAlpha: pulse * 0.3,
+            rimAlpha: pulse + urgency * 0.35
+        });
 
         // The bomblet itself, flashing faster as it arms.
         const flashing =
             Math.floor(Date.now() / (100 - urgency * 65)) % 2 === 0;
 
+        ctx.save();
         ctx.fillStyle = flashing ? "#ffcf4d" : "#5d5348";
         ctx.shadowBlur = 8;
         ctx.shadowColor = "orange";
 
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, 8, 0, Math.PI * 2);
-        ctx.fill();
+        const u = 3;
+        ctx.fillRect(pxSnap(this.x - u * 2, u), pxSnap(this.y - u, u), u * 4, u * 3);
+        ctx.fillRect(pxSnap(this.x - u, u), pxSnap(this.y - u * 2, u), u * 3, u * 5);
 
         ctx.restore();
 
@@ -589,18 +575,19 @@ class BurningGround {
 
         const fade = Math.min(1, this.life / HAZARD.BURN_DURATION);
 
-        ctx.save();
+        // Lingering scorched fire as a pixel patch. A faint
+        // flicker on the fill sells the flames without an
+        // expensive per-cell animation.
+        const flicker = 0.85 + Math.sin(Date.now() / 90) * 0.15;
 
-        ctx.fillStyle = `rgba(255, 90, 0, ${0.35 * fade})`;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.strokeStyle = `rgba(255, 160, 0, ${0.5 * fade})`;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-
-        ctx.restore();
+        drawPixelZone(this.x, this.y, this.radius, {
+            fill: "#ff5a00",
+            rim: "#ffa000",
+            fillAlpha: 0.35 * fade * flicker,
+            rimAlpha: 0.5 * fade,
+            glow: 6,
+            glowColor: "#ff6a00"
+        });
 
     }
 

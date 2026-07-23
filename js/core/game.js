@@ -270,18 +270,15 @@ class SpawnWarning {
 
         const pulse = 0.4 + Math.sin(Date.now() / 60) * 0.2;
 
-        ctx.save();
-
-        ctx.strokeStyle = `rgba(255, 30, 30, ${pulse + 0.25})`;
-        ctx.fillStyle = `rgba(255, 30, 30, ${pulse * 0.35})`;
-        ctx.lineWidth = 3;
-
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.restore();
+        // Pulsing red pixel warning where a summon will appear.
+        drawPixelZone(this.x, this.y, this.radius, {
+            fill: "#ff1e1e",
+            rim: "#ff1e1e",
+            fillAlpha: pulse * 0.35,
+            rimAlpha: pulse + 0.25,
+            glow: 8,
+            glowColor: "#ff1e1e"
+        });
 
     }
 

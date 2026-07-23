@@ -497,46 +497,27 @@ class Enemy {
         drawPixelDisc(cx, cy, this.projectileRingRadius, {
             color: BOSS_RING.COLOR,
             alpha: pulse * 0.1,
-            unit: 12,
+            unit: 6,
             dither: 0.5
         });
 
         // Rotating dashed pixel rim - a couple of pixels deep so
-        // it reads as a standing barrier, not a hairline.
-        const unit = 6;
-        const gapPhase = Math.floor(Date.now() / 60);
-
-        ctx.save();
-        ctx.globalAlpha = pulse + 0.3;
-        ctx.fillStyle = BOSS_RING.COLOR;
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = BOSS_RING.COLOR;
-
-        const steps = Math.ceil((this.projectileRingRadius * 2 * Math.PI) / unit);
-
-        for (let i = 0; i < steps; i++) {
-
-            // Dash pattern: 3 cells on, 2 off, marching around.
-            if ((i + gapPhase) % 5 >= 3)
-                continue;
-
-            const a = (i / steps) * Math.PI * 2;
-
-            for (let layer = 0; layer < 2; layer++) {
-
-                const r = this.projectileRingRadius - layer * unit;
-                ctx.fillRect(
-                    pxSnap(cx + Math.cos(a) * r, unit),
-                    pxSnap(cy + Math.sin(a) * r, unit),
-                    unit, unit
-                );
-
-            }
-
-        }
-
-        ctx.restore();
-        ctx.globalAlpha = 1;
+        // it reads as a standing barrier, not a hairline. This
+        // used to be a live loop of ~750 individually-shadowed
+        // fillRects EVERY FRAME (it's on screen for a boss's
+        // entire fight) - drawPixelDashedRing bakes the handful
+        // of distinct march positions once and just blits.
+        drawPixelDashedRing(cx, cy, this.projectileRingRadius, {
+            color: BOSS_RING.COLOR,
+            alpha: pulse + 0.3,
+            unit: 3,
+            thickness: 2,
+            dashOn: 3,
+            dashOff: 2,
+            phase: Math.floor(Date.now() / 60),
+            glow: 10,
+            glowColor: BOSS_RING.COLOR
+        });
 
     }
 
@@ -744,37 +725,20 @@ class Enemy {
         drawPixelDisc(cx, cy, this.auraRadius, {
             color: "#ffc83c",
             alpha: pulse * 0.14,
-            unit: 12,
+            unit: 6,
             dither: 0.5
         });
 
-        const unit = 7;
-        const gapPhase = Math.floor(Date.now() / 50);
-
-        ctx.save();
-        ctx.globalAlpha = pulse + 0.25;
-        ctx.fillStyle = "#ffd250";
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = "#ffb020";
-
-        const steps = Math.ceil((this.auraRadius * 2 * Math.PI) / unit);
-
-        for (let i = 0; i < steps; i++) {
-
-            if ((i + gapPhase) % 5 >= 3)
-                continue;
-
-            const a = (i / steps) * Math.PI * 2;
-            ctx.fillRect(
-                pxSnap(cx + Math.cos(a) * this.auraRadius, unit),
-                pxSnap(cy + Math.sin(a) * this.auraRadius, unit),
-                unit, unit
-            );
-
-        }
-
-        ctx.restore();
-        ctx.globalAlpha = 1;
+        drawPixelDashedRing(cx, cy, this.auraRadius, {
+            color: "#ffd250",
+            alpha: pulse + 0.25,
+            unit: 4,
+            dashOn: 3,
+            dashOff: 2,
+            phase: Math.floor(Date.now() / 50),
+            glow: 8,
+            glowColor: "#ffb020"
+        });
 
     }
 

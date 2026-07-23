@@ -889,9 +889,16 @@ class Thief extends Player {
                     const ex = enemy.x + enemy.size / 2;
                     const ey = enemy.y + enemy.size / 2;
 
-                    const distance = Math.hypot(ex - trail.x, ey - trail.y);
+                    // Square footprint, not circular - matches
+                    // the patch drawn in drawFlameTrails. A
+                    // Chebyshev (max-axis) check against the
+                    // patch's half-width is the AABB test for
+                    // "is this enemy's center inside the box".
+                    const dx = Math.abs(ex - trail.x);
+                    const dy = Math.abs(ey - trail.y);
+                    const half = MOONLIGHT_DAGGERS.TRAIL_RADIUS + enemy.size / 2;
 
-                    if (distance > MOONLIGHT_DAGGERS.TRAIL_RADIUS + enemy.size / 2)
+                    if (dx > half || dy > half)
                         return;
 
                     enemy.takeDamage(MOONLIGHT_DAGGERS.TRAIL_TICK_DAMAGE);
@@ -975,18 +982,17 @@ class Thief extends Player {
 
             const fade = Math.min(1, trail.timer / MOONLIGHT_DAGGERS.TRAIL_DURATION_MS);
 
-            ctx.save();
-
-            ctx.globalAlpha = 0.5 * fade;
-            ctx.shadowBlur = 12;
-            ctx.shadowColor = MOONLIGHT_DAGGERS.TRAIL_COLOR;
-            ctx.fillStyle = MOONLIGHT_DAGGERS.TRAIL_COLOR;
-
-            ctx.beginPath();
-            ctx.arc(trail.x, trail.y, MOONLIGHT_DAGGERS.TRAIL_RADIUS, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.restore();
+            // A square pixel burn patch (matching the square
+            // hit-test above) rather than a circle - and a
+            // cached bitmap blit rather than a live arc fill.
+            drawPixelSquare(trail.x, trail.y, MOONLIGHT_DAGGERS.TRAIL_RADIUS, {
+                color: MOONLIGHT_DAGGERS.TRAIL_COLOR,
+                alpha: 0.5 * fade,
+                unit: 4,
+                dither: 0.5,
+                glow: 12,
+                glowColor: MOONLIGHT_DAGGERS.TRAIL_COLOR
+            });
 
         });
 
@@ -1133,51 +1139,80 @@ class LeylineVortex {
         return this.life <= 0;
     }
 
+    // The 3-armed swirl bitmap, baked ONCE per (radius, unit)
+    // pair - the pattern only ever needs redrawing because the
+    // vortex rotates, and a rotation is just a canvas transform
+    // at blit time, not a reason to re-rasterise anything. This
+    // replaces 3 live shadowed stroke() spiral paths per frame
+    // with a single cached blit.
+    static getSwirlBitmap(radius) {
+
+        const unit = Math.max(2, Math.round(radius * 0.045));
+        const r = Math.round(radius);
+        const pad = unit + 6;
+        const size = r * 2 + pad * 2;
+
+        const key = `leyline|${r}|${unit}`;
+
+        return _getPixelShape(key, size, size, (c) => {
+
+            const b = pad + r;
+
+            c.fillStyle = "#a57dff";
+            c.shadowBlur = 6;
+            c.shadowColor = LEYLINE_SNARE.COLOR;
+
+            for (let i = 0; i < 3; i++) {
+
+                const a0 = i * (Math.PI * 2 / 3);
+
+                for (let s = 0; s <= 40; s++) {
+
+                    const rr = r * (s / 40);
+                    const aa = a0 + s * 0.175;
+
+                    c.fillRect(
+                        pxSnap(b + Math.cos(aa) * rr, unit),
+                        pxSnap(b + Math.sin(aa) * rr, unit),
+                        unit, unit
+                    );
+
+                }
+
+            }
+
+        });
+
+    }
+
     draw() {
 
         const fade = Math.min(1, this.life / 300);
         const spin = Date.now() / 200;
 
+        // Pull field - a cached pixel disc.
+        drawPixelDisc(this.x, this.y, this.radius, {
+            color: "#7b5cd6",
+            alpha: 0.12 * fade,
+            unit: Math.max(2, Math.round(this.radius * 0.06)),
+            dither: 0.4
+        });
+
+        // Swirl arms: cached bitmap, rotated onto the current
+        // spin via a canvas transform rather than re-baked.
+        const unit = Math.max(2, Math.round(this.radius * 0.045));
+        const r = Math.round(this.radius);
+        const pad = unit + 6;
+        const bmp = LeylineVortex.getSwirlBitmap(this.radius);
+
         ctx.save();
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 0.55 * fade;
         ctx.translate(this.x, this.y);
-
-        // Pull field.
-        ctx.fillStyle = `rgba(123, 92, 214, ${0.12 * fade})`;
-        ctx.beginPath();
-        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Swirl arms spiraling inward.
-        ctx.strokeStyle = `rgba(165, 125, 255, ${0.55 * fade})`;
-        ctx.lineWidth = 2;
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = LEYLINE_SNARE.COLOR;
-
-        for (let i = 0; i < 3; i++) {
-
-            const a0 = spin + i * (Math.PI * 2 / 3);
-
-            ctx.beginPath();
-
-            for (let s = 0; s <= 20; s++) {
-
-                const rr = this.radius * (s / 20);
-                const aa = a0 + s * 0.35;
-                const x = Math.cos(aa) * rr;
-                const y = Math.sin(aa) * rr;
-
-                if (s === 0)
-                    ctx.moveTo(x, y);
-                else
-                    ctx.lineTo(x, y);
-
-            }
-
-            ctx.stroke();
-
-        }
-
+        ctx.rotate(spin);
+        ctx.drawImage(bmp, -(r + pad), -(r + pad));
         ctx.restore();
+        ctx.globalAlpha = 1;
 
     }
 

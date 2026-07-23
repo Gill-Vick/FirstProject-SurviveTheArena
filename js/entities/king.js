@@ -568,46 +568,47 @@ class WallLaser {
         if (this.state === "telegraph") {
 
             const pulse = 0.45 + Math.sin(Date.now() / 50) * 0.25;
+            const width = KING.WALL_LASER_WIDTH;
 
-            ctx.strokeStyle = `rgba(0, 191, 255, ${pulse})`;
-            ctx.lineWidth = 4;
-            ctx.setLineDash([14, 10]);
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = KING.LASER_COLOR;
+            // Faint pixel preview of the full danger zone, then a
+            // brighter dashed centre line through it. Both are
+            // cached bitmaps now (with glow baked in), not live
+            // per-frame fillRect loops - this pair used to be
+            // one of the worst offenders during the King fight
+            // since several walls can be telegraphing at once.
+            ctx.translate(-length / 2, 0);
 
-            ctx.beginPath();
-            ctx.moveTo(-length / 2, 0);
-            ctx.lineTo(length / 2, 0);
-            ctx.stroke();
+            drawPixelRectZone(length, width, {
+                color: KING.LASER_COLOR,
+                alpha: pulse * 0.16,
+                unit: Math.max(3, Math.round(width * 0.16))
+            });
 
-            // Faint preview of the beam's width so it's clear
-            // exactly how wide the danger zone will be.
-            ctx.setLineDash([]);
-            ctx.fillStyle = `rgba(0, 191, 255, ${pulse * 0.12})`;
-            ctx.fillRect(-length / 2, -KING.WALL_LASER_WIDTH / 2, length, KING.WALL_LASER_WIDTH);
+            drawPixelDashedLine(length, {
+                color: KING.LASER_COLOR,
+                alpha: pulse,
+                unit: 6,
+                dashOn: 2,
+                dashOff: 2,
+                phase: Math.floor(Date.now() / 60),
+                glow: 8,
+                glowColor: KING.LASER_COLOR
+            });
 
         } else if (this.state === "firing") {
 
             const width = KING.WALL_LASER_WIDTH;
-
-            // Fades out over its own duration so it doesn't
-            // just vanish instantly.
             const fade = Math.max(0, this.timer / KING.WALL_LASER_DURATION);
 
-            ctx.shadowBlur = 30;
-            ctx.shadowColor = KING.LASER_COLOR;
-
-            const grad = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
-            grad.addColorStop(0, "rgba(0, 191, 255, 0)");
-            grad.addColorStop(0.5, `rgba(200, 245, 255, ${0.95 * fade})`);
-            grad.addColorStop(1, "rgba(0, 191, 255, 0)");
-
-            ctx.fillStyle = grad;
-            ctx.fillRect(-length / 2, -width / 2, length, width);
-
-            // Bright hot core running through the middle
-            ctx.fillStyle = `rgba(255, 255, 255, ${0.85 * fade})`;
-            ctx.fillRect(-length / 2, -width * 0.12, length, width * 0.24);
+            ctx.translate(-length / 2, 0);
+            drawPixelBeam(length, width, {
+                color: KING.LASER_COLOR,
+                coreColor: "#eaffff",
+                alpha: 0.95 * fade,
+                unit: Math.max(3, Math.round(width * 0.18)),
+                glow: 20,
+                glowColor: KING.LASER_COLOR
+            });
 
         }
 

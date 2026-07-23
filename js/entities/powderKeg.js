@@ -200,18 +200,12 @@ class PowderKeg extends Enemy {
             const urgency = 1 - this.fuseTimer / ENEMY_TYPES.powderKeg.FUSE_TIME;
             const pulse = 0.25 + Math.sin(Date.now() / 40) * 0.15;
 
-            ctx.save();
-
-            ctx.strokeStyle = `rgba(255, 60, 20, ${pulse + urgency * 0.3})`;
-            ctx.fillStyle = `rgba(255, 80, 20, ${pulse * 0.3})`;
-            ctx.lineWidth = 3;
-
-            ctx.beginPath();
-            ctx.arc(cx, cy, ENEMY_TYPES.powderKeg.EXPLOSION_RADIUS, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-
-            ctx.restore();
+            drawPixelZone(cx, cy, ENEMY_TYPES.powderKeg.EXPLOSION_RADIUS, {
+                fill: "#ff5014",
+                rim: "#ff3c14",
+                fillAlpha: pulse * 0.3,
+                rimAlpha: pulse + urgency * 0.3
+            });
 
             // Rapid white flashing as it's about to blow.
             if (Math.floor(Date.now() / (90 - urgency * 60)) % 2 === 0)

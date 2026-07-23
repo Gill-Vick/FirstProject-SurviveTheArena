@@ -726,14 +726,14 @@ class Mage extends Player {
         drawPixelDisc(cx, cy, CORONA.RADIUS, {
             color: "#ffd25a",
             alpha: 0.14 * pulse + 0.05,
-            unit: 9,
+            unit: 5,
             dither: 0.45
         });
 
         drawPixelRing(cx, cy, CORONA.RADIUS, {
             color: "#ffdf8a",
             alpha: 0.35 + pulse * 0.3,
-            unit: 6,
+            unit: 3,
             glow: 8,
             glowColor: CORONA.COLOR
         });
@@ -753,38 +753,21 @@ class Mage extends Player {
         drawPixelDisc(cx, cy, AMBERLIGHT.RADIUS, {
             color: "#ffd98a",
             alpha: 0.07 * pulse,
-            unit: 12,
+            unit: 6,
             dither: 0.35
         });
 
         // Marching dashed pixel rim - the slow boundary.
-        const unit = 7;
-        const gapPhase = Math.floor(Date.now() / 90);
-
-        ctx.save();
-        ctx.globalAlpha = 0.3 + pulse * 0.25;
-        ctx.fillStyle = "#ffe2a0";
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = AMBERLIGHT.COLOR;
-
-        const steps = Math.ceil((AMBERLIGHT.RADIUS * 2 * Math.PI) / unit);
-
-        for (let i = 0; i < steps; i++) {
-
-            if ((i + gapPhase) % 6 >= 3)
-                continue;
-
-            const a = (i / steps) * Math.PI * 2;
-            ctx.fillRect(
-                pxSnap(cx + Math.cos(a) * AMBERLIGHT.RADIUS, unit),
-                pxSnap(cy + Math.sin(a) * AMBERLIGHT.RADIUS, unit),
-                unit, unit
-            );
-
-        }
-
-        ctx.restore();
-        ctx.globalAlpha = 1;
+        drawPixelDashedRing(cx, cy, AMBERLIGHT.RADIUS, {
+            color: "#ffe2a0",
+            alpha: 0.3 + pulse * 0.25,
+            unit: 4,
+            dashOn: 3,
+            dashOff: 3,
+            phase: Math.floor(Date.now() / 90),
+            glow: 8,
+            glowColor: AMBERLIGHT.COLOR
+        });
 
     }
 
@@ -876,33 +859,53 @@ class SunbeamStrike {
         const fade = Math.max(0, this.life / this.maxLife);
         const [fill, ring, shaft] = this.getPalette();
 
-        ctx.save();
-
-        ctx.fillStyle = `rgba(${fill}, ${0.28 * fade})`;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.strokeStyle = `rgba(${ring}, ${fade})`;
-        ctx.lineWidth = this.big ? 5 : 3;
-        ctx.shadowBlur = 16;
-        ctx.shadowColor =
+        const glowColor =
             this.element === "fire" ? ELEMENTAL_PRISM.FIRE_COLOR :
             this.element === "ice" ? ELEMENTAL_PRISM.ICE_COLOR :
             MAGE.COLOR;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.stroke();
 
-        // Shaft of light dropping in from above.
-        const grad = ctx.createLinearGradient(this.x, this.y - 280, this.x, this.y);
-        grad.addColorStop(0, `rgba(${shaft}, 0)`);
-        grad.addColorStop(1, `rgba(${shaft}, ${0.5 * fade})`);
+        // The strike itself as a pixel burst - filled disc plus
+        // a bright (double-thick on overload) rim.
+        drawPixelZone(this.x, this.y, this.radius, {
+            fill: `rgb(${fill})`,
+            rim: `rgb(${ring})`,
+            fillAlpha: 0.3 * fade,
+            rimAlpha: fade,
+            rimThickness: this.big ? 2 : 1,
+            glow: 14,
+            glowColor
+        });
 
-        ctx.fillStyle = grad;
-        ctx.fillRect(this.x - this.radius * 0.5, this.y - 280, this.radius, 280);
+        // Shaft of light dropping in from above, as a column of
+        // pixel blocks that fade upward.
+        const unit = Math.max(3, Math.round(this.radius * 0.22));
+        const colW = Math.max(1, Math.round(this.radius / unit));
+
+        ctx.save();
+        ctx.fillStyle = `rgb(${shaft})`;
+
+        for (let row = 0; row * unit < 280; row++) {
+
+            const y = this.y - row * unit;
+            // Brighter near the ground, fading toward the top.
+            ctx.globalAlpha = 0.5 * fade * (1 - (row * unit) / 280);
+
+            for (let c = 0; c < colW; c++) {
+
+                const x = this.x - (colW * unit) / 2 + c * unit;
+
+                // Stipple the column edges so it frays to pixels.
+                if ((c === 0 || c === colW - 1) && (row & 1))
+                    continue;
+
+                ctx.fillRect(pxSnap(x, unit), pxSnap(y, unit), unit, unit);
+
+            }
+
+        }
 
         ctx.restore();
+        ctx.globalAlpha = 1;
 
     }
 
@@ -996,21 +999,21 @@ class SunburstOrb {
 
     draw() {
 
+        // The flying orb as a chunky pixel mote with a white
+        // core - a small pixel disc plus a lit centre cell.
+        drawPixelDisc(this.x, this.y, 9, {
+            color: SUNBURST.COLOR,
+            alpha: 0.95,
+            unit: 3,
+            dither: 0.6
+        });
+
         ctx.save();
-        ctx.shadowBlur = 18;
-        ctx.shadowColor = SUNBURST.COLOR;
-
-        ctx.fillStyle = SUNBURST.COLOR;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, 9, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
-        ctx.fill();
-
+        ctx.globalAlpha = 0.9;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(pxSnap(this.x - 3, 3), pxSnap(this.y - 3, 3), 6, 6);
         ctx.restore();
+        ctx.globalAlpha = 1;
 
     }
 
@@ -1070,22 +1073,14 @@ class SanctuaryField {
         const fade = Math.min(1, this.life / 800);
         const flicker = 0.8 + Math.sin(Date.now() / 130) * 0.15;
 
-        ctx.save();
-
-        const grad = ctx.createRadialGradient(this.x, this.y, this.radius * 0.1, this.x, this.y, this.radius);
-        grad.addColorStop(0, `rgba(255, 240, 170, ${0.35 * fade * flicker})`);
-        grad.addColorStop(1, "rgba(255, 210, 90, 0)");
-
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.strokeStyle = `rgba(255, 235, 150, ${0.5 * fade})`;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-
-        ctx.restore();
+        drawPixelZone(this.x, this.y, this.radius, {
+            fill: "#fff0aa",
+            rim: "#ffeb96",
+            fillAlpha: 0.3 * fade * flicker,
+            rimAlpha: 0.5 * fade,
+            glow: 8,
+            glowColor: "#ffd25a"
+        });
 
     }
 

@@ -148,31 +148,24 @@ class Skeleton extends Enemy {
         const cy = this.y + this.size / 2;
         const reach = ELITE.SKELETON_DAGGER_RANGE;
 
-        // Half-circle threat arc centered on the swing
+        // Half-circle pixel threat arc centered on the swing
         // direction, matching the hit test in attack().
         if (this.daggerState === "windup") {
 
             const urgency =
                 1 - this.daggerTimer / ELITE.SKELETON_DAGGER_WINDUP;
 
-            ctx.save();
-            ctx.translate(cx, cy);
-            ctx.rotate(this.daggerAngle);
-
-            ctx.fillStyle = `rgba(255, 80, 60, ${0.15 + urgency * 0.25})`;
-
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.arc(0, 0, reach, -Math.PI / 2, Math.PI / 2);
-            ctx.closePath();
-            ctx.fill();
-
-            ctx.restore();
+            drawPixelSector(cx, cy, reach, this.daggerAngle, Math.PI / 2, {
+                color: "#ff503c",
+                alpha: 0.15 + urgency * 0.25,
+                unit: Math.max(3, Math.round(reach * 0.09))
+            });
 
         }
 
         // The blade: held at the arc's leading edge during
-        // windup, sweeping across it during the swing.
+        // windup, sweeping across it during the swing. Drawn as
+        // a run of pixel cells.
         const progress =
             this.daggerState === "swing"
                 ? 1 - this.daggerTimer / ELITE.SKELETON_DAGGER_SWING
@@ -181,19 +174,22 @@ class Skeleton extends Enemy {
         const bladeAngle =
             this.daggerAngle - Math.PI / 2 + Math.PI * progress;
 
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.rotate(bladeAngle);
+        const unit = 4;
 
-        ctx.strokeStyle = "#e8e8e8";
-        ctx.lineWidth = 3;
+        ctx.save();
+        ctx.fillStyle = "#e8e8e8";
         ctx.shadowBlur = 6;
         ctx.shadowColor = "white";
 
-        ctx.beginPath();
-        ctx.moveTo(this.size * 0.4, 0);
-        ctx.lineTo(reach * 0.8, 0);
-        ctx.stroke();
+        for (let r = this.size * 0.4; r < reach * 0.8; r += unit) {
+
+            ctx.fillRect(
+                pxSnap(cx + Math.cos(bladeAngle) * r, unit),
+                pxSnap(cy + Math.sin(bladeAngle) * r, unit),
+                unit, unit
+            );
+
+        }
 
         ctx.restore();
 

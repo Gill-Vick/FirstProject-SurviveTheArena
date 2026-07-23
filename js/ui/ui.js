@@ -3081,10 +3081,13 @@ function drawHUD() {
     // =====================================
     //
     // Wave, run timer, dash charges and the class's own kit
-    // lines, stacked on one dark pixel plate so they stay
-    // readable over any arena. The plate is sized to its
-    // contents so it never reserves empty space for a class
-    // that reports fewer lines (the Mage has no dash row).
+    // lines, stacked on one dark pixel plate. The plate's SIZE
+    // and glyph SCALE are both fixed - derived only from the
+    // viewport, never from what the rows actually say - so it
+    // can't visibly pulse as cooldown text ticks between
+    // "READY" and "11.4S" from frame to frame. A row that's too
+    // long to fit shrinks ITSELF (fitPixelScale, capped at the
+    // fixed scale) rather than growing the box.
 
     const realElapsedSecs = Game.elapsedTime / 1000;
     const minutes = Math.floor(realElapsedSecs / 60);
@@ -3117,58 +3120,61 @@ function drawHUD() {
 
     // Kit status lines (Warrior: bow/King's Blade/shield,
     // Ranger: dagger/storm lance) - each class reports its
-    // own (see getHUDStatusLines).
+    // own (see getHUDStatusLines). The row COUNT is fixed for
+    // the whole run (it only depends on what's equipped, not on
+    // live cooldown values), so sizing the plate off rows.length
+    // is safe and won't pulse - only sizing off the ROWS' TEXT
+    // would.
     player.getHUDStatusLines().forEach(line => {
 
         rows.push({ text: line.text.toUpperCase(), color: line.color });
 
     });
 
-    // Pick the scale from the WIDEST row, not from viewport
-    // height alone: the bitmap face is a fixed 6px per
-    // character, so a long kit line ("KING'S BLADE: READY
-    // RMB") is far wider than the same string in a
-    // proportional font and would otherwise swallow the top
-    // of the screen. The plate is capped at a third of the
-    // width and the glyphs shrink to honour that.
-    const widestUnits = rows.reduce(
-        (max, row) => Math.max(max, measurePixelText(row.text)),
-        1
-    );
+    // Fixed scale and plate width - viewport-derived only, so
+    // neither changes as the rows' text changes length. Capped
+    // small per-class since this used to swallow a third of the
+    // screen at its widest.
+    const scale = Math.max(1, Math.round(ph(0.0135) / PIXEL_GLYPH_H));
+    const plateW = Math.min(pw(0.17), ph(0.34));
 
-    const scale = Math.max(1, Math.min(
-        Math.round(ph(0.024) / PIXEL_GLYPH_H),
-        Math.floor(canvas.width * 0.30 / widestUnits)
-    ));
-
-    const lineH = PIXEL_GLYPH_H * scale + scale * 3;
-    const padding = scale * 4;
-
-    const widest = widestUnits * scale;
+    const lineH = PIXEL_GLYPH_H * scale + scale * 2;
+    const padding = scale * 3;
+    const innerWidth = plateW - padding * 2;
 
     const plateX = pw(0.012);
-    const plateY = ph(0.025);
-    const plateW = widest + padding * 2;
-    const plateH = rows.length * lineH + padding * 2 - scale * 3;
+    const plateY = ph(0.02);
+    const plateH = rows.length * lineH + padding * 2 - scale * 2;
 
     drawPixelFrame(plateX, plateY, plateW, plateH, {
         unit: Math.max(2, scale),
         border: "#5a5040",
         borderDark: "#1b1710",
-        fill: "rgba(8, 7, 5, 0.68)"
+        fill: "rgba(8, 7, 5, 0.74)"
     });
 
     rows.forEach((row, i) => {
 
+        // Never larger than the fixed base scale - only ever
+        // shrinks, and only for the one long row, not the plate.
+        const rowScale = Math.min(scale, fitPixelScale(row.text, innerWidth, lineH * 0.85));
+
         drawPixelText(
             row.text,
-            plateX + padding + measurePixelText(row.text) * scale / 2,
+            plateX + padding + measurePixelText(row.text) * rowScale / 2,
             plateY + padding + i * lineH + PIXEL_GLYPH_H * scale / 2,
-            scale,
+            rowScale,
             { color: row.color, shadow: "rgba(0, 0, 0, 0.85)" }
         );
 
     });
+
+    // Same fixed-plate treatment the pillars get: anything
+    // hidden under this panel - enemies, the player if they walk
+    // up into the corner, stray projectiles, an ice/fire zone
+    // spreading underneath it - is redrawn as a glowing outline
+    // clipped to the panel, so nothing can lurk behind the UI.
+    drawXRayInRect(plateX, plateY, plateW, plateH);
 
     // Same glyph scale as the rows above it, so the purse
     // reads as part of the same readout rather than a second,

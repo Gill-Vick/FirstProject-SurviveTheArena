@@ -222,24 +222,18 @@ class Shade extends Enemy {
                 (S.WINDUP_DURATION * this.tempoScale());
             const radius = this.size * (1.6 - progress * 0.7);
 
-            ctx.save();
-
-            ctx.strokeStyle = `rgba(150, 80, 220, ${0.35 + progress * 0.5})`;
-            ctx.lineWidth = 3;
-            ctx.shadowBlur = 14;
-            ctx.shadowColor = "#9932cc";
-
-            ctx.beginPath();
-            ctx.arc(
+            drawPixelRing(
                 this.x + this.size / 2,
                 this.y + this.size / 2,
                 radius,
-                0,
-                Math.PI * 2
+                {
+                    color: "#9650dc",
+                    alpha: 0.35 + progress * 0.5,
+                    unit: Math.max(2, Math.round(radius * 0.06)),
+                    glow: 12,
+                    glowColor: "#9932cc"
+                }
             );
-            ctx.stroke();
-
-            ctx.restore();
 
         }
 

@@ -445,7 +445,7 @@ class Player {
                 glintColor: aura.glintColor ?? "#ffffff",
                 alpha: (aura.alpha ?? 0.85) * pulse,
                 fillAlpha: aura.fillAlpha ?? 0.1,
-                unit: Math.max(2, Math.round(this.size * 0.11))
+                unit: Math.max(2, Math.round(this.size * 0.055))
             });
 
         }

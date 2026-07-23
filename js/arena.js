@@ -1062,7 +1062,7 @@ function drawPillars() {
 }
 
 // =====================================
-// X-RAY OUTLINES (entities behind pillars)
+// X-RAY OUTLINES (entities behind pillars OR the HUD)
 // =====================================
 //
 // Foreground pillars are painted on top of the entities so
@@ -1070,48 +1070,159 @@ function drawPillars() {
 // you, can end up fully hidden by a column. So nothing can
 // vanish (or ambush you) behind one, any entity overlapping a
 // pillar shaft is re-drawn as a glowing outline clipped to that
-// shaft: red for enemies, blue for the player. The clip keeps
-// the silhouette confined to the pillar, so it reads as a true
-// x-ray only where the column actually covers the entity.
+// shaft: red for enemies, blue for the player, amber for
+// projectiles, and each hazard's own tint for ice/fire/damage
+// zones. The clip keeps the silhouette confined to the
+// occluder, so it reads as a true x-ray only where the column
+// (or panel) actually covers the thing.
+//
+// The exact same clip-and-redraw trick covers the HUD status
+// plate in the top-left corner (see drawXRayInRect, called
+// from drawHUD in ui.js AFTER the panel is painted) - it's the
+// same "can't hide behind an opaque UI element" problem the
+// pillars already solved, just with a screen-space rect
+// instead of a pillar shaft.
 //
 // Called after drawPillars()/drawTorches() (see game.js), so
 // the outlines sit on top of the columns.
 
-function drawOccludedOutlines() {
+// Outline tint for a circular hazard, guessed from its class -
+// ice patches read cold blue, fire/blast zones read hot
+// orange, anything else falls back to a neutral white rather
+// than needing every hazard type hand-registered here.
+const HAZARD_XRAY_COLORS = {
+    FrostZone: "#8fe3ff",
+    MageIceField: "#8fe3ff",
+    FireCast: "#ff8a3d",
+    BurningGround: "#ff8a3d",
+    MagusFirestorm: "#ff8a3d",
+    KegKillZone: "#ff5a3c",
+    ClusterBomb: "#ff5a3c",
+    SanctuaryField: "#ffd25a",
+    LeylineVortex: "#a57dff",
+    MeteorStrike: "#ff5a3c",
+    LightningStrike: "#ffeb78",
+    ArcaneNova: "#5f7dff"
+};
+
+// Gathers every occludable thing on screen ONCE per frame -
+// shared by the pillar pass and the HUD pass so neither has to
+// re-derive it. Squares (player/enemies/projectiles) carry
+// `size`; circles (hazards) carry `radius`.
+function buildXRayTargets() {
 
     const targets = [];
 
     if (player)
-        targets.push({ ent: player, color: "#4da6ff" });
+        targets.push({ shape: "square", ent: player, color: "#4da6ff" });
 
-    Game.enemies.forEach(ent => targets.push({ ent, color: "#ff3b30" }));
+    Game.enemies.forEach(ent =>
+        targets.push({ shape: "square", ent, color: "#ff3b30" })
+    );
 
-    if (targets.length === 0)
+    Game.projectiles.forEach(ent =>
+        targets.push({ shape: "square", ent, color: "#ffd54d" })
+    );
+
+    // Only hazards that are plain circular ground zones (a
+    // stable x/y plus a radius or getRadius()) qualify - full-
+    // width effects like the Magus's earth wall or wind gust
+    // don't carry a radius at all, so they're duck-typed out
+    // automatically rather than drawing a nonsense circle for
+    // them.
+    Game.hazards.forEach(ent => {
+
+        const radius = typeof ent.getRadius === "function"
+            ? ent.getRadius()
+            : ent.radius;
+
+        if (typeof radius !== "number" || radius <= 0)
+            return;
+
+        targets.push({
+            shape: "circle",
+            ent,
+            radius,
+            color: HAZARD_XRAY_COLORS[ent.constructor.name] ?? "#ffffff"
+        });
+
+    });
+
+    return targets;
+
+}
+
+// Clips to (rectX, rectY, rectW, rectH) and redraws every
+// target overlapping it as a glowing silhouette - the shared
+// body both the per-pillar loop and the HUD call into.
+function drawXRayTargetsInRect(rectX, rectY, rectW, rectH, targets) {
+
+    const rectRight = rectX + rectW;
+    const rectBottom = rectY + rectH;
+
+    let any = false;
+
+    for (const t of targets) {
+
+        if (t.shape === "square") {
+
+            const { ent } = t;
+
+            if (
+                ent.x + ent.size < rectX ||
+                ent.x > rectRight ||
+                ent.y + ent.size < rectY ||
+                ent.y > rectBottom
+            )
+                continue;
+
+        } else {
+
+            const { ent, radius } = t;
+
+            if (
+                ent.x + radius < rectX ||
+                ent.x - radius > rectRight ||
+                ent.y + radius < rectY ||
+                ent.y - radius > rectBottom
+            )
+                continue;
+
+        }
+
+        any = true;
+        break;
+
+    }
+
+    // Skip the save/clip entirely when nothing overlaps - this
+    // rect gets tested every frame (pillars AND the HUD), so
+    // the common "nothing's back there" case should cost only
+    // the bounding check above, not a clip setup too.
+    if (!any)
         return;
 
-    Arena.pillars.forEach(p => {
+    ctx.save();
 
-        const left = p.x - p.width / 2;
-        const bottom = p.y + 40;
+    ctx.beginPath();
+    ctx.rect(rectX, rectY, rectW, rectH);
+    ctx.clip();
 
-        targets.forEach(({ ent, color }) => {
+    targets.forEach(t => {
 
-            // Quick reject: entity box vs the pillar shaft rect.
+        if (t.shape === "square") {
+
+            const { ent, color } = t;
+
             if (
-                ent.x + ent.size < left ||
-                ent.x > left + p.width ||
-                ent.y + ent.size < 0 ||
-                ent.y > bottom
+                ent.x + ent.size < rectX ||
+                ent.x > rectRight ||
+                ent.y + ent.size < rectY ||
+                ent.y > rectBottom
             )
                 return;
 
             ctx.save();
-
-            // Clip to the shaft so the silhouette only shows
-            // where the pillar actually covers the entity.
-            ctx.beginPath();
-            ctx.rect(left, 0, p.width, bottom);
-            ctx.clip();
 
             ctx.shadowBlur = 8;
             ctx.shadowColor = color;
@@ -1127,9 +1238,72 @@ function drawOccludedOutlines() {
 
             ctx.restore();
 
-        });
+        } else {
+
+            const { ent, radius, color } = t;
+
+            if (
+                ent.x + radius < rectX ||
+                ent.x - radius > rectRight ||
+                ent.y + radius < rectY ||
+                ent.y - radius > rectBottom
+            )
+                return;
+
+            ctx.save();
+
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = color;
+
+            ctx.globalAlpha = 0.18;
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(ent.x, ent.y, radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(ent.x, ent.y, radius, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.restore();
+
+        }
 
     });
+
+    ctx.restore();
+
+}
+
+function drawOccludedOutlines() {
+
+    const targets = buildXRayTargets();
+
+    if (targets.length === 0)
+        return;
+
+    Arena.pillars.forEach(p => {
+
+        const left = p.x - p.width / 2;
+        const bottom = p.y + 40;
+
+        drawXRayTargetsInRect(left, 0, p.width, bottom, targets);
+
+    });
+
+}
+
+// Public entry point for anything OTHER than pillars that
+// wants the same "show what's hidden underneath" treatment -
+// currently just the HUD status plate (see drawHUD in ui.js).
+// Builds its own target list since it's called well after the
+// pillar pass and Game.projectiles/hazards may have ticked.
+function drawXRayInRect(rectX, rectY, rectW, rectH) {
+
+    drawXRayTargetsInRect(rectX, rectY, rectW, rectH, buildXRayTargets());
 
 }
 

@@ -138,24 +138,30 @@ class Boss extends Enemy {
         const dirX = dx / distance;
         const dirY = dy / distance;
     
-        ctx.save();
-    
         const alpha = 0.3 + Math.sin(Date.now() / 60) * 0.2;
-        ctx.strokeStyle = `rgba(255,0,0,${alpha})`;
-        ctx.lineWidth = 6;
-    
-        ctx.beginPath();
-        ctx.moveTo(centerX, centerY);
-    
-        // FIXED: The line now extends EXACTLY to the max dash distance (dashSpeed * dashDuration)
+
+        // The charge lane as a run of red pixel blocks from the
+        // Guard to the exact end of its dash. A cached solid
+        // dashed-line bitmap (dashOff: 0) rotated onto the
+        // player's direction each frame, instead of a live
+        // per-frame fillRect loop.
         const exactDashDistance = this.dashSpeed * this.dashDuration;
-        
-        ctx.lineTo(
-            centerX + dirX * exactDashDistance,
-            centerY + dirY * exactDashDistance
-        );
-    
-        ctx.stroke();
+        const angle = Math.atan2(dirY, dirX);
+
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.rotate(angle);
+
+        drawPixelDashedLine(exactDashDistance, {
+            color: "#ff2020",
+            alpha,
+            unit: 6,
+            dashOn: 1,
+            dashOff: 0,
+            glow: 6,
+            glowColor: "#ff0000"
+        });
+
         ctx.restore();
     }
 }

@@ -568,53 +568,79 @@ class LightningStrike {
 
     draw() {
 
-        ctx.save();
-
         if (!this.struck) {
 
-            // Warning circle with an inner disc that shrinks
-            // as the strike gets closer.
+            // Warning ring with a pixel inner disc that grows
+            // as the strike closes in.
             const progress = 1 - this.timer / MAGUS.LIGHTNING_TELEGRAPH;
             const alpha = 0.35 + Math.sin(Date.now() / 60) * 0.15;
 
-            ctx.strokeStyle = `rgba(255, 235, 120, ${alpha})`;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-            ctx.stroke();
+            drawPixelRing(this.x, this.y, this.radius, {
+                color: "#ffeb78",
+                alpha,
+                unit: Math.max(2, Math.round(this.radius * 0.08))
+            });
 
-            ctx.fillStyle = `rgba(255, 235, 120, ${alpha * 0.35})`;
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.radius * progress, 0, Math.PI * 2);
-            ctx.fill();
+            drawPixelDisc(this.x, this.y, this.radius * progress, {
+                color: "#ffeb78",
+                alpha: alpha * 0.35,
+                unit: Math.max(2, Math.round(this.radius * 0.08)),
+                dither: 0.6
+            });
 
         } else {
 
             const fade = Math.max(0, this.flash / 229);
 
             // Scorch pool at the impact point.
-            ctx.fillStyle = `rgba(255, 250, 200, ${0.5 * fade})`;
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-            ctx.fill();
+            drawPixelDisc(this.x, this.y, this.radius, {
+                color: "#fffac8",
+                alpha: 0.5 * fade,
+                unit: Math.max(2, Math.round(this.radius * 0.08)),
+                dither: 0.5
+            });
 
-            // The bolt: a jagged line dropping in from above.
-            ctx.strokeStyle = `rgba(255, 255, 240, ${fade})`;
-            ctx.lineWidth = 4;
-            ctx.shadowBlur = 18;
+            // The bolt: a jagged pixel line dropping in.
+            const pts = [
+                [this.x + this.joltOffsets[0], this.y - 170],
+                [this.x + this.joltOffsets[1], this.y - 115],
+                [this.x + this.joltOffsets[2], this.y - 60],
+                [this.x + this.joltOffsets[3], this.y - 25],
+                [this.x, this.y]
+            ];
+
+            const unit = 5;
+
+            ctx.save();
+            ctx.globalAlpha = fade;
+            ctx.fillStyle = "#fffff0";
+            ctx.shadowBlur = 14;
             ctx.shadowColor = "#ffee88";
 
-            ctx.beginPath();
-            ctx.moveTo(this.x + this.joltOffsets[0], this.y - 170);
-            ctx.lineTo(this.x + this.joltOffsets[1], this.y - 115);
-            ctx.lineTo(this.x + this.joltOffsets[2], this.y - 60);
-            ctx.lineTo(this.x + this.joltOffsets[3], this.y - 25);
-            ctx.lineTo(this.x, this.y);
-            ctx.stroke();
+            for (let s = 0; s < pts.length - 1; s++) {
+
+                const [ax, ay] = pts[s];
+                const [bx, by] = pts[s + 1];
+                const segLen = Math.hypot(bx - ax, by - ay);
+                const steps = Math.ceil(segLen / unit);
+
+                for (let i = 0; i <= steps; i++) {
+
+                    const t = i / steps;
+                    ctx.fillRect(
+                        pxSnap(ax + (bx - ax) * t, unit),
+                        pxSnap(ay + (by - ay) * t, unit),
+                        unit, unit
+                    );
+
+                }
+
+            }
+
+            ctx.restore();
+            ctx.globalAlpha = 1;
 
         }
-
-        ctx.restore();
 
     }
 
@@ -676,37 +702,54 @@ class MeteorStrike {
         const progress = 1 - this.timer / MAGUS.METEOR_TELEGRAPH;
         const alpha = 0.3 + Math.sin(Date.now() / 70) * 0.12;
 
-        ctx.save();
-
-        ctx.strokeStyle = `rgba(255, 80, 0, ${alpha + 0.2})`;
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.fillStyle = `rgba(255, 90, 0, ${alpha * 0.3})`;
-        ctx.fill();
+        // Impact zone: pixel disc + rim.
+        drawPixelZone(this.x, this.y, this.radius, {
+            fill: "#ff5a00",
+            rim: "#ff5000",
+            fillAlpha: alpha * 0.3,
+            rimAlpha: alpha + 0.2,
+            unit: Math.max(3, Math.round(this.radius * 0.05))
+        });
 
         // The meteor's shadow growing as it falls.
-        ctx.fillStyle = `rgba(60, 20, 0, ${0.25 + progress * 0.3})`;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, 30 + progress * 60, 0, Math.PI * 2);
-        ctx.fill();
+        drawPixelDisc(this.x, this.y, 30 + progress * 60, {
+            color: "#3c1400",
+            alpha: 0.25 + progress * 0.3,
+            unit: Math.max(3, Math.round(this.radius * 0.05)),
+            dither: 0.5
+        });
 
-        // Incoming streak, steepening toward impact.
+        // Incoming streak, steepening toward impact, as a run
+        // of pixel blocks.
         const streak = 1 - progress;
+        const ax = this.x + streak * 300 + 40;
+        const ay = this.y - streak * 420 - 60;
+        const bx = this.x + streak * 60;
+        const by = this.y - streak * 90;
+        const unit = Math.max(4, Math.round(6 + progress * 8));
 
-        ctx.strokeStyle = `rgba(255, 160, 60, ${0.5 + progress * 0.4})`;
-        ctx.lineWidth = 6 + progress * 8;
-        ctx.shadowBlur = 20;
+        ctx.save();
+        ctx.globalAlpha = 0.5 + progress * 0.4;
+        ctx.fillStyle = "#ffa03c";
+        ctx.shadowBlur = 16;
         ctx.shadowColor = "#ff7020";
 
-        ctx.beginPath();
-        ctx.moveTo(this.x + streak * 300 + 40, this.y - streak * 420 - 60);
-        ctx.lineTo(this.x + streak * 60, this.y - streak * 90);
-        ctx.stroke();
+        const segLen = Math.hypot(bx - ax, by - ay);
+        const steps = Math.ceil(segLen / unit);
+
+        for (let i = 0; i <= steps; i++) {
+
+            const t = i / steps;
+            ctx.fillRect(
+                pxSnap(ax + (bx - ax) * t, unit),
+                pxSnap(ay + (by - ay) * t, unit),
+                unit, unit
+            );
+
+        }
 
         ctx.restore();
+        ctx.globalAlpha = 1;
 
     }
 
