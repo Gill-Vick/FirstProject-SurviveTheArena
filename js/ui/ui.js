@@ -3266,16 +3266,30 @@ function drawWaveMessages() {
 
 function drawGameOver() {
 
-    ctx.fillStyle = "white";
-    ctx.textAlign = "center";
-    fitFontSize("GAME OVER", canvas.width * 0.9, ph(0.09));
-    ctx.fillText("GAME OVER", canvas.width / 2, ph(0.31));
+    // Pixel type throughout, to match the pause menu, the HUD
+    // and the RETURN HOME button below (drawButton is pixel).
+    // The em dash isn't in the pixel font, so the "New Best"
+    // line uses a hyphen.
 
-    ctx.font = `${ph(0.045)}px Arial`;
-    ctx.fillText(
-        `You were slain by ${Game.killedBy ?? "an unknown enemy"}`,
-        canvas.width / 2,
-        ph(0.42)
+    const cx = canvas.width / 2;
+
+    drawPixelText(
+        "GAME OVER",
+        cx,
+        ph(0.27),
+        fitPixelScale("GAME OVER", canvas.width * 0.9, ph(0.12)),
+        { color: "#f4ece0", shadow: "rgba(120, 20, 20, 0.9)" }
+    );
+
+    const slainText =
+        `YOU WERE SLAIN BY ${Game.killedBy ?? "an unknown enemy"}`.toUpperCase();
+
+    drawPixelText(
+        slainText,
+        cx,
+        ph(0.42),
+        fitPixelScale(slainText, canvas.width * 0.9, ph(0.04)),
+        { color: "#e8e0d4", shadow: "rgba(0, 0, 0, 0.85)" }
     );
 
     // Score modes report the run's distance vs. the record.
@@ -3283,24 +3297,33 @@ function drawGameOver() {
 
         const best = Save.getBestWave(Game.mode);
 
-        ctx.fillStyle = Game.newBest ? "gold" : "#ddd";
-        ctx.font = `${ph(0.038)}px Arial`;
-        ctx.fillText(
+        const scoreText = (
             Game.newBest
-                ? `New Best — Wave ${Game.wave}!`
-                : `Reached Wave ${Game.wave}   (Best: ${best})`,
-            canvas.width / 2,
-            ph(0.49)
+                ? `NEW BEST - WAVE ${Game.wave}!`
+                : `REACHED WAVE ${Game.wave}   (BEST: ${best})`
+        );
+
+        drawPixelText(
+            scoreText,
+            cx,
+            ph(0.50),
+            fitPixelScale(scoreText, canvas.width * 0.9, ph(0.034)),
+            {
+                color: Game.newBest ? "#f1c40f" : "#dddddd",
+                shadow: "rgba(0, 0, 0, 0.85)"
+            }
         );
 
     }
 
-    ctx.fillStyle = "gold";
-    ctx.font = `${ph(0.036)}px Arial`;
-    ctx.fillText(
-        `Total Coins: ${Save.coins}`,
-        canvas.width / 2,
-        ph(0.55)
+    const coinsText = `TOTAL COINS: ${Save.coins}`;
+
+    drawPixelText(
+        coinsText,
+        cx,
+        ph(0.56),
+        fitPixelScale(coinsText, canvas.width * 0.9, ph(0.032)),
+        { color: "#f1c40f", shadow: "rgba(0, 0, 0, 0.85)" }
     );
 
     drawButton(getHomeButton(), "RETURN HOME", "lime", "black", ph(0.028));
@@ -3316,40 +3339,61 @@ function drawGameOver() {
 
 function drawVictory() {
 
+    // Pixel type throughout, matching the Game Over screen and
+    // the RETURN HOME button below (drawButton is pixel).
+
+    const cx = canvas.width / 2;
+
+    // Golden glow behind the title - a soft radial bloom rather
+    // than a canvas shadowBlur, which would just fuzz the pixel
+    // edges we're trying to keep sharp.
     ctx.save();
-
-    ctx.fillStyle = "gold";
-    ctx.textAlign = "center";
-    ctx.shadowBlur = 24;
-    ctx.shadowColor = "rgba(255, 215, 0, 0.7)";
-    fitFontSize("VICTORY", canvas.width * 0.9, ph(0.1));
-    ctx.fillText("VICTORY", canvas.width / 2, ph(0.3));
-
+    const glow = ctx.createRadialGradient(
+        cx, ph(0.27), 0,
+        cx, ph(0.27), canvas.width * 0.32
+    );
+    glow.addColorStop(0, "rgba(255, 215, 0, 0.35)");
+    glow.addColorStop(1, "rgba(255, 215, 0, 0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, ph(0.12), canvas.width, ph(0.3));
     ctx.restore();
 
-    ctx.fillStyle = "white";
-    ctx.font = `${ph(0.04)}px Arial`;
-    ctx.textAlign = "center";
-    ctx.fillText(
-        "The King has fallen. The arena is yours.",
-        canvas.width / 2,
-        ph(0.42)
+    drawPixelText(
+        "VICTORY",
+        cx,
+        ph(0.27),
+        fitPixelScale("VICTORY", canvas.width * 0.9, ph(0.13)),
+        { color: "#ffd54a", shadow: "rgba(120, 80, 0, 0.9)" }
     );
 
-    ctx.fillStyle = "#c9a227";
-    ctx.font = `${ph(0.03)}px Arial`;
-    ctx.fillText(
-        "Seek an endless trial for a sterner test.",
-        canvas.width / 2,
-        ph(0.48)
+    const wonText = "THE KING HAS FALLEN. THE ARENA IS YOURS.";
+
+    drawPixelText(
+        wonText,
+        cx,
+        ph(0.42),
+        fitPixelScale(wonText, canvas.width * 0.9, ph(0.036)),
+        { color: "#e8e0d4", shadow: "rgba(0, 0, 0, 0.85)" }
     );
 
-    ctx.fillStyle = "gold";
-    ctx.font = `${ph(0.036)}px Arial`;
-    ctx.fillText(
-        `Total Coins: ${Save.coins}`,
-        canvas.width / 2,
-        ph(0.56)
+    const hintText = "SEEK AN ENDLESS TRIAL FOR A STERNER TEST.";
+
+    drawPixelText(
+        hintText,
+        cx,
+        ph(0.49),
+        fitPixelScale(hintText, canvas.width * 0.9, ph(0.03)),
+        { color: "#c9a227", shadow: "rgba(0, 0, 0, 0.85)" }
+    );
+
+    const coinsText = `TOTAL COINS: ${Save.coins}`;
+
+    drawPixelText(
+        coinsText,
+        cx,
+        ph(0.56),
+        fitPixelScale(coinsText, canvas.width * 0.9, ph(0.032)),
+        { color: "#f1c40f", shadow: "rgba(0, 0, 0, 0.85)" }
     );
 
     drawButton(getHomeButton(), "RETURN HOME", "lime", "black", ph(0.028));

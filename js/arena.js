@@ -214,133 +214,293 @@ function generateNightThrone() {
 
 }
 
-function drawArenaFloor() {
+// =====================================
+// Pixel Floor Texture
+// =====================================
+//
+// The ground is chunky pixel-art stone/grass rather than a
+// flat fill, to match the rest of the pixel revamp. Building
+// it means thousands of little blocks, so - like the night
+// veil - it's rendered ONCE into an offscreen canvas and
+// blitted each frame (see the pixel-fx caching rule). The
+// cache rebuilds only when the theme or the canvas size
+// changes; the texture itself is generated from a seeded RNG
+// so it's identical every rebuild and never shimmers.
 
-    if (Arena.theme === "castle") {
+let floorCanvas = null;
+let floorSig = "";
 
-        drawCastleEntranceFloor();
-        return;
+// Size of one "pixel" block, in real canvas pixels. Bigger =
+// chunkier. Every tile/grout dimension below is a multiple of
+// this so nothing lands off the block grid.
+const FLOOR_TEXEL = 4;
+
+// Deterministic PRNG (mulberry32) - same seed, same texture.
+function makeFloorRng(seed) {
+
+    let a = seed >>> 0;
+
+    return function () {
+
+        a |= 0;
+        a = (a + 0x6d2b79f5) | 0;
+
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+
+    };
+}
+
+// Clamp a channel and multiply by a brightness factor.
+function shadeChannel(value, factor) {
+
+    return Math.max(0, Math.min(255, Math.round(value * factor)));
+
+}
+
+function shadeColor([r, g, b], factor) {
+
+    return `rgb(${shadeChannel(r, factor)}, ${shadeChannel(g, factor)}, ${shadeChannel(b, factor)})`;
+
+}
+
+// Snap a coordinate to the block grid so fills never straddle
+// a half-block and blur the pixel edges.
+function snapTexel(v) {
+
+    return Math.round(v / FLOOR_TEXEL) * FLOOR_TEXEL;
+
+}
+
+// Tiles a rect with pixel flagstones: dark grout underneath,
+// each stone a slightly different shade with a lit top-left
+// edge, a shadowed bottom-right edge, and a little speckle.
+function paintPixelStone(fctx, rx, ry, rw, rh, baseRGB, rng, opts = {}) {
+
+    const tile = opts.tile ?? 52;
+    const grout = FLOOR_TEXEL;
+
+    // Grout bed.
+    fctx.fillStyle = shadeColor(baseRGB, 0.5);
+    fctx.fillRect(rx, ry, rw, rh);
+
+    for (let ty = ry; ty < ry + rh; ty += tile) {
+
+        for (let tx = rx; tx < rx + rw; tx += tile) {
+
+            const x0 = snapTexel(tx + grout);
+            const y0 = snapTexel(ty + grout);
+            const x1 = Math.min(rx + rw, snapTexel(tx + tile));
+            const y1 = Math.min(ry + rh, snapTexel(ty + tile));
+
+            const w = x1 - x0;
+            const h = y1 - y0;
+
+            if (w <= 0 || h <= 0)
+                continue;
+
+            const shade = 0.82 + rng() * 0.34;
+
+            fctx.fillStyle = shadeColor(baseRGB, shade);
+            fctx.fillRect(x0, y0, w, h);
+
+            // Beveled edges: lit top + left, shadowed bottom +
+            // right, one block thick.
+            fctx.fillStyle = shadeColor(baseRGB, shade * 1.28);
+            fctx.fillRect(x0, y0, w, FLOOR_TEXEL);
+            fctx.fillRect(x0, y0, FLOOR_TEXEL, h);
+
+            fctx.fillStyle = shadeColor(baseRGB, shade * 0.66);
+            fctx.fillRect(x0, y1 - FLOOR_TEXEL, w, FLOOR_TEXEL);
+            fctx.fillRect(x1 - FLOOR_TEXEL, y0, FLOOR_TEXEL, h);
+
+            // A few speckle blocks per stone for grain.
+            const speckles = Math.floor((w * h) / 2600);
+
+            for (let s = 0; s < speckles; s++) {
+
+                const sx = x0 + Math.floor(rng() * (w / FLOOR_TEXEL)) * FLOOR_TEXEL;
+                const sy = y0 + Math.floor(rng() * (h / FLOOR_TEXEL)) * FLOOR_TEXEL;
+
+                fctx.fillStyle = shadeColor(baseRGB, shade * (rng() < 0.5 ? 1.16 : 0.78));
+                fctx.fillRect(sx, sy, FLOOR_TEXEL, FLOOR_TEXEL);
+
+            }
+
+            // Occasional hairline crack down a stone.
+            if (rng() < 0.16) {
+
+                let cx = x0 + FLOOR_TEXEL * (1 + Math.floor(rng() * (w / FLOOR_TEXEL - 2)));
+                fctx.fillStyle = shadeColor(baseRGB, 0.55);
+
+                for (let cy = y0 + FLOOR_TEXEL; cy < y1 - FLOOR_TEXEL; cy += FLOOR_TEXEL) {
+
+                    fctx.fillRect(cx, cy, FLOOR_TEXEL, FLOOR_TEXEL);
+
+                    if (rng() < 0.4)
+                        cx += (rng() < 0.5 ? -FLOOR_TEXEL : FLOOR_TEXEL);
+
+                }
+
+            }
+
+        }
 
     }
 
-    // The night throne room shares the throne floor - same
-    // stone, same red carpet - and gets its darkness from the
-    // lighting pass, not from a different floor color.
-    ctx.fillStyle = "#2b2927";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+// Pixel lawn: banded green base (darker toward the back for
+// depth) with sparse mottle speckle and the odd upright blade.
+// A solid base plus a fraction of speckle blocks - rather than
+// a fillRect per texel - keeps the one-time build cheap.
+function paintPixelGrass(fctx, rx, ry, rw, rh, rng) {
+
+    const base = [56, 71, 42];
+
+    // Horizontal depth bands, snapped to the block grid.
+    const band = FLOOR_TEXEL * 6;
+
+    for (let y = ry; y < ry + rh; y += band) {
+
+        const depth = 0.86 + ((y - ry) / rh) * 0.12;
+        const h = Math.min(band, ry + rh - y);
+
+        fctx.fillStyle = shadeColor(base, depth);
+        fctx.fillRect(rx, y, rw, h);
+
+    }
+
+    // Mottle: about a third of the blocks nudged lighter/darker.
+    const cols = Math.floor(rw / FLOOR_TEXEL);
+    const rows = Math.floor(rh / FLOOR_TEXEL);
+    const speckle = Math.floor(cols * rows * 0.34);
+
+    for (let i = 0; i < speckle; i++) {
+
+        const x = rx + Math.floor(rng() * cols) * FLOOR_TEXEL;
+        const y = ry + Math.floor(rng() * rows) * FLOOR_TEXEL;
+        const depth = 0.86 + ((y - ry) / rh) * 0.12;
+
+        fctx.fillStyle = shadeColor(base, depth * (rng() < 0.5 ? 1.14 : 0.82));
+        fctx.fillRect(x, y, FLOOR_TEXEL, FLOOR_TEXEL);
+
+    }
+
+    // Scattered blades: a couple of stacked lighter blocks.
+    const blades = Math.floor((rw * rh) / 5000);
+
+    for (let i = 0; i < blades; i++) {
+
+        const bx = snapTexel(rx + rng() * rw);
+        const by = snapTexel(ry + rng() * rh);
+        const tall = 2 + Math.floor(rng() * 2);
+
+        fctx.fillStyle = shadeColor(base, 1.2);
+
+        for (let t = 0; t < tall; t++)
+            fctx.fillRect(bx, by - t * FLOOR_TEXEL, FLOOR_TEXEL, FLOOR_TEXEL);
+
+    }
+
+}
+
+// Rebuilds the offscreen floor for the current theme/size if
+// it isn't already current.
+function ensureFloorTexture() {
+
+    if (canvas.width === 0 || canvas.height === 0)
+        return null;
+
+    const sig = `${Arena.theme}:${canvas.width}x${canvas.height}`;
+
+    if (floorCanvas && floorSig === sig)
+        return floorCanvas;
+
+    if (!floorCanvas)
+        floorCanvas = document.createElement("canvas");
+
+    floorCanvas.width = canvas.width;
+    floorCanvas.height = canvas.height;
+
+    const fctx = floorCanvas.getContext("2d");
+    fctx.imageSmoothingEnabled = false;
+    fctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Seed from size so a resize reshuffles but a redraw never
+    // does; XOR a per-theme salt so the three floors differ.
+    const salt =
+        Arena.theme === "castle" ? 0x1a2b :
+        Arena.theme === "night" ? 0x51de : 0x7403;
+
+    const rng = makeFloorRng((canvas.width * 73856093) ^ (canvas.height * 19349663) ^ salt);
+
+    if (Arena.theme === "castle") {
+
+        const { wallY, cx, pathW } = getCastleLayout();
+
+        // Keep flagstones above the wall, lawn below it.
+        paintPixelStone(fctx, 0, 0, canvas.width, wallY, [50, 54, 62], rng, { tile: 44 });
+        paintPixelGrass(fctx, 0, wallY, canvas.width, canvas.height - wallY, rng);
+
+        // Cobblestone approach up the middle, clipped to path.
+        fctx.save();
+        fctx.beginPath();
+        fctx.rect(cx - pathW / 2, wallY, pathW, canvas.height - wallY);
+        fctx.clip();
+        paintPixelStone(
+            fctx,
+            snapTexel(cx - pathW / 2), wallY,
+            snapTexel(pathW), canvas.height - wallY,
+            [70, 64, 55], rng, { tile: 24 }
+        );
+        fctx.restore();
+
+    } else {
+
+        // Throne + night share the same dungeon-stone floor.
+        paintPixelStone(fctx, 0, 0, canvas.width, canvas.height, [43, 41, 39], rng, { tile: 52 });
+
+    }
+
+    floorSig = sig;
+
+    return floorCanvas;
+
+}
+
+function drawArenaFloor() {
+
+    const tex = ensureFloorTexture();
+
+    if (tex)
+        ctx.drawImage(tex, 0, 0);
+    else {
+        // Pre-size fallback so the frame isn't transparent.
+        ctx.fillStyle = "#2b2927";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    if (Arena.theme === "castle") {
+
+        // The wall, towers and gate are architecture, not
+        // ground - still drawn live over the baked floor.
+        drawCastleWall();
+        return;
+
+    }
 
     if (Arena.theme === "throne" || Arena.theme === "night")
         drawRedCarpet();
 
 }
 
-// =====================================
-// Castle Entrance Floor
-// =====================================
-//
-// Painted bottom-up: keep interior (flagstones), courtyard
-// grass, the cobblestone approach, the entrance steps, and
-// finally the castle wall with its gate standing open. All
-// of it sits on the floor pass, so shadows, lighting, and
-// every entity draw on top.
-
-function drawCastleEntranceFloor() {
-
-    const { wallY, cx, pathW } = getCastleLayout();
-
-    // ---- inside the keep (top half): cool flagstones ----
-
-    let interior = ctx.createLinearGradient(0, 0, 0, wallY);
-    interior.addColorStop(0, "#25282e");
-    interior.addColorStop(1, "#33363c");
-
-    ctx.fillStyle = interior;
-    ctx.fillRect(0, 0, canvas.width, wallY);
-
-    // Flagstone seams - horizontal courses with vertical
-    // joints offset half a stone per row.
-    ctx.strokeStyle = "rgba(0, 0, 0, 0.28)";
-    ctx.lineWidth = 2;
-
-    const courseH = 80;
-    const stoneSpan = 110;
-
-    for (let y = courseH, r = 0; y < wallY + courseH; y += courseH, r++) {
-
-        ctx.beginPath();
-        ctx.moveTo(0, Math.min(y, wallY));
-        ctx.lineTo(canvas.width, Math.min(y, wallY));
-        ctx.stroke();
-
-        const offset = (r % 2) * (stoneSpan / 2);
-
-        for (let x = offset; x < canvas.width; x += stoneSpan) {
-
-            ctx.beginPath();
-            ctx.moveTo(x, y - courseH);
-            ctx.lineTo(x, Math.min(y, wallY));
-            ctx.stroke();
-
-        }
-
-    }
-
-    // ---- courtyard (bottom half): grass ----
-
-    let grass = ctx.createLinearGradient(0, wallY, 0, canvas.height);
-    grass.addColorStop(0, "#38472a");
-    grass.addColorStop(1, "#2a3820");
-
-    ctx.fillStyle = grass;
-    ctx.fillRect(0, wallY, canvas.width, canvas.height - wallY);
-
-    ctx.strokeStyle = "#2c4520";
-    ctx.lineWidth = 2;
-
-    Arena.deco.tufts.forEach(t => {
-
-        for (let i = -1; i <= 1; i++) {
-
-            ctx.beginPath();
-            ctx.moveTo(t.x + i * 3, t.y);
-            ctx.lineTo(t.x + i * 2 + t.lean, t.y - t.size);
-            ctx.stroke();
-
-        }
-
-    });
-
-    // ---- cobblestone approach up the middle ----
-
-    ctx.save();
-
-    ctx.beginPath();
-    ctx.rect(cx - pathW / 2, wallY, pathW, canvas.height - wallY);
-    ctx.clip();
-
-    ctx.fillStyle = "#403b33";
-    ctx.fillRect(cx - pathW / 2, wallY, pathW, canvas.height - wallY);
-
-    Arena.deco.stones.forEach(s => {
-
-        ctx.fillStyle = `rgb(${Math.round(88 * s.shade)}, ${Math.round(82 * s.shade)}, ${Math.round(72 * s.shade)})`;
-
-        ctx.beginPath();
-        ctx.roundRect(s.x, s.y, s.w, s.h, 6);
-        ctx.fill();
-
-    });
-
-    ctx.restore();
-
-    // Worn edges where path meets grass.
-    ctx.fillStyle = "rgba(20, 26, 14, 0.4)";
-    ctx.fillRect(cx - pathW / 2 - 3, wallY, 3, canvas.height - wallY);
-    ctx.fillRect(cx + pathW / 2, wallY, 3, canvas.height - wallY);
-
-    drawCastleWall();
-
-}
+// The castle-entrance GROUND (keep flagstones, courtyard
+// lawn, cobble approach) is now baked into the pixel floor
+// texture - see ensureFloorTexture. drawArenaFloor blits that
+// and then calls drawCastleWall directly for the architecture.
 
 // The wall itself: two stone segments with battlements on
 // the courtyard face, round towers flanking the gate, the
@@ -497,65 +657,81 @@ function drawCastleWall() {
 
 function drawRedCarpet() {
 
-    const carpetWidth = canvas.width * 0.26;
-    const trimWidth = Math.max(8, carpetWidth * 0.05);
-    const left = canvas.width / 2 - carpetWidth / 2;
-    const right = left + carpetWidth;
+    // Snapped to the floor's block grid and drawn in stepped
+    // bands rather than smooth gradients, so it reads as pixel
+    // pile like the stone around it. It's a handful of
+    // fillRects, so drawing it live each frame is cheap.
+
+    const T = FLOOR_TEXEL;
+    const q = v => Math.round(v / T) * T;
+
+    const cx = q(canvas.width / 2);
+    const half = q(canvas.width * 0.13);
+    const left = cx - half;
+    const carpetWidth = half * 2;
+    const trimWidth = Math.max(T * 2, q(carpetWidth * 0.05));
 
     ctx.save();
 
     // Soft contact shadow so the carpet reads as sitting on
     // the floor instead of painted onto it.
     ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
-    ctx.fillRect(left - 6, 0, carpetWidth + 12, canvas.height);
+    ctx.fillRect(left - T, 0, carpetWidth + T * 2, canvas.height);
 
-    // Red body - darker at the edges, richer in the middle,
-    // like the pile catching the light down its center.
-    let body = ctx.createLinearGradient(left, 0, right, 0);
-    body.addColorStop(0, "#4a0c14");
-    body.addColorStop(0.18, "#6e1220");
-    body.addColorStop(0.5, "#8f1626");
-    body.addColorStop(0.82, "#6e1220");
-    body.addColorStop(1, "#4a0c14");
+    // Red body in vertical bands: a lit column down the middle
+    // stepping to darker pile at the edges.
+    const bodyBands = [
+        "#4a0c14", "#6e1220", "#8f1626", "#6e1220", "#4a0c14"
+    ];
 
-    ctx.fillStyle = body;
-    ctx.fillRect(left, 0, carpetWidth, canvas.height);
+    const bandW = q(carpetWidth / bodyBands.length);
 
-    // Gold trim bands down both sides.
-    [left, right - trimWidth].forEach(x => {
+    bodyBands.forEach((color, i) => {
 
-        let trim = ctx.createLinearGradient(x, 0, x + trimWidth, 0);
-        trim.addColorStop(0, "#7a5c14");
-        trim.addColorStop(0.5, "#d4af37");
-        trim.addColorStop(1, "#7a5c14");
+        const bx = left + i * bandW;
+        const w = i === bodyBands.length - 1 ? left + carpetWidth - bx : bandW;
 
-        ctx.fillStyle = trim;
-        ctx.fillRect(x, 0, trimWidth, canvas.height);
+        ctx.fillStyle = color;
+        ctx.fillRect(bx, 0, w, canvas.height);
 
     });
 
-    // Thin dark seam where the trim meets the red, so the
-    // bands don't blur into the body.
-    ctx.fillStyle = "rgba(30, 5, 8, 0.6)";
-    ctx.fillRect(left + trimWidth, 0, 2, canvas.height);
-    ctx.fillRect(right - trimWidth - 2, 0, 2, canvas.height);
+    // Gold trim down both sides - three stepped columns per
+    // side (dark / bright / dark) instead of a gradient.
+    [left, left + carpetWidth - trimWidth].forEach(x => {
 
-    // Gold diamond motifs spaced down the center line.
-    const cx = canvas.width / 2;
+        const step = Math.max(T, Math.round(trimWidth / 3 / T) * T);
+
+        ["#7a5c14", "#d4af37", "#7a5c14"].forEach((color, i) => {
+
+            ctx.fillStyle = color;
+            ctx.fillRect(x + i * step, 0, i === 2 ? trimWidth - 2 * step : step, canvas.height);
+
+        });
+
+    });
+
+    // Dark seam where the trim meets the red.
+    ctx.fillStyle = "rgba(30, 5, 8, 0.6)";
+    ctx.fillRect(left + trimWidth, 0, T, canvas.height);
+    ctx.fillRect(left + carpetWidth - trimWidth - T, 0, T, canvas.height);
+
+    // Gold diamond motifs down the center, built from stacked
+    // pixel rows so the edges stay stepped.
     const spacing = 140;
-    const size = carpetWidth * 0.055;
+    const size = q(carpetWidth * 0.06);
 
     ctx.fillStyle = "rgba(212, 175, 55, 0.55)";
 
-    for (let y = spacing / 2; y < canvas.height; y += spacing) {
+    for (let cyc = q(spacing / 2); cyc < canvas.height; cyc += spacing) {
 
-        ctx.beginPath();
-        ctx.moveTo(cx, y - size);
-        ctx.lineTo(cx + size, y);
-        ctx.lineTo(cx, y + size);
-        ctx.lineTo(cx - size, y);
-        ctx.closePath();
-        ctx.fill();
+        for (let dy = -size; dy < size; dy += T) {
+
+            const rowW = q((size - Math.abs(dy)) * 2);
+
+            ctx.fillRect(cx - rowW / 2, cyc + dy, rowW, T);
+
+        }
 
     }
 
