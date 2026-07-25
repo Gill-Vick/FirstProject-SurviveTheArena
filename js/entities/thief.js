@@ -4,8 +4,8 @@
 //
 // A fast, aggressive melee class - dual daggers (hold attack)
 // are a short, quick version of the Warrior's sword swing:
-// 60% of its reach, but twice the attack speed. Kit (see the
-// Thief section of SHOP_ITEMS):
+// 70% of its reach, noticeably faster attack speed. Kit (see
+// the Thief section of SHOP_ITEMS):
 //
 //   - Cloak line: dashing grants phase i-frames (Tattered/
 //     Shadow/Phantom, moved over from the Ranger keeping its
@@ -18,8 +18,8 @@
 //     window blinks the Thief to where it landed)
 //   - Thief's Wit: hits grant a short move/attack speed buff
 //   - Void Enchant / Master of the Blade (Castle Guard tier)
-//   - Serrated Blade / Thief's Pocket Watch (Knight tier):
-//     +1 dagger damage / hits shave time off active cooldowns
+//   - Shadowreach Blades / Thief's Pocket Watch (Knight tier):
+//     +1 dagger damage & range / hits shave time off cooldowns
 //   - Moonlight Daggers (King tier): +1 dagger damage, a 2nd
 //     dash charge, and a lingering flame trail on every swing
 

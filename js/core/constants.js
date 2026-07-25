@@ -376,20 +376,23 @@ const CLOAK = {
 //
 // The Thief's primary attack, like the Ranger's bow - a much
 // shorter, much faster version of the Warrior's sword swing:
-// 60% of the sword's reach, and noticeably faster to swing
-// (though eased back a smidge from a flat 2x). Base damage
-// mirrors the Warrior's kit progression: 1 base, doubled by
-// the Serrated Blade the same way Wet Stone bumps the sword.
+// 70% of the sword's reach, and noticeably faster to swing.
+// Base damage mirrors the Warrior's kit progression: 1 base,
+// +1 from Shadowreach Blades the same way Wet Stone bumps the
+// sword.
 //
-// Visually the Thief wields two daggers, alternating sides
-// each swing (left, then right) - SIDE_OFFSET is how far off
-// the aim angle each blade is drawn.
-
+// Was 60% reach / 60% swing duration, but that buried the
+// Thief specifically against the Castle Guard (wave 5) and
+// the Knight (wave 10) - both fights land before Shadowreach
+// Blades even unlocks (it's Knight-gated), so the base kit had
+// to actually close a 120-130px hitbox with a 78px blade and
+// below-Warrior DPS. Nudged both up so the early daggers-only
+// kit can hold its own before any reach/damage upgrade exists.
 const THIEF_DAGGER = {
-    RANGE: Math.round(SWORD.LENGTH * 0.6),
+    RANGE: Math.round(SWORD.LENGTH * 0.7),
     ARC: SWORD.ARC,
     DAMAGE: 1,
-    SWING_DURATION: SWORD.DURATION * 0.6,
+    SWING_DURATION: SWORD.DURATION * 0.55,
     SIDE_OFFSET: 0.18
 };
 
