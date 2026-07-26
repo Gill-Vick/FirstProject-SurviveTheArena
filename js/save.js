@@ -18,6 +18,8 @@ const Save = {
 
     magusKilled: false,
 
+    siblingsKilled: false,
+
     kingKilled: false,
 
     // Furthest wave reached in the score modes (0 = never played).
@@ -84,6 +86,8 @@ const Save = {
         circleStrike: false,
         berserkerMedallion: false,
         forgeSigil: false,
+        twinbladeEcho: false,
+        siblingsResilience: false,
         kingsBlade: false,
         windrunnerAnklet: false,
         lightningRing: false,
@@ -96,6 +100,8 @@ const Save = {
         galeRecurve: false,
         stormfletch: false,
         cycloneVeil: false,
+        royalVolley: false,
+        princessFavor: false,
         stormpiercer: false,
         bracelet: false,
         throwingKnife: false,
@@ -106,6 +112,8 @@ const Save = {
         pocketWatch: false,
         voltaicFang: false,
         leylineSnare: false,
+        twinstrikeDaggers: false,
+        mirrorCloak: false,
         moonlightDaggers: false,
         halo: false,
         sunburst: false,
@@ -116,6 +124,8 @@ const Save = {
         elementalPrism: false,
         sanctuary: false,
         corona: false,
+        twincastPrism: false,
+        siblingsGrace: false,
         sovereignScepter: false
     },
 
@@ -127,6 +137,8 @@ const Save = {
         circleStrike: false,
         berserkerMedallion: false,
         forgeSigil: false,
+        twinbladeEcho: false,
+        siblingsResilience: false,
         kingsBlade: false,
         windrunnerAnklet: false,
         lightningRing: false,
@@ -139,6 +151,8 @@ const Save = {
         galeRecurve: false,
         stormfletch: false,
         cycloneVeil: false,
+        royalVolley: false,
+        princessFavor: false,
         stormpiercer: false,
         bracelet: false,
         throwingKnife: false,
@@ -149,6 +163,8 @@ const Save = {
         pocketWatch: false,
         voltaicFang: false,
         leylineSnare: false,
+        twinstrikeDaggers: false,
+        mirrorCloak: false,
         moonlightDaggers: false,
         halo: false,
         sunburst: false,
@@ -159,6 +175,8 @@ const Save = {
         elementalPrism: false,
         sanctuary: false,
         corona: false,
+        twincastPrism: false,
+        siblingsGrace: false,
         sovereignScepter: false
     },
 
@@ -185,6 +203,7 @@ const Save = {
             this.firstBossKilled = !!data.firstBossKilled;
             this.knightKilled = !!data.knightKilled;
             this.magusKilled = !!data.magusKilled;
+            this.siblingsKilled = !!data.siblingsKilled;
             this.kingKilled = !!data.kingKilled;
             this.bestEndlessWave = data.bestEndlessWave ?? 0;
             this.bestBossRushWave = data.bestBossRushWave ?? 0;
@@ -283,6 +302,7 @@ const Save = {
             firstBossKilled: this.firstBossKilled,
             knightKilled: this.knightKilled,
             magusKilled: this.magusKilled,
+            siblingsKilled: this.siblingsKilled,
             kingKilled: this.kingKilled,
             bestEndlessWave: this.bestEndlessWave,
             bestBossRushWave: this.bestBossRushWave,
@@ -485,6 +505,9 @@ const Save = {
 
         if (item.requiresMagusKilled && !this.magusKilled)
             return "Defeat the Royal Magus";
+
+        if (item.requiresSiblingsKilled && !this.siblingsKilled)
+            return "Defeat the Siblings";
 
         if ((itemId === "bow" || itemId === "dagger" || itemId === "throwingKnife" || itemId === "sunburst") && this.getStage(itemId) >= this.getMaxStage(itemId))
             return "Maxed out";
@@ -765,6 +788,16 @@ const Save = {
             return;
 
         this.magusKilled = true;
+        this.persist();
+
+    },
+
+    markSiblingsKilled() {
+
+        if (this.siblingsKilled)
+            return;
+
+        this.siblingsKilled = true;
         this.persist();
 
     },

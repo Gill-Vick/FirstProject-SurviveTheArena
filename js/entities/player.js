@@ -196,18 +196,30 @@ class Player {
     // Movement
     // =====================================
 
+    // 0 normally (no resistance) - overridden by classes/items
+    // that blunt ground slows (e.g. the Ranger's Princess's
+    // Favor). 1 would mean fully immune.
+    getSlowResistance() { return 0; }
+
     // 1 normally, SLOW_FACTOR while standing in any Frost
-    // Weaver zone (see FrostZone in hazard.js). Applies to
-    // both walking and dash distance.
+    // Weaver zone (see FrostZone in hazard.js), blended toward 1
+    // by getSlowResistance() - there's no timed "slow debuff" to
+    // shorten in this game (the slow is purely positional), so
+    // resistance items make the zone less severe instead of
+    // making it expire sooner. Applies to both walking and dash
+    // distance.
     getFrostMultiplier() {
 
         const inFrost = Game.hazards.some(
             h => h.slowsPlayer && h.containsPlayer()
         );
 
-        return inFrost
-            ? ENEMY_TYPES.frostWeaver.SLOW_FACTOR
-            : 1;
+        if (!inFrost)
+            return 1;
+
+        const factor = ENEMY_TYPES.frostWeaver.SLOW_FACTOR;
+
+        return factor + (1 - factor) * this.getSlowResistance();
 
     }
 

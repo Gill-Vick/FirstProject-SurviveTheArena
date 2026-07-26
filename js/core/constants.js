@@ -58,6 +58,29 @@ const SWORD = {
 // a bit further, plus a right-click laser ability - a scaled
 // down, single-shot version of the King's own beam attack.
 
+// =====================================
+// Warrior - Siblings tier (Prince & Princess-gated)
+// =====================================
+//
+// Twinblade Echo (offense) / Sibling's Resilience (survival) -
+// twin-motif pair, one tier below King's Blade.
+
+const TWINBLADE_ECHO = {
+    // Every 3rd connecting sword swing lands a phantom echo hit
+    // on top of the normal one - same "every Nth swing" shape
+    // as the Thief's Master of the Blade.
+    TRIGGER_EVERY: 3,
+    ECHO_DAMAGE: 1
+};
+
+const SIBLINGS_RESILIENCE = {
+    // Every 4th connecting swing grants a brief invulnerability
+    // flicker - resilience earned through pressing the attack,
+    // since this game has no HP pool to lifesteal into.
+    TRIGGER_EVERY: 4,
+    INVULN_MS: 300
+};
+
 const KINGS_BLADE = {
 
     BASE_DAMAGE: 3,
@@ -330,6 +353,30 @@ const CYCLONE_VEIL = {
 };
 
 // =====================================
+// Ranger - Siblings tier (Prince & Princess-gated)
+// =====================================
+//
+// Royal Volley (offense) / Princess's Favor (survival) -
+// twin-motif pair, one tier below Stormpiercer.
+
+const ROYAL_VOLLEY = {
+    // Every 3rd bow shot also fires one bonus arrow mirrored to
+    // the opposite side of the aim line.
+    TRIGGER_EVERY: 3,
+    OFFSET_ANGLE: 0.35
+};
+
+const PRINCESS_FAVOR = {
+    // Ground slows (Frost Weaver zones, the Princess's own zone)
+    // are 40% less severe while standing in one - there's no
+    // timed "slow debuff" in this game to shorten (the slow is
+    // purely positional - see Player.getFrostMultiplier), so
+    // this is the equivalent defensive trade: less severe rather
+    // than shorter.
+    SLOW_RESIST: 0.4
+};
+
+// =====================================
 // Ranger - Stormpiercer (King-gated)
 // =====================================
 //
@@ -541,6 +588,33 @@ const LEYLINE_SNARE = {
     PULL_STRENGTH: 1.6,
     DURATION_MS: 1286,
     COLOR: "#7b5cd6"
+};
+
+// =====================================
+// Thief - Siblings tier (Prince & Princess-gated)
+// =====================================
+//
+// Twinstrike Daggers (offense) / Mirror Cloak (utility) - twin-
+// motif pair, one tier below Moonlight Daggers.
+
+const TWINSTRIKE_DAGGERS = {
+    // Every 4th connecting dagger swing lands as an immediate
+    // double-hit - same damage, same target(s), no extra cost.
+    TRIGGER_EVERY: 4
+};
+
+const MIRROR_CLOAK = {
+    // A decoy left at the dash's start point, detonating a beat
+    // later - damages and briefly paralyzes anything still
+    // nearby. (Actual enemy-AI aggro redirection would mean
+    // touching every enemy's targeting code across the whole
+    // roster, so the "decoy" pays off as a delayed trap instead
+    // of a taunt - same payoff, contained blast radius.)
+    DETONATE_MS: 500,
+    RADIUS: 90,
+    DAMAGE: 2,
+    STUN_MS: 500,
+    COLOR: "#b06ae0"
 };
 
 // =====================================
@@ -761,6 +835,19 @@ const CORONA = {
     COLOR: "#ffd24d"
 };
 
+// Mage - Siblings tier (Prince & Princess-gated). Twincast
+// Prism (offense) / Sibling's Grace (survival) - twin-motif
+// pair, one tier below the Sovereign's Scepter.
+const TWINCAST_PRISM = {
+    // Every 3rd Sunbeam also fires a second beam mirrored to
+    // the opposite side of the cast point.
+    EVERY: 3
+};
+
+// Sibling's Grace grants the Halo a 2nd hit before it breaks -
+// same shape as the Warrior's Bulwark shield stage, not a dash
+// charge (the Mage has no dash at all - see getDashSlotCount).
+
 // Sovereign's Scepter (King) - +Sunbeam damage, and a right-
 // click royal barrage: a radial burst of light beams, the
 // King's own laser-wall turned against him.
@@ -794,6 +881,8 @@ const COINS = {
     bloodCleric: 8,
     knight: 75,
     royalMagus: 110,
+    prince: 70,
+    princess: 55,
     king: 150
 };
 
@@ -891,6 +980,24 @@ const SHOP_ITEMS = {
         name: "Forgemaster's Sigil",
         desc: "A broken shield reforges itself after ~11.4s",
         requiresKnightKilled: true,
+        equippable: true
+    },
+
+    twinbladeEcho: {
+        classId: "warrior",
+        price: 620,
+        name: "Twinblade Echo",
+        desc: "Every 3rd sword hit lands a phantom echo strike (+1 dmg)",
+        requiresSiblingsKilled: true,
+        equippable: true
+    },
+
+    siblingsResilience: {
+        classId: "warrior",
+        price: 580,
+        name: "Sibling's Resilience",
+        desc: "Every 4th sword hit grants a brief flicker of invulnerability",
+        requiresSiblingsKilled: true,
         equippable: true
     },
 
@@ -1021,6 +1128,24 @@ const SHOP_ITEMS = {
         equippable: true
     },
 
+    royalVolley: {
+        classId: "ranger",
+        price: 620,
+        name: "Royal Volley",
+        desc: "Every 3rd shot fires a bonus mirrored arrow",
+        requiresSiblingsKilled: true,
+        equippable: true
+    },
+
+    princessFavor: {
+        classId: "ranger",
+        price: 580,
+        name: "Princess's Favor",
+        desc: "Ground slows affect you 40% less",
+        requiresSiblingsKilled: true,
+        equippable: true
+    },
+
     stormpiercer: {
         classId: "ranger",
         price: 750,
@@ -1130,6 +1255,24 @@ const SHOP_ITEMS = {
         equippable: true
     },
 
+    twinstrikeDaggers: {
+        classId: "thief",
+        price: 620,
+        name: "Twinstrike Daggers",
+        desc: "Every 4th dagger swing lands as an instant double-hit",
+        requiresSiblingsKilled: true,
+        equippable: true
+    },
+
+    mirrorCloak: {
+        classId: "thief",
+        price: 580,
+        name: "Mirror Cloak",
+        desc: "Dashing leaves a decoy that detonates a beat later (2 dmg + brief stun)",
+        requiresSiblingsKilled: true,
+        equippable: true
+    },
+
     moonlightDaggers: {
         classId: "thief",
         price: 750,
@@ -1236,6 +1379,24 @@ const SHOP_ITEMS = {
         name: "Corona",
         desc: "A radiant aura burns enemies that close in on you (keep-away)",
         requiresMagusKilled: true,
+        equippable: true
+    },
+
+    twincastPrism: {
+        classId: "mage",
+        price: 620,
+        name: "Twincast Prism",
+        desc: "Every 3rd Sunbeam also fires a second, mirrored beam",
+        requiresSiblingsKilled: true,
+        equippable: true
+    },
+
+    siblingsGrace: {
+        classId: "mage",
+        price: 580,
+        name: "Sibling's Grace",
+        desc: "Halo blocks a 2nd hit before breaking",
+        requiresSiblingsKilled: true,
         equippable: true
     },
 
@@ -1553,6 +1714,8 @@ const ENEMY_LABELS = {
     bloodCleric: "a Blood Cleric",
     knight: "the Knight",
     royalMagus: "the Royal Magus",
+    prince: "the Prince",
+    princess: "the Princess",
     king: "the King"
 
 };
@@ -1824,7 +1987,101 @@ const MAGUS = {
 };
 
 // =====================================
-// King (Wave 20 Boss)
+// The Prince & Princess (Wave 20 Boss)
+// =====================================
+//
+// A linked pair rather than a single boss - the Prince is a
+// close-range brawler, the Princess a far-range support/CC
+// caster who periodically heals and buffs him. Both must die
+// for the wave to clear (see onEnemyKilled in game.js); killing
+// the Princess first denies the sustain but enrages the Prince
+// (see PRINCE.ENRAGE_SPEED_MULT/ENRAGE_COOLDOWN_MULT, applied
+// in prince.js), so there's a real choice either way.
+
+const PRINCE = {
+
+    SIZE: 64,
+    SPEED: 1.5,
+    COLOR: "#7a1f3d",
+
+    // Same wave-scaling scheme as the other bosses.
+    BASE_HP: 60,
+    HP_PER_WAVE: 5,
+
+    // Leap-slam: his gap-closer AND his ranged answer in one -
+    // a telegraphed leap onto the player's current position,
+    // landing in a damaging + knocking-back AOE burst. Used
+    // whenever he's out of cleave range and off cooldown.
+    LEAP_TELEGRAPH_MS: 450,
+    LEAP_SPEED: 8.4,
+    LEAP_DURATION: 40,
+    LEAP_COOLDOWN: 3800,
+    SLAM_RADIUS: 90,
+    SLAM_DAMAGE: 4,
+
+    // Up-close fist cleave once Leap is on cooldown - same
+    // angle-arc hit test as the Knight's sword (see
+    // Knight.checkSwordHit), just shorter reach and a faster
+    // cadence, and drawn as fists rather than a blade.
+    CLEAVE_RANGE: 72,
+    CLEAVE_ARC: Math.PI * 1.1,
+    CLEAVE_DAMAGE: 2,
+    CLEAVE_SWING_MS: 24,
+    CLEAVE_COOLDOWN: 1200,
+
+    // Enrage - flipped once the Princess dies, read live every
+    // time speed/cooldowns are computed (never mutates the base
+    // stat directly, so it can't stack or get stuck).
+    ENRAGE_SPEED_MULT: 1.25,
+    ENRAGE_COOLDOWN_MULT: 0.7
+
+};
+
+const PRINCESS = {
+
+    SIZE: 44,
+    SPEED: 1,
+    COLOR: "#b76e9e",
+
+    BASE_HP: 25,
+    HP_PER_WAVE: 2,
+
+    // Kiting - same preferred-range dance as the Archer/Royal
+    // Magus (see Archer.move()).
+    PREFERRED_RANGE: 380,
+
+    // Weak personal damage - never a solo DPS threat.
+    BOLT_DAMAGE: 1,
+    BOLT_SPEED: 6,
+    BOLT_COOLDOWN: 1800,
+
+    // Slow zone - a growing ground patch (reuses FrostZone's
+    // grow-in mechanic from hazard.js, just with her own
+    // timing/palette so it's parameterized rather than hard-
+    // wired to the Frost Weaver's numbers).
+    ZONE_RADIUS: 130,
+    ZONE_GROW_MS: 600,
+    ZONE_DURATION_MS: 4000,
+    ZONE_COOLDOWN: 4500,
+    ZONE_PALETTE: { fill: "#e0a8cc", rim: "#f5d0e8", spark: "#ffe8f5" },
+
+    // Heal/buff channel on the Prince - her one vulnerability
+    // window (rooted in move(), same as Blood Cleric's tether).
+    // Casts every time it's off cooldown regardless of his
+    // current HP (a no-op heal if he's topped off, but the buff
+    // still lands).
+    HEAL_COOLDOWN: 9000,
+    HEAL_CHANNEL_MS: 1500,
+    HEAL_FRACTION: 0.15,
+    BUFF_DURATION_MS: 6000,
+    BUFF_SPEED_MULT: 1.15,
+    BUFF_COOLDOWN_MULT: 0.8,
+    TETHER_COLOR: "#e8c84a"
+
+};
+
+// =====================================
+// King (Wave 25 Boss)
 // =====================================
 
 const KING = {
@@ -1834,9 +2091,13 @@ const KING = {
     COLOR: "#6a0dad",
 
     // Same wave-scaling scheme as the Castle Guard / Knight:
-    // 30 + 20 x 5 = 130 on his debut wave, growing every cycle
-    // he recurs in Boss Rush / Endless / Custom.
-    BASE_HP: 30,
+    // 5 + 25 x 5 = 130 on his debut wave, growing every cycle
+    // he recurs in Boss Rush / Endless / Custom. BASE_HP was 30
+    // when he debuted at wave 20 - dropped by 25 (5 waves x his
+    // own HP_PER_WAVE) when the Prince & Princess fight pushed
+    // him back to wave 25, so his actual debut power level is
+    // unchanged rather than silently gaining ~19% HP for free.
+    BASE_HP: 5,
     HP_PER_WAVE: 5,
 
     // Reinforcements arrive at this fraction of his max HP
@@ -1939,7 +2200,8 @@ const WAVES = {
     BOSS_WAVE: 5,
     KNIGHT_WAVE: 10,
     MAGUS_WAVE: 15,
-    KING_WAVE: 20,
+    SIBLINGS_WAVE: 20,
+    KING_WAVE: 25,
     BOSS_ESCORT_GRUNTS: 8,
     BOSS_ESCORT_TANKS: 4,
 
@@ -1960,24 +2222,24 @@ const WAVES = {
 // =====================================
 //
 // A menu-only survival mode: play the normal wave progression
-// (bosses recur every 5 waves via a modulo-20 cycle - see
+// (bosses recur every 5 waves via a modulo-25 cycle - see
 // startWave in wave.js) but there is no victory. Past the King
-// (wave 20) the difficulty ramps: every wave beyond 20 adds a
+// (wave 25) the difficulty ramps: every wave beyond that adds a
 // little enemy HP and speed, so how far you get is the score.
 // (Elites follow the same deterministic elite-wave schedule as
 // every other mode - see ELITE.) RAMP_START is WAVES.KING_WAVE.
 
 const ENDLESS = {
 
-    RAMP_START: 20,
+    RAMP_START: WAVES.KING_WAVE,
 
-    // Enemy HP multiplier: +HP_PER_WAVE per wave past 20, on top
-    // of the normal per-wave HP formulas, capped at HP_MAX.
+    // Enemy HP multiplier: +HP_PER_WAVE per wave past RAMP_START,
+    // on top of the normal per-wave HP formulas, capped at HP_MAX.
     HP_PER_WAVE: 0.06,
     HP_MAX: 4.0,
 
     // Enemy speed: added to the flat 1.2 combat multiplier per
-    // wave past 20, capped at SPEED_MAX.
+    // wave past RAMP_START, capped at SPEED_MAX.
     SPEED_PER_WAVE: 0.015,
     SPEED_MAX: 1.9
 
@@ -2060,7 +2322,7 @@ const BESTIARY_BASE_ORDER = [
     "shade", "frostWeaver", "powderKeg", "bloodCleric"
 ];
 
-const BESTIARY_BOSS_ORDER = ["boss", "knight", "royalMagus", "king"];
+const BESTIARY_BOSS_ORDER = ["boss", "knight", "royalMagus", "prince", "princess", "king"];
 
 const BESTIARY = {
 
@@ -2252,6 +2514,32 @@ const BESTIARY = {
         hpAtWave(w) { return MAGUS.BASE_HP + w * MAGUS.HP_PER_WAVE; },
         hpScale: `${MAGUS.BASE_HP} HP, plus ${MAGUS.HP_PER_WAVE} for every wave you've reached`,
         baseSpeed: MAGUS.SPEED
+    },
+
+    prince: {
+        name: "Prince",
+        color: "#7a1f3d",
+        size: 64,
+        isBoss: true,
+        desc: "One of the wave 20 gatekeepers - a linked pair; both must fall.",
+        behavior: "Leaps in with a telegraphed slam, then presses with fast fist strikes up close. Enrages if the Princess dies first.",
+        lore: "The King's heir, blooded in the arena since he could walk. His father taught him the only lesson that mattered: an audience only remembers who was still standing.",
+        hpAtWave(w) { return PRINCE.BASE_HP + w * PRINCE.HP_PER_WAVE; },
+        hpScale: `${PRINCE.BASE_HP} HP, plus ${PRINCE.HP_PER_WAVE} for every wave you've reached`,
+        baseSpeed: PRINCE.SPEED
+    },
+
+    princess: {
+        name: "Princess",
+        color: "#b76e9e",
+        size: 44,
+        isBoss: true,
+        desc: "The other wave 20 gatekeeper - a linked pair; both must fall.",
+        behavior: "Kites at range, drops slowing zones, and periodically heals and empowers the Prince. Rooted while she channels the heal.",
+        lore: "Where her brother learned the sword, she learned the court - poisons, wards, and the patient art of keeping a favorite alive. She has never needed to lift a blade herself, so long as he's still standing.",
+        hpAtWave(w) { return PRINCESS.BASE_HP + w * PRINCESS.HP_PER_WAVE; },
+        hpScale: `${PRINCESS.BASE_HP} HP, plus ${PRINCESS.HP_PER_WAVE} for every wave you've reached`,
+        baseSpeed: PRINCESS.SPEED
     },
 
     king: {

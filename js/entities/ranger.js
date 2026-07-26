@@ -48,11 +48,22 @@ class Ranger extends Player {
         // Serpent Fang venom) - one entry per (enemy, type).
         this.dots = [];
 
+        // Royal Volley - every completed shot increments this.
+        this.bowShotCount = 0;
+
     }
 
     // =====================================
     // Class Hooks
     // =====================================
+
+    getSlowResistance() {
+
+        return Save.isEquipped("princessFavor")
+            ? PRINCESS_FAVOR.SLOW_RESIST
+            : 0;
+
+    }
 
     updateAbilities() {
 
@@ -245,6 +256,8 @@ class Ranger extends Player {
 
         Sound.play("bowShot");
 
+        this.bowShotCount++;
+
         const cx = this.x + this.size / 2;
         const cy = this.y + this.size / 2;
 
@@ -271,6 +284,39 @@ class Ranger extends Player {
 
             const critical = Math.random() < Save.getEquippedCritChance();
             const damage = critical ? baseDamage * 2 : baseDamage;
+
+            Game.projectiles.push(new Projectile(
+
+                cx + Math.cos(angle) * 28,
+                cy + Math.sin(angle) * 28,
+                angle,
+
+                {
+                    owner: "player",
+                    speed: RANGER_BOW.SPEED,
+                    damage: damage,
+                    size: RANGER_BOW.SIZE,
+                    color: storm ? STORMPIERCER.ARROW_COLOR : RANGER_BOW.COLOR,
+                    life: 171,
+                    crit: critical,
+                    isArrow: true,
+                    pierce: pierce
+                }
+
+            ));
+
+        }
+
+        // Royal Volley - every 3rd shot also fires a bonus
+        // arrow mirrored to the opposite side of the aim line.
+        if (
+            Save.isEquipped("royalVolley") &&
+            this.bowShotCount % ROYAL_VOLLEY.TRIGGER_EVERY === 0
+        ) {
+
+            const critical = Math.random() < Save.getEquippedCritChance();
+            const damage = critical ? baseDamage * 2 : baseDamage;
+            const angle = aimAngle + ROYAL_VOLLEY.OFFSET_ANGLE;
 
             Game.projectiles.push(new Projectile(
 

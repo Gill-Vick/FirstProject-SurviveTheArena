@@ -621,25 +621,29 @@ const SHOP_ITEM_IDS = [
     "shield", "bow",
     "wetStone", "circleStrike", "hermesShoes",
     "berserkerMedallion", "forgeSigil",
-    "lightningRing", "windrunnerAnklet", "kingsBlade",
+    "lightningRing", "windrunnerAnklet",
+    "twinbladeEcho", "siblingsResilience", "kingsBlade",
 
     // Ranger
     "bracelet", "dagger", "emberArrows",
     "falconQuiver", "swiftdrawGloves",
     "huntersMark", "galeRecurve",
-    "stormfletch", "cycloneVeil", "stormpiercer",
+    "stormfletch", "cycloneVeil",
+    "royalVolley", "princessFavor", "stormpiercer",
 
     // Thief
     "cloak", "throwingKnife", "thiefsWit",
     "voidEnchant", "masterOfBlade",
     "shadowreachBlades", "pocketWatch",
-    "voltaicFang", "leylineSnare", "moonlightDaggers",
+    "voltaicFang", "leylineSnare",
+    "twinstrikeDaggers", "mirrorCloak", "moonlightDaggers",
 
     // Mage
     "halo", "sunburst", "sunstone",
     "refraction", "amberlightField",
     "radiantOverload", "elementalPrism",
-    "sanctuary", "corona", "sovereignScepter",
+    "sanctuary", "corona",
+    "twincastPrism", "siblingsGrace", "sovereignScepter",
 
     // Shared
     "critRate"
@@ -1447,7 +1451,8 @@ function drawModeSelect() {
         getCampaignCardButton(),
         "CAMPAIGN",
         "Survive wave by wave and face a boss every five - " +
-        "Guard, Knight, Magus, King. Fell the King to win.",
+        "Guard, Knight, Magus, the Prince & Princess, King. " +
+        "Fell the King to win.",
         "lime",
         true
     );
@@ -1455,7 +1460,7 @@ function drawModeSelect() {
     drawModeCard(
         getBossRushCardButton(),
         "BOSS RUSH",
-        "The four bosses back to back, no filler - and the " +
+        "The five bosses back to back, no filler - and the " +
         "cycle repeats, harder each time.",
         "#c0392b",
         true,

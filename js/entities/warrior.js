@@ -41,6 +41,11 @@ class Warrior extends Player {
         this.rageTimer = 0;
         this.rageGainedThisSwing = false;
 
+        // Twinblade Echo / Sibling's Resilience - every completed
+        // swing increments this, same "every Nth swing" shape as
+        // the Thief's Master of the Blade.
+        this.swordSwingCount = 0;
+
         // Forgemaster's Sigil reforge countdown (ms of Game.dt,
         // 0 = not currently reforging).
         this.reforgeTimer = 0;
@@ -569,6 +574,7 @@ class Warrior extends Player {
         Sound.play("swordSwing");
 
         this.rageGainedThisSwing = false;
+        this.swordSwingCount++;
 
         Game.enemies.forEach(enemy => {
 
@@ -658,6 +664,28 @@ class Warrior extends Player {
                 enemy.hitThisSwing = true;
 
                 this.gainRage();
+
+                // Twinblade Echo - every 3rd connecting swing
+                // lands a phantom echo hit on top of the normal
+                // one.
+                if (
+                    Save.isEquipped("twinbladeEcho") &&
+                    this.swordSwingCount % TWINBLADE_ECHO.TRIGGER_EVERY === 0
+                ) {
+                    enemy.takeDamage(TWINBLADE_ECHO.ECHO_DAMAGE);
+                }
+
+                // Sibling's Resilience - every 4th connecting
+                // swing grants a brief invulnerability flicker.
+                if (
+                    Save.isEquipped("siblingsResilience") &&
+                    this.swordSwingCount % SIBLINGS_RESILIENCE.TRIGGER_EVERY === 0
+                ) {
+                    this.invulnTimer = Math.max(
+                        this.invulnTimer,
+                        SIBLINGS_RESILIENCE.INVULN_MS
+                    );
+                }
 
                 if (enemy.isDead())
                     onEnemyKilled(enemy);

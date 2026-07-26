@@ -83,13 +83,26 @@ class FireCast {
 
 class FrostZone {
 
-    constructor(x, y, radius) {
+    // `options` lets other casters (e.g. the Princess - see
+    // princess.js) reuse this same grow-in-then-slow mechanic
+    // with their own timing/palette instead of the Frost
+    // Weaver's. Left undefined, every value defaults to the
+    // Frost Weaver's own constants, so existing callers are
+    // unaffected.
+    constructor(x, y, radius, options = {}) {
 
         this.x = x;
         this.y = y;
         this.maxRadius = radius;
-        this.life = ENEMY_TYPES.frostWeaver.ZONE_DURATION;
+        this.growTime = options.growTime ?? ENEMY_TYPES.frostWeaver.ZONE_GROW_TIME;
+        this.life = options.duration ?? ENEMY_TYPES.frostWeaver.ZONE_DURATION;
         this.age = 0;
+
+        this.palette = options.palette ?? {
+            fill: "#96d7f0",
+            rim: "#c8f0ff",
+            spark: "#dcf5ff"
+        };
 
         // Duck-typed flag read by Player.getFrostMultiplier -
         // avoids instanceof checks across load order.
@@ -99,10 +112,7 @@ class FrostZone {
 
     getRadius() {
 
-        const grow = Math.min(
-            1,
-            this.age / ENEMY_TYPES.frostWeaver.ZONE_GROW_TIME
-        );
+        const grow = Math.min(1, this.age / this.growTime);
 
         return this.maxRadius * grow;
 
@@ -140,8 +150,8 @@ class FrostZone {
 
         // Frozen ground as a pixel patch.
         drawPixelZone(this.x, this.y, radius, {
-            fill: "#96d7f0",
-            rim: "#c8f0ff",
+            fill: this.palette.fill,
+            rim: this.palette.rim,
             fillAlpha: 0.22 * fade * shimmer,
             rimAlpha: 0.55 * fade
         });
@@ -152,7 +162,7 @@ class FrostZone {
 
         ctx.save();
         ctx.globalAlpha = 0.35 * fade;
-        ctx.fillStyle = "#dcf5ff";
+        ctx.fillStyle = this.palette.spark;
 
         for (let i = 0; i < 6; i++) {
 

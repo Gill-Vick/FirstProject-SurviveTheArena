@@ -19,6 +19,8 @@ const ENEMY_CLASSES = {
     bloodCleric: BloodCleric,
     knight: Knight,
     royalMagus: RoyalMagus,
+    prince: Prince,
+    princess: Princess,
     king: King
 
 };
@@ -39,6 +41,8 @@ const SPAWN_GAP = {
     bloodCleric: 900,
     knight: 500,
     royalMagus: 500,
+    prince: 500,
+    princess: 500,
     king: 500
 
 };
@@ -46,7 +50,7 @@ const SPAWN_GAP = {
 // Bosses never roll elite. (Kegs used to be excluded too,
 // but elite kegs now have their own payoff - cluster bombs.)
 const NO_ELITE = new Set([
-    "boss", "knight", "royalMagus", "king"
+    "boss", "knight", "royalMagus", "prince", "princess", "king"
 ]);
 
 // =====================================
@@ -163,21 +167,21 @@ function startWave() {
             : 1;
 
     // Boss Rush skips straight from one boss fight to the next
-    // (Game.wave goes 5, 10, 15, 20, ...); Endless and Custom
+    // (Game.wave goes 5, 10, 15, 20, 25, ...); Endless and Custom
     // play every wave but want the bosses to recur too. All
-    // three fold onto the same 1-20 cycle Campaign uses so they
-    // keep landing on BOSS_WAVE/KNIGHT_WAVE/MAGUS_WAVE/KING_WAVE
-    // (with HP still scaling off the real Game.wave). Campaign
-    // uses the wave as-is, so it stops having bosses after the
-    // King at 20.
+    // three fold onto the same 1-25 cycle Campaign uses so they
+    // keep landing on BOSS_WAVE/KNIGHT_WAVE/MAGUS_WAVE/
+    // SIBLINGS_WAVE/KING_WAVE (with HP still scaling off the
+    // real Game.wave). Campaign uses the wave as-is, so it stops
+    // having bosses after the King at 25.
     const cycleWave =
         (Game.bossRush || Game.mode === "endless" || Game.mode === "custom")
             ? ((Game.wave - 1) % WAVES.KING_WAVE) + 1
             : Game.wave;
 
     const bossWaves = [
-        WAVES.BOSS_WAVE, WAVES.KNIGHT_WAVE,
-        WAVES.MAGUS_WAVE, WAVES.KING_WAVE
+        WAVES.BOSS_WAVE, WAVES.KNIGHT_WAVE, WAVES.MAGUS_WAVE,
+        WAVES.SIBLINGS_WAVE, WAVES.KING_WAVE
     ];
 
     Sound.play(bossWaves.includes(cycleWave) ? "bossSpawn" : "waveStart");
@@ -201,6 +205,14 @@ function startWave() {
     if (cycleWave === WAVES.MAGUS_WAVE) {
 
         startMagusWave();
+
+        return;
+
+    }
+
+    if (cycleWave === WAVES.SIBLINGS_WAVE) {
+
+        startSiblingsWave();
 
         return;
 
@@ -538,6 +550,38 @@ function spawnMagusEscort(type, side, frac) {
 
 }
 
+// =====================================
+// The Prince & Princess (wave 20)
+// =====================================
+//
+// A linked pair rather than a single boss - both spawn together,
+// each rolling its own random edge (see spawnEnemy()), so they
+// don't stack on top of each other. The wave itself needs no
+// special "both must die" handling: updateWave() already waits
+// for Game.enemies to empty, and both-must-die's ONLY other job -
+// gating the requiresSiblingsKilled shop tier - lives in
+// onEnemyKilled (game.js).
+
+function startSiblingsWave() {
+
+    Game.enemiesRemaining = 2;
+
+    const token = Game.runToken;
+
+    setTimeout(() => {
+
+        if (Game.runToken !== token || !isRunActive())
+            return;
+
+        spawnEnemy("prince");
+        spawnEnemy("princess");
+
+        Game.waveSpawning = false;
+
+    }, 600);
+
+}
+
 function startKingWave() {
 
     Game.enemiesRemaining = 1;
@@ -701,6 +745,12 @@ function getEnemySize(type) {
 
     if (type === "royalMagus")
         return MAGUS.SIZE;
+
+    if (type === "prince")
+        return PRINCE.SIZE;
+
+    if (type === "princess")
+        return PRINCESS.SIZE;
 
     if (type === "king")
         return KING.SIZE;

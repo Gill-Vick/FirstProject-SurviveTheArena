@@ -93,6 +93,7 @@ class Mage extends Player {
         this.wardReady = true;
         this.wardWavesLeft = 0;
         this.lastSeenWave = Game.wave;
+        this.wardCharges = this.getMaxWardCharges();
 
         // Corona aura tick.
         this.coronaTimer = 0;
@@ -146,17 +147,35 @@ class Mage extends Player {
 
     onSecondaryFire() { this.fireBarrage(); }
 
-    // The Halo ward soaks one hit, then goes on cooldown. This
-    // is the Mage's entire survivability (no dodge, no phase).
+    // Sibling's Grace - same shape as the Warrior's Bulwark
+    // shield stage (a 2nd hit before it actually breaks), not a
+    // charge in the dash-slot sense (the Mage has no dash at
+    // all - see getDashSlotCount).
+    getMaxWardCharges() {
+
+        return Save.isEquipped("siblingsGrace") ? 2 : 1;
+
+    }
+
+    // The Halo ward soaks one hit, then (once every charge is
+    // spent) goes on cooldown. This is the Mage's entire
+    // survivability (no dodge, no phase).
     absorbHit() {
 
         if (!Save.isEquipped("halo") || !this.wardReady)
             return false;
 
-        this.wardReady = false;
-        this.wardWavesLeft =
-            HALO.RECHARGE_WAVES[Save.equippedHaloStage] ??
-            HALO.RECHARGE_WAVES[1];
+        this.wardCharges--;
+
+        if (this.wardCharges <= 0) {
+
+            this.wardReady = false;
+            this.wardWavesLeft =
+                HALO.RECHARGE_WAVES[Save.equippedHaloStage] ??
+                HALO.RECHARGE_WAVES[1];
+
+        }
+
         this.invulnTimer = Math.max(this.invulnTimer, HALO.BLOCK_INVULN_MS);
 
         Sound.play("haloBreak");
@@ -206,8 +225,12 @@ class Mage extends Player {
 
                 this.wardWavesLeft--;
 
-                if (this.wardWavesLeft <= 0)
+                if (this.wardWavesLeft <= 0) {
+
                     this.wardReady = true;
+                    this.wardCharges = this.getMaxWardCharges();
+
+                }
 
             }
 
@@ -327,6 +350,20 @@ class Mage extends Player {
             (this.sunbeamCastCount % RADIANT_OVERLOAD.EVERY === 0);
 
         this.fireSunbeamAt(t.x, t.y, overloaded);
+
+        // Twincast Prism - every 3rd cast also fires a second
+        // beam at the point mirrored through the caster.
+        if (
+            Save.isEquipped("twincastPrism") &&
+            this.sunbeamCastCount % TWINCAST_PRISM.EVERY === 0
+        ) {
+
+            const cx = this.x + this.size / 2;
+            const cy = this.y + this.size / 2;
+
+            this.fireSunbeamAt(2 * cx - t.x, 2 * cy - t.y, false);
+
+        }
 
         this.sunbeamCooldowns[idx] = this.getSunbeamCooldown();
 

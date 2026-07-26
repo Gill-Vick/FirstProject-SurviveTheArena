@@ -224,18 +224,32 @@ class Thief extends Player {
 
     onDash(dx, dy, startX, startY) {
 
-        if (!Save.isEquipped("cloak"))
-            return;
+        if (Save.isEquipped("cloak")) {
 
-        const stage = Math.min(3, Save.equippedCloakStage);
+            const stage = Math.min(3, Save.equippedCloakStage);
 
-        if (stage < 1)
-            return;
+            if (stage >= 1) {
 
-        this.invulnTimer = Math.max(this.invulnTimer, CLOAK.PHASE_MS[stage]);
+                this.invulnTimer = Math.max(this.invulnTimer, CLOAK.PHASE_MS[stage]);
 
-        if (stage >= 3)
-            this.phantomStrike(dx, dy, startX, startY);
+                if (stage >= 3)
+                    this.phantomStrike(dx, dy, startX, startY);
+
+            }
+
+        }
+
+        // Mirror Cloak - an independent item, not a Cloak stage:
+        // every dash also leaves a decoy at the start point (see
+        // MirrorDecoy below).
+        if (Save.isEquipped("mirrorCloak")) {
+
+            Game.hazards.push(new MirrorDecoy(
+                startX + this.size / 2,
+                startY + this.size / 2
+            ));
+
+        }
 
     }
 
@@ -389,6 +403,18 @@ class Thief extends Player {
                 firstHit = enemy;
 
             this.onHitLanded(enemy, damage);
+
+            // Twinstrike Daggers - every 4th connecting swing
+            // lands as an instant double-hit, same damage.
+            if (
+                Save.isEquipped("twinstrikeDaggers") &&
+                this.daggerSwingCount % TWINSTRIKE_DAGGERS.TRIGGER_EVERY === 0
+            ) {
+
+                enemy.takeDamage(damage, critical);
+                this.onHitLanded(enemy, damage);
+
+            }
 
             if (enemy.isDead())
                 onEnemyKilled(enemy);
@@ -1215,6 +1241,89 @@ class LeylineVortex {
         ctx.drawImage(bmp, -(r + pad), -(r + pad));
         ctx.restore();
         ctx.globalAlpha = 1;
+
+    }
+
+}
+
+// =====================================
+// Mirror Cloak - decoy detonation
+// =====================================
+//
+// Left at the dash's start point (see Thief.onDash). Ticks down
+// silently, then bursts - damaging and briefly paralyzing
+// (Enemy.applyStun) anything still nearby. Same Game.hazards
+// lifecycle shape as MeteorStrike's telegraph-then-impact (see
+// royalMagus.js), just without needing a falling-object visual
+// since it's already sitting where it will go off.
+
+class MirrorDecoy {
+
+    constructor(x, y) {
+
+        this.x = x;
+        this.y = y;
+        this.timer = MIRROR_CLOAK.DETONATE_MS;
+        this.detonated = false;
+
+    }
+
+    update() {
+
+        this.timer -= Game.dt;
+
+        if (this.timer > 0 || this.detonated)
+            return;
+
+        this.detonated = true;
+
+        Game.enemies.forEach(enemy => {
+
+            const ex = enemy.x + enemy.size / 2;
+            const ey = enemy.y + enemy.size / 2;
+
+            if (Math.hypot(ex - this.x, ey - this.y) > MIRROR_CLOAK.RADIUS)
+                return;
+
+            enemy.takeDamage(MIRROR_CLOAK.DAMAGE);
+            enemy.applyStun(MIRROR_CLOAK.STUN_MS);
+
+            if (enemy.isDead())
+                onEnemyKilled(enemy);
+
+        });
+
+        Game.screenShake = Math.max(Game.screenShake ?? 0, 10);
+        Particle.createHitBurst(this.x, this.y);
+
+    }
+
+    isDead() {
+
+        return this.detonated;
+
+    }
+
+    draw() {
+
+        const progress = 1 - this.timer / MIRROR_CLOAK.DETONATE_MS;
+        const alpha = 0.3 + Math.sin(Date.now() / 50) * 0.15;
+
+        // A ghostly standing silhouette that brightens as the
+        // detonation nears.
+        drawPixelBody(this.x, this.y, THIEF_DAGGER.RANGE, {
+            color: MIRROR_CLOAK.COLOR,
+            glow: 10 + progress * 14,
+            glowColor: MIRROR_CLOAK.COLOR
+        });
+
+        // Blast radius telegraph, filling in as it charges.
+        drawPixelZone(this.x, this.y, MIRROR_CLOAK.RADIUS * (0.3 + progress * 0.7), {
+            fill: MIRROR_CLOAK.COLOR,
+            rim: "#ead4ff",
+            fillAlpha: alpha * 0.2,
+            rimAlpha: alpha * 0.5
+        });
 
     }
 

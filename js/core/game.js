@@ -441,6 +441,35 @@ function onEnemyKilled(enemy) {
     if (enemy.type === "royalMagus")
         Save.markMagusKilled();
 
+    if (enemy.type === "prince" || enemy.type === "princess") {
+
+        // Killing the Princess first denies the Prince his
+        // sustain but enrages him - a real cost either way (see
+        // Prince.enrage() in prince.js).
+        if (enemy.type === "princess") {
+
+            const prince = Game.enemies.find(
+                e => e.type === "prince" && !e.isDead()
+            );
+
+            if (prince)
+                prince.enrage();
+
+        }
+
+        // The wave/unlock only counts once BOTH siblings are
+        // down - both are still in Game.enemies at this point
+        // (cleanup happens later in the frame), so this is safe
+        // to check from whichever one just died.
+        const anySiblingAlive = Game.enemies.some(e =>
+            (e.type === "prince" || e.type === "princess") && !e.isDead()
+        );
+
+        if (!anySiblingAlive)
+            Save.markSiblingsKilled();
+
+    }
+
     if (enemy.type === "king") {
 
         Save.markKingKilled();
