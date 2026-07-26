@@ -135,7 +135,7 @@ const FORGE_SIGIL = {
 // Windrunner Anklet (shop item)
 // =====================================
 //
-// Unlocked by defeating the Knight - a flat, always-on
+// Unlocked by defeating the Royal Magus - a flat, always-on
 // movement speed boost. Helps with kiting/repositioning
 // around the King's laser sweeps and sword lunges.
 
@@ -144,22 +144,23 @@ const WINDRUNNER = {
 };
 
 // =====================================
-// Knight's Locket (shop item)
+// Lightning Ring (shop item)
 // =====================================
 //
-// Also unlocked by defeating the Knight - each successful
-// player hit (sword, bow, King's Blade laser) has a chance to
-// charm the enemy it lands on, silencing its attack() for
-// CHARM.DURATION_MS. Repeatable purchase, same idea as
-// critRate: base chance on first purchase, +1% per upgrade
-// after that, capped at CHARM.MAX. The King is immune (see
-// King.charmImmune), same treatment as knockback immunity.
+// Replaces the old Knight's Locket, and moved up a tier
+// alongside it - also Royal-Magus-gated. Charges the Warrior's
+// dash with the Magus' own lightning: the dash travels further,
+// and anything it passes through takes a jolt of damage and is
+// paralyzed for a moment, unable to move or attack. The King and
+// the Royal Magus shrug it off (see King/RoyalMagus.stunImmune),
+// same treatment as knockback/lightning immunity.
 
-const CHARM = {
-    DURATION_MS: 2143,
-    BASE: 0.05,
-    PER_UPGRADE: 0.01,
-    MAX: 0.10
+const LIGHTNING_RING = {
+    DASH_DISTANCE_MULTIPLIER: 1.4,
+    DASH_DAMAGE: 1,
+    STUN_MS: 1000,
+    DASH_HIT_WIDTH: 50,
+    COLOR: "#8fd6ff"
 };
 
 // =====================================
@@ -733,7 +734,7 @@ const ELEMENTAL_PRISM = {
     // Ice half. The field outlives the strike, denying that
     // ground and dragging anything standing in it to
     // SLOW_FACTOR of its normal speed (bosses shrug it off,
-    // same as knockback/charm).
+    // same as knockback/stun).
     ICE_RADIUS_MULT: 1.15,
     ICE_DURATION_MS: 4000,
     ICE_TICK_MS: 700,
@@ -902,27 +903,21 @@ const SHOP_ITEMS = {
         equippable: true
     },
 
-    knightLocket: {
+    lightningRing: {
         classId: "warrior",
-        get price() {
-            return 120 + Save.knightLocketLevel * 60;
-        },
-        get name() {
-            return "Knight's Locket";
-        },
-        get desc() {
-            return `${Math.round(Save.getCharmChance() * 100)}% chance to charm enemies for ~2.1s (silences their attack)`;
-        },
-        requiresKnightKilled: true,
-        repeatable: true
+        price: 400,
+        name: "Lightning Ring",
+        desc: "Dash goes further - passes through enemies for 1 dmg + a brief paralyze",
+        requiresMagusKilled: true,
+        equippable: true
     },
 
     windrunnerAnklet: {
         classId: "warrior",
-        price: 220,
+        price: 380,
         name: "Windrunner Anklet",
         desc: "+20% movement speed",
-        requiresKnightKilled: true,
+        requiresMagusKilled: true,
         equippable: true
     },
 

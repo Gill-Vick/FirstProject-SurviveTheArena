@@ -101,10 +101,11 @@ class Enemy {
 
         this.flashTimer = 0;
 
-        // Knight's Locket - see applyCharm(). 0 = not charmed.
-        // charmImmune can be set true by subclasses (e.g. King)
-        // to opt out entirely, same pattern as knockbackImmune.
-        this.charmTimer = 0;
+        // Lightning Ring - see applyStun(). 0 = not paralyzed.
+        // stunImmune can be set true by subclasses (e.g. King,
+        // Royal Magus) to opt out entirely, same pattern as
+        // knockbackImmune.
+        this.stunTimer = 0;
 
         // Blood Cleric heal channel - re-asserted every frame
         // by the channeling cleric, so it expires on its own
@@ -145,8 +146,8 @@ class Enemy {
         if (this.flashTimer > 0)
             this.flashTimer -= Game.timeScale;
 
-        if (this.charmTimer > 0)
-            this.charmTimer -= Game.dt;
+        if (this.stunTimer > 0)
+            this.stunTimer -= Game.dt;
 
         if (this.healShieldTimer > 0)
             this.healShieldTimer -= Game.dt;
@@ -164,18 +165,19 @@ class Enemy {
         const preX = this.x;
         const preY = this.y;
 
-        this.move();
+        // Paralyzed enemies are locked down entirely - no
+        // movement, no attack, no contact damage - for the
+        // duration (see applyStun / Lightning Ring).
+        if (this.stunTimer <= 0) {
 
-        if (this.chillTimer > 0) {
+            this.move();
 
-            this.x = preX + (this.x - preX) * ELEMENTAL_PRISM.ICE_SLOW_FACTOR;
-            this.y = preY + (this.y - preY) * ELEMENTAL_PRISM.ICE_SLOW_FACTOR;
+            if (this.chillTimer > 0) {
 
-        }
+                this.x = preX + (this.x - preX) * ELEMENTAL_PRISM.ICE_SLOW_FACTOR;
+                this.y = preY + (this.y - preY) * ELEMENTAL_PRISM.ICE_SLOW_FACTOR;
 
-        // Charmed enemies can still move, but can't attack or
-        // deal contact damage for the duration.
-        if (this.charmTimer <= 0) {
+            }
 
             this.attack();
 
@@ -185,17 +187,17 @@ class Enemy {
 
     }
 
-    // Rolled by the player's Knight's Locket on hit. No-op
-    // against charm-immune enemies (King). Re-applying while
-    // already charmed just refreshes to the fresh duration
+    // Rolled by the player's Lightning Ring dash. No-op against
+    // stun-immune enemies (King, Royal Magus). Re-applying while
+    // already paralyzed just refreshes to the fresh duration
     // rather than stacking.
 
-    applyCharm(durationMs) {
+    applyStun(durationMs) {
 
-        if (this.charmImmune)
+        if (this.stunImmune)
             return;
 
-        this.charmTimer = Math.max(this.charmTimer, durationMs);
+        this.stunTimer = Math.max(this.stunTimer, durationMs);
 
     }
 
@@ -426,8 +428,8 @@ class Enemy {
         if (this.isElite)
             this.drawEliteRing();
 
-        if (this.charmTimer > 0)
-            this.drawCharmIndicator();
+        if (this.stunTimer > 0)
+            this.drawStunIndicator();
 
         if (this.wardShield)
             this.drawWardShield();
@@ -587,20 +589,20 @@ class Enemy {
 
     }
 
-    // Small heart icon above the enemy while charmed - offset
+    // Small spark icon above the enemy while paralyzed - offset
     // to the upper-right corner rather than dead-center so it
     // doesn't collide with boss name labels drawn there.
 
-    drawCharmIndicator() {
+    drawStunIndicator() {
 
         ctx.save();
 
-        ctx.fillStyle = "#ff69b4";
+        ctx.fillStyle = "#8fd6ff";
         ctx.font = "bold 16px Arial";
         ctx.textAlign = "center";
 
         ctx.fillText(
-            "💗",
+            "⚡",
             this.x + this.size + 6,
             this.y - 2
         );

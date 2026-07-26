@@ -104,8 +104,6 @@ const Game = {
 
     shopCritDragging: false,
 
-    shopLocketDragging: false,
-
     // Which staged item's stage picker is being dragged
     // (item id string), or null. See handleMenuMouseDown.
     shopStageDragging: null,

@@ -65,6 +65,11 @@ class Player {
     // reduced by the Thief's Cloak).
     getDashCooldown() { return DASH.COOLDOWN; }
 
+    // Flat multiplier on dash distance (e.g. the Warrior's
+    // Lightning Ring). Applies to every charge, including the
+    // 2nd Hermes Shoes charge's own reduced distance.
+    getDashDistanceMultiplier() { return 1; }
+
     // Per-frame kit updates (weapon cooldowns, DoTs, etc.) -
     // runs between updateDash() and updateInvuln().
     updateAbilities() {}
@@ -375,7 +380,9 @@ class Player {
             const dashDistance =
                 (i === 1
                     ? DASH.DISTANCE * 0.6
-                    : DASH.DISTANCE) * this.getFrostMultiplier();
+                    : DASH.DISTANCE) *
+                this.getFrostMultiplier() *
+                this.getDashDistanceMultiplier();
 
             const startX = this.x;
             const startY = this.y;

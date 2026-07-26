@@ -49,10 +49,6 @@ const Save = {
 
     equippedBowStage: 0,
 
-    knightLocketLevel: 0,
-
-    equippedKnightLocketLevel: 0,
-
     // Ranger staged items - same shape as shield/bow above.
     daggerStage: 0,
 
@@ -90,6 +86,7 @@ const Save = {
         forgeSigil: false,
         kingsBlade: false,
         windrunnerAnklet: false,
+        lightningRing: false,
         cloak: false,
         dagger: false,
         emberArrows: false,
@@ -132,6 +129,7 @@ const Save = {
         forgeSigil: false,
         kingsBlade: false,
         windrunnerAnklet: false,
+        lightningRing: false,
         cloak: false,
         dagger: false,
         emberArrows: false,
@@ -200,8 +198,6 @@ const Save = {
             this.equippedShieldStage = data.equippedShieldStage ?? this.shieldStage;
             this.bowStage = data.bowStage ?? 0;
             this.equippedBowStage = data.equippedBowStage ?? this.bowStage;
-            this.knightLocketLevel = data.knightLocketLevel ?? 0;
-            this.equippedKnightLocketLevel = data.equippedKnightLocketLevel ?? this.knightLocketLevel;
             this.cloakStage = data.cloakStage ?? 0;
             this.equippedCloakStage = data.equippedCloakStage ?? this.cloakStage;
             this.daggerStage = data.daggerStage ?? 0;
@@ -300,8 +296,6 @@ const Save = {
             equippedShieldStage: this.equippedShieldStage,
             bowStage: this.bowStage,
             equippedBowStage: this.equippedBowStage,
-            knightLocketLevel: this.knightLocketLevel,
-            equippedKnightLocketLevel: this.equippedKnightLocketLevel,
             cloakStage: this.cloakStage,
             equippedCloakStage: this.equippedCloakStage,
             daggerStage: this.daggerStage,
@@ -513,9 +507,6 @@ const Save = {
         if (item.repeatable && itemId === "critRate" && this.getCritChance() >= CRIT.MAX)
             return "Maxed out";
 
-        if (item.repeatable && itemId === "knightLocket" && this.getCharmChance() >= CHARM.MAX)
-            return "Maxed out";
-
         if (!this.canAfford(item.price))
             return "Not enough coins";
 
@@ -554,21 +545,13 @@ const Save = {
 
         if (item.repeatable) {
 
-            if (itemId === "knightLocket") {
+            // critRate is the only repeatable item left (see
+            // getCritChance) - Knight's Locket, the other one,
+            // was replaced by the equippable Lightning Ring.
+            this.critRateLevel++;
 
-                this.knightLocketLevel++;
-
-                if (this.equippedKnightLocketLevel < this.knightLocketLevel)
-                    this.equippedKnightLocketLevel = this.knightLocketLevel;
-
-            } else {
-
-                this.critRateLevel++;
-
-                if (this.equippedCritLevel < this.critRateLevel)
-                    this.equippedCritLevel = this.critRateLevel;
-
-            }
+            if (this.equippedCritLevel < this.critRateLevel)
+                this.equippedCritLevel = this.critRateLevel;
 
         } else if (itemId === "bow") {
 
@@ -738,17 +721,6 @@ const Save = {
 
     },
 
-    setEquippedKnightLocketLevel(level) {
-
-        this.equippedKnightLocketLevel = Math.max(
-            0,
-            Math.min(this.knightLocketLevel, Math.floor(level))
-        );
-
-        this.persist();
-
-    },
-
     getCritChance() {
 
         return Math.min(
@@ -763,36 +735,6 @@ const Save = {
         return Math.min(
             CRIT.MAX,
             CRIT.BASE + this.equippedCritLevel * CRIT.PER_UPGRADE
-        );
-
-    },
-
-    // Knight's Locket - unlike crit (which has an inherent 5%
-    // baseline even at level 0), charm chance is 0 until the
-    // locket is actually purchased. The first purchase grants
-    // the base 5%, each one after that is a +1% upgrade, up to
-    // CHARM.MAX.
-
-    getCharmChance() {
-
-        if (this.knightLocketLevel <= 0)
-            return 0;
-
-        return Math.min(
-            CHARM.MAX,
-            CHARM.BASE + (this.knightLocketLevel - 1) * CHARM.PER_UPGRADE
-        );
-
-    },
-
-    getEquippedCharmChance() {
-
-        if (this.equippedKnightLocketLevel <= 0)
-            return 0;
-
-        return Math.min(
-            CHARM.MAX,
-            CHARM.BASE + (this.equippedKnightLocketLevel - 1) * CHARM.PER_UPGRADE
         );
 
     },

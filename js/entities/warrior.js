@@ -2,9 +2,9 @@
 // Warrior Class
 // =====================================
 //
-// The game's original kit, unchanged - sword swing, the
-// purchasable shortbow item, shield line, King's Blade
-// laser, Knight's Locket charm rolls. Everything that used
+// The game's original kit - sword swing, the purchasable
+// shortbow item, shield line, King's Blade laser, the
+// Lightning Ring's dash-through paralyze. Everything that used
 // to live directly on Player before playable classes were
 // introduced.
 
@@ -71,6 +71,14 @@ class Warrior extends Player {
 
     }
 
+    getDashDistanceMultiplier() {
+
+        return Save.isEquipped("lightningRing")
+            ? LIGHTNING_RING.DASH_DISTANCE_MULTIPLIER
+            : 1;
+
+    }
+
     updateAbilities() {
 
         this.updateBow();
@@ -102,9 +110,12 @@ class Warrior extends Player {
 
     }
 
-    onProjectileHit(enemy) {
+    onDash(dx, dy, startX, startY) {
 
-        this.tryCharmOnHit(enemy);
+        if (!Save.isEquipped("lightningRing"))
+            return;
+
+        this.lightningStrike(dx, dy, startX, startY);
 
     }
 
@@ -247,25 +258,56 @@ class Warrior extends Player {
     }
 
     // =====================================
-    // Knight's Locket
+    // Lightning Ring
     // =====================================
     //
-    // Rolled once per successful hit landed on an enemy, from
-    // any of the player's damage sources (sword, bow, King's
-    // Blade laser - see attackEnemies(), fireKingsBladeLaser(),
-    // and projectile.js's player-owned collision check). No-op
-    // if the locket hasn't been purchased, or against a
-    // charm-immune enemy (see King.charmImmune).
+    // Fires once per dash while equipped - anything the
+    // lengthened dash passes through takes a jolt of damage and
+    // is paralyzed (see Enemy.applyStun), the same swept-rectangle
+    // hit test as the Thief's Phantom Cloak dash-through.
 
-    tryCharmOnHit(enemy) {
+    lightningStrike(dx, dy, startX, startY) {
 
-        const chance = Save.getEquippedCharmChance();
+        const cx = startX + this.size / 2;
+        const cy = startY + this.size / 2;
 
-        if (chance <= 0)
-            return;
+        const length = Math.hypot(this.x - startX, this.y - startY);
+        const halfWidth = LIGHTNING_RING.DASH_HIT_WIDTH / 2;
 
-        if (Math.random() < chance)
-            enemy.applyCharm(CHARM.DURATION_MS);
+        const angle = Math.atan2(dy, dx);
+        const cos = Math.cos(-angle);
+        const sin = Math.sin(-angle);
+
+        Game.enemies.forEach(enemy => {
+
+            const ex = enemy.x + enemy.size / 2;
+            const ey = enemy.y + enemy.size / 2;
+
+            const relX = ex - cx;
+            const relY = ey - cy;
+
+            const localX = relX * cos - relY * sin;
+            const localY = relX * sin + relY * cos;
+
+            const pad = enemy.size / 2;
+
+            if (
+
+                localX >= -pad &&
+                localX <= length + pad &&
+                Math.abs(localY) <= halfWidth + pad
+
+            ) {
+
+                enemy.takeDamage(LIGHTNING_RING.DASH_DAMAGE);
+                enemy.applyStun(LIGHTNING_RING.STUN_MS);
+
+                if (enemy.isDead())
+                    onEnemyKilled(enemy);
+
+            }
+
+        });
 
     }
 
@@ -498,8 +540,6 @@ class Warrior extends Player {
 
                 enemy.applyKnockback(cx, cy, critical ? 11.2 : 8.4);
 
-                this.tryCharmOnHit(enemy);
-
                 if (enemy.isDead())
                     onEnemyKilled(enemy);
 
@@ -618,8 +658,6 @@ class Warrior extends Player {
                 enemy.hitThisSwing = true;
 
                 this.gainRage();
-
-                this.tryCharmOnHit(enemy);
 
                 if (enemy.isDead())
                     onEnemyKilled(enemy);

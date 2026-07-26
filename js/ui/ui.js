@@ -621,7 +621,7 @@ const SHOP_ITEM_IDS = [
     "shield", "bow",
     "wetStone", "circleStrike", "hermesShoes",
     "berserkerMedallion", "forgeSigil",
-    "knightLocket", "windrunnerAnklet", "kingsBlade",
+    "lightningRing", "windrunnerAnklet", "kingsBlade",
 
     // Ranger
     "bracelet", "dagger", "emberArrows",
@@ -811,8 +811,8 @@ function getShopEquipButton(index) {
 
 }
 
-// Repeatable items (crit, locket) show a level slider instead
-// of an equip button. It sits in the row's right-hand control
+// Repeatable items (crit) show a level slider instead of an
+// equip button. It sits in the row's right-hand control
 // area - just left of the Buy plate, where the equip button
 // would otherwise be - and vertically centred, so it no longer
 // runs across the item's own price line on the left.
@@ -1333,33 +1333,6 @@ function critLevelFromSliderX(slider, x) {
 
 }
 
-function drawLocketSlider(slider, value, maxLevel) {
-
-    const equippedPct = Math.round(Save.getEquippedCharmChance() * 100);
-    const maxPct = Math.round(Save.getCharmChance() * 100);
-
-    drawLevelSlider(
-        slider,
-        maxLevel > 0 ? value / maxLevel : 0,
-        `CHARM ${equippedPct}% / ${maxPct}%`,
-        "#ff69b4"
-    );
-
-}
-
-function locketLevelFromSliderX(slider, x) {
-
-    const maxLevel = Save.knightLocketLevel;
-
-    if (maxLevel <= 0)
-        return 0;
-
-    const pct = Math.max(0, Math.min(1, (x - slider.x) / slider.width));
-
-    return Math.round(pct * maxLevel);
-
-}
-
 // =====================================
 // Menu
 // =====================================
@@ -1739,13 +1712,6 @@ function drawShop() {
 
         }
 
-        if (item.repeatable && id === "knightLocket") {
-
-            const slider = getShopCritSlider(i);
-            drawLocketSlider(slider, Save.equippedKnightLocketLevel, Save.knightLocketLevel);
-
-        }
-
         if (item.equippable && Save.owns(id)) {
 
             const equipped = Save.isEquipped(id);
@@ -1762,7 +1728,6 @@ function drawShop() {
 
         const maxed =
             (item.repeatable && id === "critRate" && Save.getCritChance() >= CRIT.MAX) ||
-            (item.repeatable && id === "knightLocket" && Save.getCharmChance() >= CHARM.MAX) ||
             (staged && Save.getStage(id) >= Save.getMaxStage(id));
 
         if (owned) {
@@ -2879,9 +2844,6 @@ function handleMenuClick(x, y) {
             if (id === "critRate" && item.repeatable && hitRect(getShopCritSlider(i), x, y))
                 Save.setEquippedCritLevel(critLevelFromSliderX(getShopCritSlider(i), x));
 
-            if (id === "knightLocket" && item.repeatable && hitRect(getShopCritSlider(i), x, y))
-                Save.setEquippedKnightLocketLevel(locketLevelFromSliderX(getShopCritSlider(i), x));
-
         });
 
         return;
@@ -2990,15 +2952,6 @@ function handleMenuMouseMove(x, y) {
         }
     }
 
-    if (Game.shopLocketDragging) {
-        const locketIndex = itemIds.indexOf("knightLocket");
-        if (locketIndex >= 0) {
-            Save.setEquippedKnightLocketLevel(
-                locketLevelFromSliderX(getShopCritSlider(locketIndex), x)
-            );
-        }
-    }
-
 }
 
 function handleMenuMouseDown(x, y) {
@@ -3029,18 +2982,12 @@ function handleMenuMouseDown(x, y) {
 
     });
 
-    const locketIndex = itemIds.indexOf("knightLocket");
-    if (locketIndex >= 0 && hitRect(getShopCritSlider(locketIndex), x, y)) {
-        Game.shopLocketDragging = true;
-    }
-
 }
 
 function handleMenuMouseUp() {
 
     Game.shopCritDragging = false;
     Game.shopStageDragging = null;
-    Game.shopLocketDragging = false;
 
     // Releasing a volume slider plays a click at the new
     // settings - instant "this is how loud that is" feedback.

@@ -230,11 +230,11 @@ class Projectile {
 
                 enemy.applyKnockback(px, py, 7);
 
-                // On-hit effects (Warrior charm rolls, Ranger
-                // burns/marks, Thief's Wit/Void Enchant). Most
-                // classes only need the enemy; `dealt` is there
-                // for hooks that care how much landed (e.g. the
-                // Thief's Void Enchant, which stores it).
+                // On-hit effects (Ranger burns/marks, Thief's
+                // Wit/Void Enchant). Most classes only need the
+                // enemy; `dealt` is there for hooks that care how
+                // much landed (e.g. the Thief's Void Enchant,
+                // which stores it).
                 if (player)
                     player.onProjectileHit(enemy, dealt);
 
