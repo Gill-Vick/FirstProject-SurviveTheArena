@@ -307,36 +307,47 @@ class Ranger extends Player {
 
         }
 
-        // Royal Volley - every 3rd shot also fires a bonus
-        // arrow mirrored to the opposite side of the aim line.
+        // Royal Volley - every 4th shot unleashes a wide burst
+        // of extra arrows on top of the normal shot(s) already
+        // fired above, so it reads as a real special going off.
         if (
             Save.isEquipped("royalVolley") &&
             this.bowShotCount % ROYAL_VOLLEY.TRIGGER_EVERY === 0
         ) {
 
-            const critical = Math.random() < Save.getEquippedCritChance();
-            const damage = critical ? baseDamage * 2 : baseDamage;
-            const angle = aimAngle + ROYAL_VOLLEY.OFFSET_ANGLE;
+            const burstStart = aimAngle - ROYAL_VOLLEY.BURST_SPREAD / 2;
+            const burstStep = ROYAL_VOLLEY.BURST_SPREAD / (ROYAL_VOLLEY.BURST_COUNT - 1);
 
-            Game.projectiles.push(new Projectile(
+            for (let i = 0; i < ROYAL_VOLLEY.BURST_COUNT; i++) {
 
-                cx + Math.cos(angle) * 28,
-                cy + Math.sin(angle) * 28,
-                angle,
+                const angle = burstStart + i * burstStep;
 
-                {
-                    owner: "player",
-                    speed: RANGER_BOW.SPEED,
-                    damage: damage,
-                    size: RANGER_BOW.SIZE,
-                    color: storm ? STORMPIERCER.ARROW_COLOR : RANGER_BOW.COLOR,
-                    life: 171,
-                    crit: critical,
-                    isArrow: true,
-                    pierce: pierce
-                }
+                const critical = Math.random() < Save.getEquippedCritChance();
+                const damage = critical ? baseDamage * 2 : baseDamage;
 
-            ));
+                Game.projectiles.push(new Projectile(
+
+                    cx + Math.cos(angle) * 28,
+                    cy + Math.sin(angle) * 28,
+                    angle,
+
+                    {
+                        owner: "player",
+                        speed: RANGER_BOW.SPEED,
+                        damage: damage,
+                        size: RANGER_BOW.SIZE,
+                        color: storm ? STORMPIERCER.ARROW_COLOR : RANGER_BOW.COLOR,
+                        life: 171,
+                        crit: critical,
+                        isArrow: true,
+                        pierce: pierce
+                    }
+
+                ));
+
+            }
+
+            Sound.play("bowShot");
 
         }
 

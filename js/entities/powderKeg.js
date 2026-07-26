@@ -94,8 +94,10 @@ class PowderKeg extends Enemy {
         if (this.fusing)
             return;
 
-        const dx = player.x + player.size / 2 - (this.x + this.size / 2);
-        const dy = player.y + player.size / 2 - (this.y + this.size / 2);
+        const target = getAggroSource(this);
+
+        const dx = target.x + target.size / 2 - (this.x + this.size / 2);
+        const dy = target.y + target.size / 2 - (this.y + this.size / 2);
 
         const dist = Math.sqrt(dx * dx + dy * dy);
 

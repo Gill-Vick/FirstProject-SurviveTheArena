@@ -205,6 +205,18 @@ const Game = {
 
     hazards: [],
 
+    // The Thief's Mirror Cloak decoy currently drawing non-boss
+    // aggro (see getAggroSource() in enemy.js), or null. Owned
+    // by the MirrorDecoy hazard itself (thief.js) - set on
+    // spawn, cleared on detonation.
+    tauntDecoy: null,
+
+    // The Prince & Princess fight's one-time 50% sacrifice phase
+    // (see SIBLINGS_PHASE2 in constants.js) - 1 until the
+    // combined-hp threshold is crossed, then 2 forever. Reset by
+    // startSiblingsWave() in wave.js.
+    siblingsPhase: 1,
+
     // Red warning circles shown ~0.7s before a summoned enemy
     // (necromancer skeletons, king reinforcements) actually
     // appears - see SpawnWarning below.
@@ -456,6 +468,17 @@ function onEnemyKilled(enemy) {
                 prince.enrage();
 
         }
+
+        // If the PRINCE dies first while still in phase 1, the
+        // whole sacrifice premise (her healing him) is moot -
+        // there's no one left for her floor to be protecting.
+        // Lift it immediately so the wave can still be cleared
+        // (see Princess.takeDamage's phase-1 floor in
+        // princess.js) rather than leaving her stuck at 1hp
+        // forever with nothing left alive to trigger the normal
+        // 50%-combined-hp transition.
+        if (enemy.type === "prince" && Game.siblingsPhase === 1)
+            Game.siblingsPhase = 2;
 
         // The wave/unlock only counts once BOTH siblings are
         // down - both are still in Game.enemies at this point

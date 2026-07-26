@@ -51,9 +51,26 @@ class Prince extends Enemy {
         this.cleaveProgress = 0;
         this.cleaveCooldown = 0;
         this.cleaveHitPlayer = false;
+        this.cleaveIsFinisher = false;
+
+        // Fury Combo - 2 cleaves landed within COMBO_WINDOW_MS
+        // of each other turns the 3rd into a bigger Finisher.
+        this.cleaveCombo = 0;
+        this.comboTimer = 0;
+
+        // Battle Roar - independent self-buff lane, parallel to
+        // leap/cleave (same idea as Royal Magus running his
+        // skill rotation alongside the lightning shower).
+        this.roarCooldown = PRINCE.ROAR_COOLDOWN * 0.5;
+        this.roarTimer = 0;
 
         // Enrage - flipped once, never reverts (see enrage()).
         this.enraged = false;
+
+        // Phase 2 - flipped once by the Princess's 50% sacrifice
+        // (see enterPhase2(), checkPhaseTransition() in
+        // princess.js). Also permanent, also never reverts.
+        this.phase2 = false;
 
         // Princess's heal/buff window (see princess.js's heal
         // channel and applySiblingBuff() below) - a temporary
@@ -86,12 +103,54 @@ class Prince extends Enemy {
 
     }
 
+    // Called once by the Princess's checkPhaseTransition() when
+    // the siblings' combined hp crosses the 50% threshold. Same
+    // one-time-mutation shape as enrage() - permanent, additive
+    // with it if both happen to land.
+    enterPhase2() {
+
+        if (this.phase2)
+            return;
+
+        this.phase2 = true;
+        this.speed *= SIBLINGS_PHASE2.PRINCE_SPEED_MULT;
+
+    }
+
     getCooldownMultiplier() {
 
-        let mult = this.enraged ? PRINCE.ENRAGE_COOLDOWN_MULT : 1;
+        let mult = 1;
+
+        if (this.enraged)
+            mult *= PRINCE.ENRAGE_COOLDOWN_MULT;
+
+        if (this.phase2)
+            mult *= SIBLINGS_PHASE2.PRINCE_COOLDOWN_MULT;
 
         if (this.buffTimer > 0)
             mult *= PRINCESS.BUFF_COOLDOWN_MULT;
+
+        if (this.roarTimer > 0)
+            mult *= PRINCE.ROAR_COOLDOWN_MULT;
+
+        return mult;
+
+    }
+
+    // Combined TEMPORARY speed multiplier (buff + roar) - unlike
+    // enrage/phase2, these expire, so they can't just mutate
+    // this.speed permanently; applied as a post-hoc scale on
+    // however far move() actually travelled this frame (same
+    // trick the base Enemy class uses for the chill slow).
+    getTempSpeedMultiplier() {
+
+        let mult = 1;
+
+        if (this.buffTimer > 0)
+            mult *= PRINCESS.BUFF_SPEED_MULT;
+
+        if (this.roarTimer > 0)
+            mult *= PRINCE.ROAR_SPEED_MULT;
 
         return mult;
 
@@ -131,19 +190,22 @@ class Prince extends Enemy {
         if (this.cleaving)
             return;
 
-        // Princess's buff scales however far the chase actually
-        // travelled this frame - same after-the-fact trick the
-        // base Enemy class uses for the chill slow, just scaling
-        // up instead of down.
-        if (this.buffTimer > 0) {
+        // Temporary buffs (Princess's heal-buff, his own Battle
+        // Roar) scale however far the chase actually travelled
+        // this frame - same after-the-fact trick the base Enemy
+        // class uses for the chill slow, just scaling up instead
+        // of down.
+        const tempMult = this.getTempSpeedMultiplier();
+
+        if (tempMult !== 1) {
 
             const preX = this.x;
             const preY = this.y;
 
             super.move();
 
-            this.x = preX + (this.x - preX) * PRINCESS.BUFF_SPEED_MULT;
-            this.y = preY + (this.y - preY) * PRINCESS.BUFF_SPEED_MULT;
+            this.x = preX + (this.x - preX) * tempMult;
+            this.y = preY + (this.y - preY) * tempMult;
 
             return;
 
@@ -167,6 +229,33 @@ class Prince extends Enemy {
 
         if (this.buffTimer > 0)
             this.buffTimer -= Game.dt;
+
+        if (this.roarTimer > 0)
+            this.roarTimer -= Game.dt;
+
+        if (this.comboTimer > 0)
+            this.comboTimer -= Game.dt;
+        else
+            this.cleaveCombo = 0;
+
+        // Battle Roar - an independent lane, off cooldown
+        // whenever, regardless of the leap/cleave state machine
+        // below (same "runs in parallel" idea as Royal Magus'
+        // nova check).
+        if (this.roarCooldown > 0) {
+
+            this.roarCooldown -= Game.dt;
+
+        } else {
+
+            this.roarTimer = PRINCE.ROAR_DURATION_MS;
+            this.roarCooldown = PRINCE.ROAR_COOLDOWN * this.getCooldownMultiplier();
+
+            Game.screenShake = Math.max(Game.screenShake ?? 0, 10);
+            Particle.createHitBurst(this.x + this.size / 2, this.y + this.size / 2);
+            Sound.play("bossSlam");
+
+        }
 
         if (this.leapCharge > 0) {
 
@@ -225,6 +314,16 @@ class Prince extends Enemy {
             this.cleaveCooldown <= 0 &&
             distance <= PRINCE.CLEAVE_RANGE + 20
         ) {
+
+            // Fury Combo - the 3rd cleave within the window is a
+            // bigger Finisher, then the count resets.
+            this.cleaveCombo++;
+            this.comboTimer = PRINCE.COMBO_WINDOW_MS;
+
+            this.cleaveIsFinisher = this.cleaveCombo >= 3;
+
+            if (this.cleaveIsFinisher)
+                this.cleaveCombo = 0;
 
             this.cleaveAngle = Math.atan2(dy, dx);
             this.cleaving = true;
@@ -297,7 +396,7 @@ class Prince extends Enemy {
             return;
 
         const angleToPlayer = Math.atan2(dy, dx);
-        const arc = PRINCE.CLEAVE_ARC;
+        const arc = this.cleaveIsFinisher ? PRINCE.FINISHER_ARC : PRINCE.CLEAVE_ARC;
 
         const currentAngle =
             this.cleaveAngle - arc / 2 + arc * this.cleaveProgress;
@@ -336,17 +435,29 @@ class Prince extends Enemy {
 
     drawLabel() {
 
-        const label = this.enraged
-            ? "PRINCE (ENRAGED)"
-            : this.buffTimer > 0
-                ? "PRINCE (BUFFED)"
-                : "PRINCE";
+        const tag = this.enraged
+            ? "ENRAGED"
+            : this.roarTimer > 0
+                ? "ROARING"
+                : this.buffTimer > 0
+                    ? "BUFFED"
+                    : null;
+
+        const label = [
+            "PRINCE",
+            this.phase2 ? "PHASE 2" : null,
+            tag
+        ].filter(Boolean).join(" - ");
 
         const color = this.enraged
             ? "#ff5a3d"
-            : this.buffTimer > 0
-                ? "#e8c84a"
-                : "#e0a0c0";
+            : this.roarTimer > 0
+                ? "#ff8a3d"
+                : this.buffTimer > 0
+                    ? "#e8c84a"
+                    : this.phase2
+                        ? "#ff5a3d"
+                        : "#e0a0c0";
 
         drawPixelText(
             label,
@@ -390,25 +501,29 @@ class Prince extends Enemy {
 
     drawCleave() {
 
-        const arc = PRINCE.CLEAVE_ARC;
+        const arc = this.cleaveIsFinisher ? PRINCE.FINISHER_ARC : PRINCE.CLEAVE_ARC;
         const currentAngle =
             this.cleaveAngle - arc / 2 + arc * this.cleaveProgress;
+
+        const halfWidth = this.cleaveIsFinisher ? 0.7 : 0.4;
 
         ctx.save();
 
         ctx.translate(this.x + this.size / 2, this.y + this.size / 2);
 
-        ctx.fillStyle = "rgba(255, 90, 130, 0.55)";
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = "#ff5a82";
+        ctx.fillStyle = this.cleaveIsFinisher
+            ? "rgba(255, 140, 60, 0.65)"
+            : "rgba(255, 90, 130, 0.55)";
+        ctx.shadowBlur = this.cleaveIsFinisher ? 18 : 10;
+        ctx.shadowColor = this.cleaveIsFinisher ? "#ff8c3c" : "#ff5a82";
 
         ctx.beginPath();
         ctx.moveTo(0, 0);
         ctx.arc(
             0, 0,
             PRINCE.CLEAVE_RANGE,
-            currentAngle - 0.4,
-            currentAngle + 0.4
+            currentAngle - halfWidth,
+            currentAngle + halfWidth
         );
         ctx.closePath();
         ctx.fill();

@@ -65,20 +65,26 @@ const SWORD = {
 // Twinblade Echo (offense) / Sibling's Resilience (survival) -
 // twin-motif pair, one tier below King's Blade.
 
+// Twinblade Echo - every 2nd connecting swing detonates a full
+// phantom shockwave around the Warrior, hitting EVERY nearby
+// enemy (not just whoever the live swing already connected
+// with) for solid damage - a real AOE nova, not a quiet tack-on.
 const TWINBLADE_ECHO = {
-    // Every 3rd connecting sword swing lands a phantom echo hit
-    // on top of the normal one - same "every Nth swing" shape
-    // as the Thief's Master of the Blade.
-    TRIGGER_EVERY: 3,
-    ECHO_DAMAGE: 1
+    TRIGGER_EVERY: 2,
+    ECHO_DAMAGE: 3,
+    ECHO_RADIUS: 130,
+    COLOR: "#7a1f3d"
 };
 
+// Sibling's Resilience - every 2nd connecting swing grants a
+// solid invulnerability window AND a burst of Empowered damage
+// on top of it - resilience earned through pressing the attack,
+// since this game has no HP pool to lifesteal into.
 const SIBLINGS_RESILIENCE = {
-    // Every 4th connecting swing grants a brief invulnerability
-    // flicker - resilience earned through pressing the attack,
-    // since this game has no HP pool to lifesteal into.
-    TRIGGER_EVERY: 4,
-    INVULN_MS: 300
+    TRIGGER_EVERY: 2,
+    INVULN_MS: 600,
+    EMPOWER_MS: 2500,
+    EMPOWER_DAMAGE_BONUS: 3
 };
 
 const KINGS_BLADE = {
@@ -359,11 +365,15 @@ const CYCLONE_VEIL = {
 // Royal Volley (offense) / Princess's Favor (survival) -
 // twin-motif pair, one tier below Stormpiercer.
 
+// Royal Volley - every 4th shot is replaced by a full burst
+// volley: a wide fan of arrows launched at once, not just the
+// usual single (or Gale-Recurve-fanned) shot. Distinct from Gale
+// Recurve's permanent small fan - this is an occasional, much
+// bigger spread that reads as a real "special" going off.
 const ROYAL_VOLLEY = {
-    // Every 3rd bow shot also fires one bonus arrow mirrored to
-    // the opposite side of the aim line.
-    TRIGGER_EVERY: 3,
-    OFFSET_ANGLE: 0.35
+    TRIGGER_EVERY: 4,
+    BURST_COUNT: 7,
+    BURST_SPREAD: Math.PI * 0.5
 };
 
 const PRINCESS_FAVOR = {
@@ -597,20 +607,31 @@ const LEYLINE_SNARE = {
 // Twinstrike Daggers (offense) / Mirror Cloak (utility) - twin-
 // motif pair, one tier below Moonlight Daggers.
 
-const TWINSTRIKE_DAGGERS = {
-    // Every 4th connecting dagger swing lands as an immediate
-    // double-hit - same damage, same target(s), no extra cost.
-    TRIGGER_EVERY: 4
+// Shadow Twin - replaces the old Twinstrike Daggers (a flat
+// "hit the same target twice" proc, which read as weak and
+// invisible). Every 3rd swing, a shadow clone erupts at the
+// mirrored point behind the Thief and slashes a wide independent
+// burst of its own - real added coverage (catches whatever the
+// live swing didn't), not just doubled damage on one target.
+const SHADOW_TWIN = {
+    TRIGGER_EVERY: 3,
+    DAMAGE: 2,
+    RADIUS: 100,
+    MIRROR_DISTANCE: 70,
+    FX_DURATION_MS: 260,
+    COLOR: "#c9a6ff"
 };
 
 const MIRROR_CLOAK = {
-    // A decoy left at the dash's start point, detonating a beat
-    // later - damages and briefly paralyzes anything still
-    // nearby. (Actual enemy-AI aggro redirection would mean
-    // touching every enemy's targeting code across the whole
-    // roster, so the "decoy" pays off as a delayed trap instead
-    // of a taunt - same payoff, contained blast radius.)
-    DETONATE_MS: 500,
+    // A real decoy left at the dash's start point - every
+    // non-boss enemy paths/aims at it instead of the real player
+    // for as long as it stands (see getAggroSource() in
+    // enemy.js), then it detonates: damages and briefly
+    // paralyzes anything still nearby. Bosses always see
+    // through it (a decoy trick trivializing a boss fight would
+    // undercut the point of the fight).
+    SIZE: 30, // a little smaller than the player (PLAYER.SIZE 40)
+    TAUNT_MS: 1400,
     RADIUS: 90,
     DAMAGE: 2,
     STUN_MS: 500,
@@ -987,7 +1008,7 @@ const SHOP_ITEMS = {
         classId: "warrior",
         price: 620,
         name: "Twinblade Echo",
-        desc: "Every 3rd sword hit lands a phantom echo strike (+1 dmg)",
+        desc: "Every 2nd sword hit detonates a 3 dmg phantom shockwave around you",
         requiresSiblingsKilled: true,
         equippable: true
     },
@@ -996,7 +1017,7 @@ const SHOP_ITEMS = {
         classId: "warrior",
         price: 580,
         name: "Sibling's Resilience",
-        desc: "Every 4th sword hit grants a brief flicker of invulnerability",
+        desc: "Every 2nd sword hit grants invulnerability + empowers your next swings (+3 dmg)",
         requiresSiblingsKilled: true,
         equippable: true
     },
@@ -1132,7 +1153,7 @@ const SHOP_ITEMS = {
         classId: "ranger",
         price: 620,
         name: "Royal Volley",
-        desc: "Every 3rd shot fires a bonus mirrored arrow",
+        desc: "Every 4th shot unleashes a 7-arrow burst volley instead",
         requiresSiblingsKilled: true,
         equippable: true
     },
@@ -1255,11 +1276,11 @@ const SHOP_ITEMS = {
         equippable: true
     },
 
-    twinstrikeDaggers: {
+    shadowTwin: {
         classId: "thief",
         price: 620,
-        name: "Twinstrike Daggers",
-        desc: "Every 4th dagger swing lands as an instant double-hit",
+        name: "Shadow Twin",
+        desc: "Every 3rd swing, a shadow clone erupts behind you in a 2 dmg AOE burst",
         requiresSiblingsKilled: true,
         equippable: true
     },
@@ -2000,84 +2021,146 @@ const MAGUS = {
 
 const PRINCE = {
 
-    SIZE: 64,
-    SPEED: 1.5,
+    SIZE: 72,
+    SPEED: 1.7,
     COLOR: "#7a1f3d",
 
-    // Same wave-scaling scheme as the other bosses.
-    BASE_HP: 60,
-    HP_PER_WAVE: 5,
+    // Same wave-scaling scheme as the other bosses. Debuts at
+    // 100 + 20*7 = 240 HP.
+    BASE_HP: 100,
+    HP_PER_WAVE: 7,
 
     // Leap-slam: his gap-closer AND his ranged answer in one -
     // a telegraphed leap onto the player's current position,
-    // landing in a damaging + knocking-back AOE burst. Used
-    // whenever he's out of cleave range and off cooldown.
-    LEAP_TELEGRAPH_MS: 450,
-    LEAP_SPEED: 8.4,
-    LEAP_DURATION: 40,
-    LEAP_COOLDOWN: 3800,
-    SLAM_RADIUS: 90,
-    SLAM_DAMAGE: 4,
+    // landing in a damaging AOE burst. Used whenever he's out
+    // of cleave range and off cooldown. (No numeric damage here
+    // or below - contact with the player is a binary takeHit()
+    // in this game, not a variable damage amount; what actually
+    // makes a hit scarier is reach/arc/frequency.)
+    LEAP_TELEGRAPH_MS: 400,
+    LEAP_SPEED: 9.5,
+    LEAP_DURATION: 36,
+    LEAP_COOLDOWN: 2800,
+    SLAM_RADIUS: 110,
 
     // Up-close fist cleave once Leap is on cooldown - same
     // angle-arc hit test as the Knight's sword (see
     // Knight.checkSwordHit), just shorter reach and a faster
     // cadence, and drawn as fists rather than a blade.
-    CLEAVE_RANGE: 72,
+    CLEAVE_RANGE: 78,
     CLEAVE_ARC: Math.PI * 1.1,
-    CLEAVE_DAMAGE: 2,
-    CLEAVE_SWING_MS: 24,
-    CLEAVE_COOLDOWN: 1200,
+    CLEAVE_SWING_MS: 22,
+    CLEAVE_COOLDOWN: 850,
+
+    // Fury Combo - land 2 cleaves within COMBO_WINDOW_MS of each
+    // other and the 3rd is a bigger, wider Finisher instead. The
+    // combo resets if the window lapses without a landed hit.
+    COMBO_WINDOW_MS: 2500,
+    FINISHER_ARC: Math.PI * 1.7,
+
+    // Battle Roar - an independent self-buff on its own
+    // cooldown (parallel to leap/cleave, same shape as Royal
+    // Magus running skills alongside his lightning shower):
+    // a temporary speed + attack-speed surge, so the fight has
+    // a second escalating rhythm besides the leap/cleave loop.
+    ROAR_COOLDOWN: 6500,
+    ROAR_DURATION_MS: 2500,
+    ROAR_SPEED_MULT: 1.3,
+    ROAR_COOLDOWN_MULT: 0.75,
+    ROAR_COLOR: "#ff5a3d",
 
     // Enrage - flipped once the Princess dies, read live every
     // time speed/cooldowns are computed (never mutates the base
     // stat directly, so it can't stack or get stuck).
-    ENRAGE_SPEED_MULT: 1.25,
-    ENRAGE_COOLDOWN_MULT: 0.7
+    ENRAGE_SPEED_MULT: 1.35,
+    ENRAGE_COOLDOWN_MULT: 0.55
 
 };
 
 const PRINCESS = {
 
-    SIZE: 44,
+    SIZE: 48,
     SPEED: 1,
     COLOR: "#b76e9e",
 
-    BASE_HP: 25,
-    HP_PER_WAVE: 2,
+    // Debuts at 45 + 20*3 = 105 HP.
+    BASE_HP: 45,
+    HP_PER_WAVE: 3,
 
     // Kiting - same preferred-range dance as the Archer/Royal
     // Magus (see Archer.move()).
-    PREFERRED_RANGE: 380,
+    PREFERRED_RANGE: 400,
 
-    // Weak personal damage - never a solo DPS threat.
-    BOLT_DAMAGE: 1,
-    BOLT_SPEED: 6,
-    BOLT_COOLDOWN: 1800,
+    // Personal damage - still not a solo DPS threat, but no
+    // longer a total non-event either.
+    BOLT_DAMAGE: 2,
+    BOLT_SPEED: 7,
+    BOLT_COOLDOWN: 1300,
+
+    // Volley - an independent lane (parallel to the single
+    // bolt): periodically fires a 3-bolt spread instead.
+    VOLLEY_COOLDOWN: 5000,
+    VOLLEY_COUNT: 3,
+    VOLLEY_SPREAD: 0.5,
 
     // Slow zone - a growing ground patch (reuses FrostZone's
     // grow-in mechanic from hazard.js, just with her own
     // timing/palette so it's parameterized rather than hard-
     // wired to the Frost Weaver's numbers).
-    ZONE_RADIUS: 130,
+    ZONE_RADIUS: 150,
     ZONE_GROW_MS: 600,
     ZONE_DURATION_MS: 4000,
-    ZONE_COOLDOWN: 4500,
+    ZONE_COOLDOWN: 4000,
     ZONE_PALETTE: { fill: "#e0a8cc", rim: "#f5d0e8", spark: "#ffe8f5" },
+
+    // Binding Curse - a new, independent lane: a telegraphed
+    // hard root (distinct from the slow zone) on anyone caught
+    // when the telegraph resolves. Real variation, not just a
+    // bigger slow.
+    CURSE_COOLDOWN: 6500,
+    CURSE_TELEGRAPH_MS: 700,
+    CURSE_ROOT_MS: 900,
+    CURSE_RANGE: 340,
+    CURSE_COLOR: "#8e4fc9",
 
     // Heal/buff channel on the Prince - her one vulnerability
     // window (rooted in move(), same as Blood Cleric's tether).
     // Casts every time it's off cooldown regardless of his
     // current HP (a no-op heal if he's topped off, but the buff
     // still lands).
-    HEAL_COOLDOWN: 9000,
+    HEAL_COOLDOWN: 7000,
     HEAL_CHANNEL_MS: 1500,
-    HEAL_FRACTION: 0.15,
-    BUFF_DURATION_MS: 6000,
-    BUFF_SPEED_MULT: 1.15,
-    BUFF_COOLDOWN_MULT: 0.8,
+    HEAL_FRACTION: 0.2,
+    BUFF_DURATION_MS: 7000,
+    BUFF_SPEED_MULT: 1.3,
+    BUFF_COOLDOWN_MULT: 0.6,
     TETHER_COLOR: "#e8c84a"
 
+};
+
+// =====================================
+// Siblings Phase 2 - the 50% sacrifice
+// =====================================
+//
+// Tracked per-fight in Game.siblingsPhase (reset to 1 by
+// startSiblingsWave() in wave.js). While phase 1, the Princess's
+// takeDamage() floors her hp at 1 (see princess.js) - she can be
+// battered down but not actually killed yet. The moment their
+// COMBINED current hp drops to TRIGGER_HP_FRACTION of their
+// combined max hp (checked every frame in Princess.attack() -
+// since her hp is floored, this is really driven by how much the
+// Prince himself has been damaged), the transition fires ONCE:
+// she pours her remaining life into him (healing him up to
+// PRINCE_HEAL_TO_FRACTION of his own max hp) and loses her floor
+// for good - one more hit ends her from here on. Both siblings
+// also get a permanent phase-2 escalation on top of whatever
+// enrage/roar/buff timers happen to be running.
+
+const SIBLINGS_PHASE2 = {
+    TRIGGER_HP_FRACTION: 0.5,
+    PRINCE_HEAL_TO_FRACTION: 0.5,
+    PRINCE_SPEED_MULT: 1.2,
+    PRINCE_COOLDOWN_MULT: 0.75
 };
 
 // =====================================
@@ -2519,10 +2602,10 @@ const BESTIARY = {
     prince: {
         name: "Prince",
         color: "#7a1f3d",
-        size: 64,
+        size: 72,
         isBoss: true,
         desc: "One of the wave 20 gatekeepers - a linked pair; both must fall.",
-        behavior: "Leaps in with a telegraphed slam, then presses with fast fist strikes up close. Enrages if the Princess dies first.",
+        behavior: "Leaps in with a telegraphed slam, then presses with fast fist strikes up close - chain 3 cleaves and the last one is a bigger Finisher. Roars periodically for a speed/haste surge. Enrages if the Princess dies first.",
         lore: "The King's heir, blooded in the arena since he could walk. His father taught him the only lesson that mattered: an audience only remembers who was still standing.",
         hpAtWave(w) { return PRINCE.BASE_HP + w * PRINCE.HP_PER_WAVE; },
         hpScale: `${PRINCE.BASE_HP} HP, plus ${PRINCE.HP_PER_WAVE} for every wave you've reached`,
@@ -2532,10 +2615,10 @@ const BESTIARY = {
     princess: {
         name: "Princess",
         color: "#b76e9e",
-        size: 44,
+        size: 48,
         isBoss: true,
         desc: "The other wave 20 gatekeeper - a linked pair; both must fall.",
-        behavior: "Kites at range, drops slowing zones, and periodically heals and empowers the Prince. Rooted while she channels the heal.",
+        behavior: "Kites at range, peppers bolts and volleys, drops slowing zones, and casts a telegraphed root. Periodically heals and empowers the Prince - rooted while she channels it. Once the pair's combined hp drops to half, she pours the rest of herself into him and can finally be killed.",
         lore: "Where her brother learned the sword, she learned the court - poisons, wards, and the patient art of keeping a favorite alive. She has never needed to lift a blade herself, so long as he's still standing.",
         hpAtWave(w) { return PRINCESS.BASE_HP + w * PRINCESS.HP_PER_WAVE; },
         hpScale: `${PRINCESS.BASE_HP} HP, plus ${PRINCESS.HP_PER_WAVE} for every wave you've reached`,

@@ -244,9 +244,11 @@ class Thief extends Player {
         // MirrorDecoy below).
         if (Save.isEquipped("mirrorCloak")) {
 
+            // Centered on the same footprint the Thief just
+            // stood in, even though the decoy itself is smaller.
             Game.hazards.push(new MirrorDecoy(
-                startX + this.size / 2,
-                startY + this.size / 2
+                startX + (this.size - MIRROR_CLOAK.SIZE) / 2,
+                startY + (this.size - MIRROR_CLOAK.SIZE) / 2
             ));
 
         }
@@ -404,18 +406,6 @@ class Thief extends Player {
 
             this.onHitLanded(enemy, damage);
 
-            // Twinstrike Daggers - every 4th connecting swing
-            // lands as an instant double-hit, same damage.
-            if (
-                Save.isEquipped("twinstrikeDaggers") &&
-                this.daggerSwingCount % TWINSTRIKE_DAGGERS.TRIGGER_EVERY === 0
-            ) {
-
-                enemy.takeDamage(damage, critical);
-                this.onHitLanded(enemy, damage);
-
-            }
-
             if (enemy.isDead())
                 onEnemyKilled(enemy);
 
@@ -436,6 +426,16 @@ class Thief extends Player {
             this.daggerSwingCount % MASTER_OF_BLADE.TRIGGER_EVERY === 0
         ) {
             this.triggerStormBurst();
+        }
+
+        // Shadow Twin - every 3rd swing (whether it connected or
+        // not) erupts a clone at the mirrored point behind the
+        // Thief, independently hitting anyone caught there.
+        if (
+            Save.isEquipped("shadowTwin") &&
+            this.daggerSwingCount % SHADOW_TWIN.TRIGGER_EVERY === 0
+        ) {
+            this.triggerShadowTwin();
         }
 
     }
@@ -810,6 +810,52 @@ class Thief extends Player {
 
         if (firstHit && Save.isEquipped("voltaicFang"))
             this.arcFang(firstHit);
+
+    }
+
+    // =====================================
+    // Shadow Twin
+    // =====================================
+    //
+    // Every 3rd swing, a clone erupts at the point mirrored
+    // behind the Thief (opposite the swing's facing angle) and
+    // slashes a wide burst of its own - real added coverage
+    // (whatever the live swing missed, standing behind you),
+    // not just a repeated hit on the same target.
+
+    triggerShadowTwin() {
+
+        const px = this.x + this.size / 2;
+        const py = this.y + this.size / 2;
+
+        const angle = this.daggerAngle + Math.PI;
+
+        const cx = px + Math.cos(angle) * SHADOW_TWIN.MIRROR_DISTANCE;
+        const cy = py + Math.sin(angle) * SHADOW_TWIN.MIRROR_DISTANCE;
+
+        Game.enemies.forEach(enemy => {
+
+            const ex = enemy.x + enemy.size / 2;
+            const ey = enemy.y + enemy.size / 2;
+
+            if (Math.hypot(ex - cx, ey - cy) > SHADOW_TWIN.RADIUS)
+                return;
+
+            const critical = Math.random() < Save.getEquippedCritChance();
+            const damage = critical ? SHADOW_TWIN.DAMAGE * 2 : SHADOW_TWIN.DAMAGE;
+
+            enemy.takeDamage(damage, critical);
+            enemy.applyKnockback(cx, cy, critical ? 11.2 : 8.4);
+
+            this.onHitLanded(enemy, damage);
+
+            if (enemy.isDead())
+                onEnemyKilled(enemy);
+
+        });
+
+        Sound.play("daggerSwing");
+        Game.hazards.push(new ShadowTwinFx(cx, cy, angle));
 
     }
 
@@ -1259,12 +1305,22 @@ class LeylineVortex {
 
 class MirrorDecoy {
 
+    // x, y are top-left, same convention as the player - so
+    // getAggroSource() can hand this straight to any enemy's
+    // targeting code in place of `player` with no shape
+    // mismatch.
     constructor(x, y) {
 
         this.x = x;
         this.y = y;
-        this.timer = MIRROR_CLOAK.DETONATE_MS;
+        this.size = MIRROR_CLOAK.SIZE;
+        this.timer = MIRROR_CLOAK.TAUNT_MS;
         this.detonated = false;
+
+        // Every non-boss enemy's move()/attack() now sees THIS
+        // instead of the real player (see getAggroSource in
+        // enemy.js) for as long as it's the active decoy.
+        Game.tauntDecoy = this;
 
     }
 
@@ -1277,12 +1333,18 @@ class MirrorDecoy {
 
         this.detonated = true;
 
+        if (Game.tauntDecoy === this)
+            Game.tauntDecoy = null;
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
         Game.enemies.forEach(enemy => {
 
             const ex = enemy.x + enemy.size / 2;
             const ey = enemy.y + enemy.size / 2;
 
-            if (Math.hypot(ex - this.x, ey - this.y) > MIRROR_CLOAK.RADIUS)
+            if (Math.hypot(ex - cx, ey - cy) > MIRROR_CLOAK.RADIUS)
                 return;
 
             enemy.takeDamage(MIRROR_CLOAK.DAMAGE);
@@ -1294,7 +1356,7 @@ class MirrorDecoy {
         });
 
         Game.screenShake = Math.max(Game.screenShake ?? 0, 10);
-        Particle.createHitBurst(this.x, this.y);
+        Particle.createHitBurst(cx, cy);
 
     }
 
@@ -1306,24 +1368,93 @@ class MirrorDecoy {
 
     draw() {
 
-        const progress = 1 - this.timer / MIRROR_CLOAK.DETONATE_MS;
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        const progress = 1 - this.timer / MIRROR_CLOAK.TAUNT_MS;
         const alpha = 0.3 + Math.sin(Date.now() / 50) * 0.15;
 
-        // A ghostly standing silhouette that brightens as the
-        // detonation nears.
-        drawPixelBody(this.x, this.y, THIEF_DAGGER.RANGE, {
+        // A ghostly standing silhouette, a little smaller than
+        // the player, that brightens as the detonation nears.
+        drawPixelBody(cx, cy, this.size, {
             color: MIRROR_CLOAK.COLOR,
             glow: 10 + progress * 14,
             glowColor: MIRROR_CLOAK.COLOR
         });
 
         // Blast radius telegraph, filling in as it charges.
-        drawPixelZone(this.x, this.y, MIRROR_CLOAK.RADIUS * (0.3 + progress * 0.7), {
+        drawPixelZone(cx, cy, MIRROR_CLOAK.RADIUS * (0.3 + progress * 0.7), {
             fill: MIRROR_CLOAK.COLOR,
             rim: "#ead4ff",
             fillAlpha: alpha * 0.2,
             rimAlpha: alpha * 0.5
         });
+
+    }
+
+}
+
+// =====================================
+// Shadow Twin - clone burst FX
+// =====================================
+//
+// Visual only (damage is dealt in Thief.triggerShadowTwin): a
+// dark clone silhouette flashes in at the mirrored point and
+// slashes a wide arc, then dissolves. Same brief one-shot
+// lifecycle as VoltaicArc.
+
+class ShadowTwinFx {
+
+    constructor(x, y, angle) {
+
+        this.x = x;
+        this.y = y;
+        this.angle = angle;
+        this.life = SHADOW_TWIN.FX_DURATION_MS;
+        this.maxLife = SHADOW_TWIN.FX_DURATION_MS;
+
+    }
+
+    update() {
+        this.life -= Game.dt;
+    }
+
+    isDead() {
+        return this.life <= 0;
+    }
+
+    draw() {
+
+        const fade = Math.max(0, this.life / this.maxLife);
+        const progress = 1 - fade;
+
+        ctx.save();
+        ctx.globalAlpha = fade;
+
+        // Clone silhouette - reuses the player-sized pixel body
+        // blitter, tinted shadow-purple.
+        drawPixelBody(this.x, this.y, PLAYER.SIZE, {
+            color: SHADOW_TWIN.COLOR,
+            glow: 16,
+            glowColor: SHADOW_TWIN.COLOR
+        });
+
+        // Wide slash wedge, sweeping out as it fades.
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+
+        ctx.fillStyle = `rgba(201, 166, 255, ${0.6 * fade})`;
+        ctx.shadowBlur = 14;
+        ctx.shadowColor = SHADOW_TWIN.COLOR;
+
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, SHADOW_TWIN.RADIUS * (0.5 + progress * 0.5), -0.9, 0.9);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+        ctx.globalAlpha = 1;
 
     }
 

@@ -636,7 +636,7 @@ const SHOP_ITEM_IDS = [
     "voidEnchant", "masterOfBlade",
     "shadowreachBlades", "pocketWatch",
     "voltaicFang", "leylineSnare",
-    "twinstrikeDaggers", "mirrorCloak", "moonlightDaggers",
+    "shadowTwin", "mirrorCloak", "moonlightDaggers",
 
     // Mage
     "halo", "sunburst", "sunstone",

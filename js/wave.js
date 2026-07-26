@@ -565,6 +565,7 @@ function spawnMagusEscort(type, side, frac) {
 function startSiblingsWave() {
 
     Game.enemiesRemaining = 2;
+    Game.siblingsPhase = 1;
 
     const token = Game.runToken;
 

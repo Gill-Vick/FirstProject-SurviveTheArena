@@ -44,8 +44,10 @@ class Archer extends Enemy {
 
     move() {
 
-        const dx = player.x - this.x;
-        const dy = player.y - this.y;
+        const target = getAggroSource(this);
+
+        const dx = target.x - this.x;
+        const dy = target.y - this.y;
 
         const distance = Math.sqrt(dx * dx + dy * dy);
 
@@ -97,11 +99,13 @@ class Archer extends Enemy {
         const centerX = this.x + this.size / 2;
         const centerY = this.y + this.size / 2;
 
+        const target = getAggroSource(this);
+
         const dx =
-            (player.x + player.size / 2) - centerX;
+            (target.x + target.size / 2) - centerX;
 
         const dy =
-            (player.y + player.size / 2) - centerY;
+            (target.y + target.size / 2) - centerY;
 
         const angle = Math.atan2(dy, dx);
 

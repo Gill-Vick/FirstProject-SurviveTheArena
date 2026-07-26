@@ -41,8 +41,10 @@ class BloodCleric extends Enemy {
         if (this.healTarget)
             return;
 
-        const dx = player.x - this.x;
-        const dy = player.y - this.y;
+        const target = getAggroSource(this);
+
+        const dx = target.x - this.x;
+        const dy = target.y - this.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
         if (distance > 0) {

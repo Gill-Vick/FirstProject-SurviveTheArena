@@ -35,6 +35,11 @@ class Player {
 
         this.invulnTimer = 0;
 
+        // Hard root (e.g. the Princess's Binding Curse) - blocks
+        // both walking and dashing for the duration, distinct
+        // from a ground slow (which only saps speed).
+        this.rootTimer = 0;
+
     }
 
     // =====================================
@@ -150,6 +155,9 @@ class Player {
         if (this.invulnTimer > 0)
             this.invulnTimer -= Game.dt;
 
+        if (this.rootTimer > 0)
+            this.rootTimer -= Game.dt;
+
     }
 
     takeHit(source = "an unknown enemy") {
@@ -224,6 +232,9 @@ class Player {
     }
 
     updateMovement() {
+
+        if (this.rootTimer > 0)
+            return;
 
         const speed = this.getCurrentSpeed() * this.getFrostMultiplier();
 
@@ -343,6 +354,9 @@ class Player {
     }
 
     dash() {
+
+        if (this.rootTimer > 0)
+            return;
 
         const slots = this.getDashSlotCount();
 

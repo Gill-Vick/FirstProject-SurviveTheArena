@@ -48,10 +48,19 @@ class Skeleton extends Enemy {
 
         const cx = this.x + this.size / 2;
         const cy = this.y + this.size / 2;
+
+        // Where it decides to wind up and which way it swings -
+        // redirectable to a taunting decoy (see getAggroSource).
+        const target = getAggroSource(this);
+        const tx = target.x + target.size / 2;
+        const ty = target.y + target.size / 2;
+        const targetDist = Math.hypot(tx - cx, ty - cy);
+
+        // The REAL player's position - always used for the
+        // actual connect check below, so a swing aimed at a
+        // decoy never lands on a real player who isn't there.
         const px = player.x + player.size / 2;
         const py = player.y + player.size / 2;
-
-        const dist = Math.hypot(px - cx, py - cy);
 
         switch (this.daggerState) {
 
@@ -59,12 +68,12 @@ class Skeleton extends Enemy {
 
                 if (
                     this.daggerCooldown <= 0 &&
-                    dist < ELITE.SKELETON_DAGGER_RANGE
+                    targetDist < ELITE.SKELETON_DAGGER_RANGE
                 ) {
 
                     this.daggerState = "windup";
                     this.daggerTimer = ELITE.SKELETON_DAGGER_WINDUP;
-                    this.daggerAngle = Math.atan2(py - cy, px - cx);
+                    this.daggerAngle = Math.atan2(ty - cy, tx - cx);
 
                 }
 
@@ -86,6 +95,8 @@ class Skeleton extends Enemy {
             case "swing": {
 
                 this.daggerTimer -= Game.dt;
+
+                const dist = Math.hypot(px - cx, py - cy);
 
                 // Active hitbox: within reach and roughly in
                 // front of the locked swing direction.

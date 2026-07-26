@@ -192,8 +192,9 @@ class Lancer extends Enemy {
 
         const cx = this.x + this.size / 2;
         const cy = this.y + this.size / 2;
-        const px = player.x + player.size / 2;
-        const py = player.y + player.size / 2;
+        const target = getAggroSource(this);
+        const px = target.x + target.size / 2;
+        const py = target.y + target.size / 2;
         const dx = px - cx;
         const dy = py - cy;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -258,8 +259,9 @@ class Lancer extends Enemy {
             // The thrust flows straight into a charging lunge.
             const cx = this.x + this.size / 2;
             const cy = this.y + this.size / 2;
-            const px = player.x + player.size / 2;
-            const py = player.y + player.size / 2;
+            const target = getAggroSource(this);
+            const px = target.x + target.size / 2;
+            const py = target.y + target.size / 2;
 
             this.attackAngle = Math.atan2(py - cy, px - cx);
             this.state = "dashWindup";
@@ -476,11 +478,13 @@ class Lancer extends Enemy {
             this.state === "dashWindup" ||
             this.state === "dashing";
 
+        const idleTarget = getAggroSource(this);
+
         const angle = attacking
             ? this.attackAngle
             : Math.atan2(
-                player.y + player.size / 2 - cy,
-                player.x + player.size / 2 - cx
+                idleTarget.y + idleTarget.size / 2 - cy,
+                idleTarget.x + idleTarget.size / 2 - cx
             );
 
         ctx.rotate(angle);

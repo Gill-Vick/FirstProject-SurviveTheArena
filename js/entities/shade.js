@@ -116,10 +116,11 @@ class Shade extends Enemy {
 
                 if (this.stateTimer <= 0) {
 
-                    // Lock the lunge direction at the player's
+                    // Lock the lunge direction at the target's
                     // position right now.
-                    const dx = player.x + player.size / 2 - (this.x + this.size / 2);
-                    const dy = player.y + player.size / 2 - (this.y + this.size / 2);
+                    const lungeTarget = getAggroSource(this);
+                    const dx = lungeTarget.x + lungeTarget.size / 2 - (this.x + this.size / 2);
+                    const dy = lungeTarget.y + lungeTarget.size / 2 - (this.y + this.size / 2);
                     const dist = Math.sqrt(dx * dx + dy * dy) || 1;
 
                     this.lungeDX = dx / dist;
@@ -161,8 +162,9 @@ class Shade extends Enemy {
                 // Sluggish drift toward the player - the
                 // punish window.
                 {
-                    const dx = player.x - this.x;
-                    const dy = player.y - this.y;
+                    const recoverTarget = getAggroSource(this);
+                    const dx = recoverTarget.x - this.x;
+                    const dy = recoverTarget.y - this.y;
                     const dist = Math.sqrt(dx * dx + dy * dy) || 1;
 
                     this.x += (dx / dist) * this.speed * 0.4 * Game.timeScale;

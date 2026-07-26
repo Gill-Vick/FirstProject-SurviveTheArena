@@ -46,6 +46,10 @@ class Warrior extends Player {
         // the Thief's Master of the Blade.
         this.swordSwingCount = 0;
 
+        // Sibling's Resilience - Empowered window granted on
+        // trigger, read live by getSwordDamage().
+        this.empowerTimer = 0;
+
         // Forgemaster's Sigil reforge countdown (ms of Game.dt,
         // 0 = not currently reforging).
         this.reforgeTimer = 0;
@@ -93,6 +97,9 @@ class Warrior extends Player {
         this.updateRage();
 
         this.updateReforge();
+
+        if (this.empowerTimer > 0)
+            this.empowerTimer -= Game.dt;
 
         // Hold-to-swing checking system triggers auto attacks safely
         if (isMouseDown && Game.state === "playing") {
@@ -207,6 +214,15 @@ class Warrior extends Player {
                     ? `Rage: +${this.getRageBonus()} dmg`
                     : "Rage: 0",
                 color: this.rageStacks > 0 ? "#ff6b4a" : "#666"
+            });
+
+        }
+
+        if (Save.isEquipped("siblingsResilience") && this.empowerTimer > 0) {
+
+            lines.push({
+                text: `Empowered: +${SIBLINGS_RESILIENCE.EMPOWER_DAMAGE_BONUS} dmg (${(this.empowerTimer / 1000).toFixed(1)}s)`,
+                color: "#ffd700"
             });
 
         }
@@ -326,7 +342,11 @@ class Warrior extends Player {
             ? (Save.isEquipped("kingsBlade") ? KINGS_BLADE.WETSTONE_BONUS : SWORD.WETSTONE_BONUS)
             : 0;
 
-        return base + wetstoneBonus + this.getRageBonus();
+        const empowerBonus = this.empowerTimer > 0
+            ? SIBLINGS_RESILIENCE.EMPOWER_DAMAGE_BONUS
+            : 0;
+
+        return base + wetstoneBonus + this.getRageBonus() + empowerBonus;
 
     }
 
@@ -611,6 +631,9 @@ class Warrior extends Player {
     // the update pass, so nothing gets skipped.
 
     attackEnemies() {
+
+        let landedHit = false;
+
         Game.enemies.forEach(enemy => {
             if (enemy.hitThisSwing)
                 return;
@@ -665,32 +688,76 @@ class Warrior extends Player {
 
                 this.gainRage();
 
-                // Twinblade Echo - every 3rd connecting swing
-                // lands a phantom echo hit on top of the normal
-                // one.
-                if (
-                    Save.isEquipped("twinbladeEcho") &&
-                    this.swordSwingCount % TWINBLADE_ECHO.TRIGGER_EVERY === 0
-                ) {
-                    enemy.takeDamage(TWINBLADE_ECHO.ECHO_DAMAGE);
-                }
-
-                // Sibling's Resilience - every 4th connecting
-                // swing grants a brief invulnerability flicker.
-                if (
-                    Save.isEquipped("siblingsResilience") &&
-                    this.swordSwingCount % SIBLINGS_RESILIENCE.TRIGGER_EVERY === 0
-                ) {
-                    this.invulnTimer = Math.max(
-                        this.invulnTimer,
-                        SIBLINGS_RESILIENCE.INVULN_MS
-                    );
-                }
+                landedHit = true;
 
                 if (enemy.isDead())
                     onEnemyKilled(enemy);
             }
         });
+
+        if (!landedHit)
+            return;
+
+        // Twinblade Echo - every 2nd connecting swing detonates
+        // a full shockwave around the Warrior, hitting EVERY
+        // nearby enemy (not just whoever the live swing already
+        // connected with).
+        if (
+            Save.isEquipped("twinbladeEcho") &&
+            this.swordSwingCount % TWINBLADE_ECHO.TRIGGER_EVERY === 0
+        ) {
+            this.triggerTwinbladeEcho();
+        }
+
+        // Sibling's Resilience - every 2nd connecting swing
+        // grants a solid invulnerability window and empowers the
+        // next few swings.
+        if (
+            Save.isEquipped("siblingsResilience") &&
+            this.swordSwingCount % SIBLINGS_RESILIENCE.TRIGGER_EVERY === 0
+        ) {
+
+            this.invulnTimer = Math.max(
+                this.invulnTimer,
+                SIBLINGS_RESILIENCE.INVULN_MS
+            );
+
+            this.empowerTimer = SIBLINGS_RESILIENCE.EMPOWER_MS;
+
+        }
+
+    }
+
+    // Twinblade Echo shockwave - a full nova centered on the
+    // Warrior, independent of the sword's own arc/range, so it
+    // reliably catches anything crowding him regardless of which
+    // way he's facing.
+    triggerTwinbladeEcho() {
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        Game.enemies.forEach(enemy => {
+
+            const ex = enemy.x + enemy.size / 2;
+            const ey = enemy.y + enemy.size / 2;
+
+            if (Math.hypot(ex - cx, ey - cy) > TWINBLADE_ECHO.ECHO_RADIUS)
+                return;
+
+            enemy.takeDamage(TWINBLADE_ECHO.ECHO_DAMAGE);
+            enemy.applyKnockback(cx, cy, 10);
+
+            if (enemy.isDead())
+                onEnemyKilled(enemy);
+
+        });
+
+        Game.screenShake = Math.max(Game.screenShake ?? 0, 12);
+        Particle.createHitBurst(cx, cy);
+
+        Game.hazards.push(new TwinbladeEchoFx(cx, cy));
+
     }
 
     // =====================================
@@ -932,3 +999,47 @@ class Warrior extends Player {
 // Register with the class selector (see PLAYER_CLASSES in
 // game.js and CLASSES in constants.js).
 PLAYER_CLASSES.warrior = Warrior;
+
+// =====================================
+// Twinblade Echo - shockwave FX
+// =====================================
+//
+// Visual only (damage is dealt in Warrior.triggerTwinbladeEcho):
+// an expanding ring that rushes out to ECHO_RADIUS and fades.
+
+class TwinbladeEchoFx {
+
+    constructor(x, y) {
+
+        this.x = x;
+        this.y = y;
+        this.life = 260;
+        this.maxLife = 260;
+
+    }
+
+    update() {
+        this.life -= Game.dt;
+    }
+
+    isDead() {
+        return this.life <= 0;
+    }
+
+    draw() {
+
+        const progress = 1 - this.life / this.maxLife;
+        const fade = Math.max(0, this.life / this.maxLife);
+        const radius = TWINBLADE_ECHO.ECHO_RADIUS * progress;
+
+        drawPixelRing(this.x, this.y, radius, {
+            color: TWINBLADE_ECHO.COLOR,
+            alpha: fade,
+            unit: Math.max(2, Math.round(radius * 0.05)),
+            glow: 14,
+            glowColor: "#ff5a82"
+        });
+
+    }
+
+}

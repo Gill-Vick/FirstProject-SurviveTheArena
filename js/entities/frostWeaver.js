@@ -39,8 +39,10 @@ class FrostWeaver extends Enemy {
         if (this.moveTowardStation())
             return;
 
-        const dx = player.x - this.x;
-        const dy = player.y - this.y;
+        const target = getAggroSource(this);
+
+        const dx = target.x - this.x;
+        const dy = target.y - this.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
         if (distance === 0)
@@ -74,8 +76,10 @@ class FrostWeaver extends Enemy {
 
         }
 
-        const tx = player.x + player.size / 2;
-        const ty = player.y + player.size / 2;
+        const target = getAggroSource(this);
+
+        const tx = target.x + target.size / 2;
+        const ty = target.y + target.size / 2;
 
         // Elite weavers don't drop a patch - they lay a full
         // ROW of ice from themselves through the player (a

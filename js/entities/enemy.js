@@ -75,6 +75,34 @@ function buildCrackPaths() {
 
 }
 
+// =====================================
+// Aggro Redirect (Thief's Mirror Cloak)
+// =====================================
+//
+// While a taunting decoy is active (Game.tauntDecoy - see
+// MirrorDecoy in thief.js), non-boss enemies path/aim toward IT
+// instead of the real player. Bosses always see through it - a
+// decoy trick trivializing a boss fight would undercut the
+// point of the fight.
+//
+// Every enemy's move()/attack() calls this once at the top and
+// uses the result in place of `player` for its "which way do I
+// go / where do I aim" math. Every actual hit-test and
+// checkPlayerCollision still checks the REAL player directly
+// (untouched) - so a fooled enemy's swing or shot simply doesn't
+// connect if the real player isn't actually there. Self-
+// correcting: no extra bookkeeping needed anywhere damage is
+// dealt, only at the targeting step.
+
+function getAggroSource(enemy) {
+
+    if (!enemy.isBoss && Game.tauntDecoy && !Game.tauntDecoy.isDead())
+        return Game.tauntDecoy;
+
+    return player;
+
+}
+
 class Enemy {
 
     constructor(x, y, stats) {
@@ -262,8 +290,10 @@ class Enemy {
         if (this.knockbackX !== 0 || this.knockbackY !== 0)
             return;
 
-        const dx = player.x - this.x;
-        const dy = player.y - this.y;
+        const target = getAggroSource(this);
+
+        const dx = target.x - this.x;
+        const dy = target.y - this.y;
 
         const distance = Math.sqrt(dx * dx + dy * dy);
 
