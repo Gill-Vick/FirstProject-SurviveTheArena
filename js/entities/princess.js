@@ -4,15 +4,22 @@
 //
 // Far-range support/CC - half of a linked pair with the Prince
 // (prince.js). Kites at PREFERRED_RANGE like the Archer/Royal
-// Magus, and runs four independent lanes in attack() (same
+// Magus, and runs six independent lanes in attack() (same
 // parallel-cooldown shape as RoyalMagus.attack()'s nova/
-// lightning/skill rotation): a personal bolt, a volley burst, a
-// slowing ground zone (reuses FrostZone from hazard.js with her
-// own timing/palette), a telegraphed hard-root curse, and - her
-// real threat - a heal/buff channel on the Prince. The channel
-// roots her (same as Blood Cleric's tether) and pauses her other
-// lanes, so it's her one real vulnerability window: killing her
-// mid-cast denies the Prince both the heal and the buff.
+// lightning/skill rotation): a personal bolt, a slowing ground
+// zone (reuses FrostZone from hazard.js with her own timing/
+// palette), a telegraphed hard-root curse, a map-wide teleport,
+// a weak telegraphed laser, and - her real threat - a heal/buff
+// channel on the Prince. The channel roots her (same as Blood
+// Cleric's tether) and pauses her other lanes, so it's her one
+// real vulnerability window: killing her mid-cast denies the
+// Prince both the heal and the buff.
+//
+// (An earlier pass gave her a 3-bolt Volley lane alongside the
+// single bolt - cut entirely, it was basically a guaranteed hit
+// at the close range this fight is usually engaged at. The bolt
+// cooldown was slowed back down afterward so removing Volley
+// was a real nerf to her sustained pressure, not a wash.)
 //
 // Deliberately does NOT grant the Prince healShieldTimer
 // invulnerability during the channel (unlike Blood Cleric's
@@ -50,13 +57,24 @@ class Princess extends Enemy {
         this.maxHp = this.hp;
 
         this.boltCooldown = PRINCESS.BOLT_COOLDOWN * 0.5;
-        this.volleyCooldown = PRINCESS.VOLLEY_COOLDOWN * 0.5;
         this.zoneCooldown = PRINCESS.ZONE_COOLDOWN * 0.5;
 
         // Binding Curse - "windup" holds the telegraphed anchor
         // point until it resolves (root applied or missed).
         this.curseCooldown = PRINCESS.CURSE_COOLDOWN * 0.5;
         this.curseTelegraph = null;
+
+        // Map-wide teleport - a long-cooldown reposition, not
+        // tied to any particular trigger condition (see
+        // teleportAcrossMap()).
+        this.blinkCooldown = PRINCESS.BLINK_COOLDOWN * 0.5;
+
+        // Weak laser - telegraph holds the locked firing angle
+        // until it resolves; laserFlash is purely the brief
+        // visual beam after it fires.
+        this.laserCooldown = PRINCESS.LASER_COOLDOWN * 0.5;
+        this.laserTelegraph = null;
+        this.laserFlash = null;
 
         this.healCooldown = PRINCESS.HEAL_COOLDOWN * 0.5;
         this.healChannelTimer = 0;
@@ -119,16 +137,29 @@ class Princess extends Enemy {
         if (this.boltCooldown > 0)
             this.boltCooldown -= Game.dt;
 
-        if (this.volleyCooldown > 0)
-            this.volleyCooldown -= Game.dt;
-
         if (this.zoneCooldown > 0)
             this.zoneCooldown -= Game.dt;
 
         if (this.curseCooldown > 0)
             this.curseCooldown -= Game.dt;
 
+        if (this.blinkCooldown > 0)
+            this.blinkCooldown -= Game.dt;
+
+        if (this.laserCooldown > 0)
+            this.laserCooldown -= Game.dt;
+
+        if (this.laserFlash) {
+
+            this.laserFlash.timer -= Game.dt;
+
+            if (this.laserFlash.timer <= 0)
+                this.laserFlash = null;
+
+        }
+
         this.updateCurse();
+        this.updateLaserTelegraph();
 
         this.updateHealChannel();
 
@@ -147,13 +178,6 @@ class Princess extends Enemy {
 
         }
 
-        if (this.volleyCooldown <= 0) {
-
-            this.fireVolley();
-            this.volleyCooldown = PRINCESS.VOLLEY_COOLDOWN;
-
-        }
-
         if (this.zoneCooldown <= 0) {
 
             this.castZone();
@@ -165,6 +189,20 @@ class Princess extends Enemy {
 
             this.startCurse();
             this.curseCooldown = PRINCESS.CURSE_COOLDOWN;
+
+        }
+
+        if (this.blinkCooldown <= 0) {
+
+            this.teleportAcrossMap();
+            this.blinkCooldown = PRINCESS.BLINK_COOLDOWN;
+
+        }
+
+        if (this.laserCooldown <= 0 && !this.laserTelegraph) {
+
+            this.startLaser();
+            this.laserCooldown = PRINCESS.LASER_COOLDOWN;
 
         }
 
@@ -199,47 +237,6 @@ class Princess extends Enemy {
 
     }
 
-    // Volley - an independent lane: a 3-bolt spread instead of
-    // the single shot, so the bolt lane isn't the same single
-    // note the whole fight.
-    fireVolley() {
-
-        const cx = this.x + this.size / 2;
-        const cy = this.y + this.size / 2;
-
-        const px = player.x + player.size / 2;
-        const py = player.y + player.size / 2;
-
-        const baseAngle = Math.atan2(py - cy, px - cx);
-        const startAngle = baseAngle - PRINCESS.VOLLEY_SPREAD / 2;
-        const step = PRINCESS.VOLLEY_SPREAD / (PRINCESS.VOLLEY_COUNT - 1);
-
-        for (let i = 0; i < PRINCESS.VOLLEY_COUNT; i++) {
-
-            const angle = startAngle + i * step;
-
-            Game.projectiles.push(new Projectile(
-
-                cx + Math.cos(angle) * (this.size / 2 + 8),
-                cy + Math.sin(angle) * (this.size / 2 + 8),
-                angle,
-
-                {
-                    speed: PRINCESS.BOLT_SPEED,
-                    color: PRINCESS.TETHER_COLOR,
-                    size: 6,
-                    life: 200,
-                    sourceType: "princess",
-                    damage: PRINCESS.BOLT_DAMAGE
-                }
-
-            ));
-
-        }
-
-        Sound.play("knifeThrow");
-
-    }
 
     castZone() {
 
@@ -251,6 +248,127 @@ class Princess extends Enemy {
             duration: PRINCESS.ZONE_DURATION_MS,
             palette: PRINCESS.ZONE_PALETTE
         }));
+
+    }
+
+    // =====================================
+    // Map-Wide Teleport
+    // =====================================
+    //
+    // Not tied to any trigger condition - a plain long-cooldown
+    // reposition. Rolls a handful of random arena points and
+    // takes whichever lands farthest from the player, so it
+    // reads as a real escape rather than a coin-flip that might
+    // land her right back next to you.
+
+    teleportAcrossMap() {
+
+        const margin = this.size;
+
+        let bestX = this.x;
+        let bestY = this.y;
+        let bestDist = -1;
+
+        for (let i = 0; i < 8; i++) {
+
+            const candX = margin + Math.random() * (canvas.width - margin * 2);
+            const candY = margin + Math.random() * (canvas.height - margin * 2);
+
+            const dist = Math.hypot(candX - player.x, candY - player.y);
+
+            if (dist > bestDist) {
+
+                bestDist = dist;
+                bestX = candX;
+                bestY = candY;
+
+            }
+
+        }
+
+        this.x = bestX;
+        this.y = bestY;
+
+        Sound.play("dash");
+        Particle.createHitBurst(this.x + this.size / 2, this.y + this.size / 2);
+
+    }
+
+    // =====================================
+    // Weak Laser
+    // =====================================
+    //
+    // A much narrower, much weaker echo of the King's own laser
+    // (see KING.WALL_LASER and KINGS_BLADE.LASER_*) - one
+    // telegraphed line toward wherever the player was standing
+    // when it was cast (locked, not tracking), same rotate-into-
+    // local-space rectangle test as the Warrior's King's Blade
+    // laser and the Thief's Phantom Cloak dash-through.
+
+    startLaser() {
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        const px = player.x + player.size / 2;
+        const py = player.y + player.size / 2;
+
+        this.laserTelegraph = {
+            angle: Math.atan2(py - cy, px - cx),
+            timer: PRINCESS.LASER_TELEGRAPH_MS
+        };
+
+    }
+
+    updateLaserTelegraph() {
+
+        if (!this.laserTelegraph)
+            return;
+
+        this.laserTelegraph.timer -= Game.dt;
+
+        if (this.laserTelegraph.timer > 0)
+            return;
+
+        this.resolveLaser(this.laserTelegraph.angle);
+
+        this.laserTelegraph = null;
+
+    }
+
+    resolveLaser(angle) {
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        const length = Math.hypot(canvas.width, canvas.height) * 1.2;
+        const halfWidth = PRINCESS.LASER_WIDTH / 2;
+
+        const px = player.x + player.size / 2;
+        const py = player.y + player.size / 2;
+
+        const dx = px - cx;
+        const dy = py - cy;
+
+        const cos = Math.cos(-angle);
+        const sin = Math.sin(-angle);
+
+        const localX = dx * cos - dy * sin;
+        const localY = dx * sin + dy * cos;
+
+        const pad = player.size / 2;
+
+        if (
+            localX >= -pad &&
+            localX <= length + pad &&
+            Math.abs(localY) <= halfWidth + pad
+        ) {
+            player.takeHit(ENEMY_LABELS.princess);
+        }
+
+        Game.screenShake = Math.max(Game.screenShake ?? 0, 8);
+
+        this.laserFlash = { angle, timer: 150 };
 
     }
 
@@ -429,6 +547,14 @@ class Princess extends Enemy {
 
     draw() {
 
+        // Laser telegraph - a thin sight-line along the locked
+        // firing angle, then a brief bright flash once it fires.
+        if (this.laserTelegraph)
+            this.drawLaserTelegraph();
+
+        if (this.laserFlash)
+            this.drawLaserFlash();
+
         // Curse telegraph - a tightening warning ring at the
         // pinned anchor point.
         if (this.curseTelegraph) {
@@ -488,6 +614,58 @@ class Princess extends Enemy {
         super.draw();
 
         this.drawLabel();
+
+    }
+
+    drawLaserTelegraph() {
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        const length = Math.hypot(canvas.width, canvas.height) * 1.2;
+        const alpha = 0.35 + Math.sin(Date.now() / 40) * 0.15;
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(this.laserTelegraph.angle);
+
+        ctx.strokeStyle = `rgba(143, 214, 255, ${alpha})`;
+        ctx.lineWidth = 2;
+        ctx.shadowBlur = 6;
+        ctx.shadowColor = PRINCESS.LASER_COLOR;
+
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(length, 0);
+        ctx.stroke();
+
+        ctx.restore();
+
+    }
+
+    drawLaserFlash() {
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        const length = Math.hypot(canvas.width, canvas.height) * 1.2;
+        const fade = Math.max(0, this.laserFlash.timer / 150);
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(this.laserFlash.angle);
+
+        ctx.shadowBlur = 14;
+        ctx.shadowColor = PRINCESS.LASER_COLOR;
+
+        drawPixelBeam(length, PRINCESS.LASER_WIDTH, {
+            color: PRINCESS.LASER_COLOR,
+            coreColor: "#eaffff",
+            alpha: 0.9 * fade,
+            unit: Math.max(2, Math.round(PRINCESS.LASER_WIDTH * 0.25))
+        });
+
+        ctx.restore();
 
     }
 

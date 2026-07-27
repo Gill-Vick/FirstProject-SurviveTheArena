@@ -2031,8 +2031,8 @@ const PRINCE = {
     // Deliberately slow - a mobility pass cut this hard from an
     // earlier 1.7. He used to out-chase everyone; now standing
     // your ground or kiting is a real option, and his threat
-    // comes from Quake Slam / Boulder Throw (below) reaching out
-    // to you instead of him running you down.
+    // comes from Quake Slam / Royal Judgment (below) reaching
+    // out to you instead of him running you down.
     SPEED: 0.7,
     COLOR: "#7a1f3d",
 
@@ -2041,19 +2041,22 @@ const PRINCE = {
     BASE_HP: 100,
     HP_PER_WAVE: 7,
 
-    // Leap-slam: still his gap-closer, but much rarer and
-    // shorter now that it's not his primary way of reaching you
-    // (see the ranged/AOE lanes below) - a telegraphed leap onto
-    // the player's current position, landing in a damaging AOE
-    // burst. Used whenever he's out of cleave range and off
-    // cooldown. (No numeric damage here or below - contact with
-    // the player is a binary takeHit() in this game, not a
-    // variable damage amount; what actually makes a hit scarier
-    // is reach/arc/frequency.)
+    // Leap-slam: still his gap-closer, and shorter now that it's
+    // not his primary way of reaching you (see the ranged/AOE
+    // lanes below) - a telegraphed leap onto the player's
+    // current position, landing in a damaging AOE burst. Used
+    // whenever he's out of cleave range and off cooldown.
+    // Frequency has been tuned twice: an early pass cut it from
+    // 2800 to 6500 (too rare), this pass halves that back down -
+    // twice as often as the too-rare version, landing between
+    // the two extremes. (No numeric damage here or below -
+    // contact with the player is a binary takeHit() in this
+    // game, not a variable damage amount; what actually makes a
+    // hit scarier is reach/arc/frequency.)
     LEAP_TELEGRAPH_MS: 600,
     LEAP_SPEED: 7,
     LEAP_DURATION: 28,
-    LEAP_COOLDOWN: 6500,
+    LEAP_COOLDOWN: 3250,
     SLAM_RADIUS: 110,
 
     // Up-close fist cleave once Leap is on cooldown - same
@@ -2090,14 +2093,17 @@ const PRINCE = {
     QUAKE_RADIUS: 230,
     QUAKE_COLOR: "#c9482f",
 
-    // Boulder Throw - his far-range answer: a telegraphed,
-    // dodgeable impact at the player's position when it's cast
-    // (mirrors MeteorStrike's telegraph-then-impact in
+    // Royal Judgment - his far-range answer: a telegraphed,
+    // dodgeable strike of light at the player's position when
+    // it's cast (mirrors MeteorStrike's telegraph-then-impact in
     // royalMagus.js), so standing at range isn't free either.
-    BOULDER_COOLDOWN: 4500,
-    BOULDER_TELEGRAPH_MS: 1000,
-    BOULDER_RADIUS: 100,
-    BOULDER_COLOR: "#8a5a3c",
+    // (Was a thrown boulder - reskinned to something that reads
+    // as royal/arcane rather than barbaric; same shape, new
+    // theme.)
+    JUDGMENT_COOLDOWN: 4500,
+    JUDGMENT_TELEGRAPH_MS: 1000,
+    JUDGMENT_RADIUS: 100,
+    JUDGMENT_COLOR: "#ffd76a",
 
     // Guard - shields the Princess. A committed 2s channel
     // (rooted, same as the leap telegraph) that grants her a
@@ -2136,16 +2142,30 @@ const PRINCESS = {
     PREFERRED_RANGE: 400,
 
     // Personal damage - still not a solo DPS threat, but no
-    // longer a total non-event either.
+    // longer a total non-event either. Slowed back down after
+    // the Volley lane (below) was removed for being a basically
+    // guaranteed hit at close range - the bolt alone shouldn't
+    // fill that same "constant pressure" role on its own.
     BOLT_DAMAGE: 2,
     BOLT_SPEED: 7,
-    BOLT_COOLDOWN: 1300,
+    BOLT_COOLDOWN: 2200,
 
-    // Volley - an independent lane (parallel to the single
-    // bolt): periodically fires a 3-bolt spread instead.
-    VOLLEY_COOLDOWN: 5000,
-    VOLLEY_COUNT: 3,
-    VOLLEY_SPREAD: 0.5,
+    // Map-wide teleport - an independent lane, fires whenever
+    // off cooldown and relocates her to a random arena point
+    // biased away from wherever the player currently is (see
+    // teleportAcrossMap() in princess.js), so it reads as a real
+    // reposition rather than a coin-flip that might land her
+    // right next to you.
+    BLINK_COOLDOWN: 20000,
+
+    // A much weaker, much narrower echo of the King's own laser
+    // (see WALL_LASER on KING and King's Blade on KINGS_BLADE) -
+    // a single telegraphed line toward wherever the player was
+    // standing when it was cast, not an arena-spanning wall.
+    LASER_COOLDOWN: 7000,
+    LASER_TELEGRAPH_MS: 650,
+    LASER_WIDTH: 14,
+    LASER_COLOR: "#8fd6ff",
 
     // Slow zone - a growing ground patch (reuses FrostZone's
     // grow-in mechanic from hazard.js, just with her own
@@ -2157,14 +2177,14 @@ const PRINCESS = {
     ZONE_COOLDOWN: 4000,
     ZONE_PALETTE: { fill: "#e0a8cc", rim: "#f5d0e8", spark: "#ffe8f5" },
 
-    // Binding Curse - a new, independent lane: a telegraphed
-    // hard root (distinct from the slow zone) on anyone caught
-    // when the telegraph resolves. Real variation, not just a
-    // bigger slow.
+    // Binding Curse - a telegraphed hard root (distinct from the
+    // slow zone) on anyone caught when the telegraph resolves.
+    // Range trimmed down from an earlier pass - it was landing
+    // as a near-arena-wide root, much bigger than intended.
     CURSE_COOLDOWN: 6500,
     CURSE_TELEGRAPH_MS: 700,
     CURSE_ROOT_MS: 900,
-    CURSE_RANGE: 340,
+    CURSE_RANGE: 150,
     CURSE_COLOR: "#8e4fc9",
 
     // Heal/buff channel on the Prince - her one vulnerability
@@ -2649,7 +2669,7 @@ const BESTIARY = {
         size: 72,
         isBoss: true,
         desc: "One of the wave 20 gatekeepers - a linked pair; both must fall.",
-        behavior: "Slow-moving but not safe at any range: quakes the ground around himself, hurls boulders at distance, and still leaps in occasionally for a slam. Up close, chain 3 cleaves and the last one is a bigger Finisher. Periodically channels a shield onto the Princess (rooted while casting), and roars for a speed/haste surge. Enrages if the Princess dies first.",
+        behavior: "Slow-moving but not safe at any range: quakes the ground around himself, calls down a Royal Judgment at distance, and still leaps in occasionally for a slam. Up close, chain 3 cleaves and the last one is a bigger Finisher. Periodically channels a shield onto the Princess (rooted while casting), and roars for a speed/haste surge. Enrages if the Princess dies first.",
         lore: "The King's heir, blooded in the arena since he could walk. His father taught him the only lesson that mattered: an audience only remembers who was still standing.",
         hpAtWave(w) { return PRINCE.BASE_HP + w * PRINCE.HP_PER_WAVE; },
         hpScale: `${PRINCE.BASE_HP} HP, plus ${PRINCE.HP_PER_WAVE} for every wave you've reached`,
@@ -2662,7 +2682,7 @@ const BESTIARY = {
         size: 48,
         isBoss: true,
         desc: "The other wave 20 gatekeeper - a linked pair; both must fall.",
-        behavior: "Kites at range, peppers bolts and volleys, drops slowing zones, and casts a telegraphed root. Periodically heals and empowers the Prince - rooted while she channels it. The Prince can also shield her outright, so break it before she's actually vulnerable. Once the pair's combined hp drops to half, she pours the rest of herself into him and can finally be killed.",
+        behavior: "Kites at range, peppers bolts, drops slowing zones, casts a telegraphed root, and looses a weak laser - plus an occasional teleport clear across the arena. Periodically heals and empowers the Prince - rooted while she channels it. The Prince can also shield her outright, so break it before she's actually vulnerable. Once the pair's combined hp drops to half, she pours the rest of herself into him and can finally be killed.",
         lore: "Where her brother learned the sword, she learned the court - poisons, wards, and the patient art of keeping a favorite alive. She has never needed to lift a blade herself, so long as he's still standing.",
         hpAtWave(w) { return PRINCESS.BASE_HP + w * PRINCESS.HP_PER_WAVE; },
         hpScale: `${PRINCESS.BASE_HP} HP, plus ${PRINCESS.HP_PER_WAVE} for every wave you've reached`,

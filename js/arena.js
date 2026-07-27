@@ -1279,7 +1279,7 @@ const HAZARD_XRAY_COLORS = {
     LightningStrike: "#ffeb78",
     ArcaneNova: "#5f7dff",
     MirrorDecoy: "#b06ae0",
-    BoulderImpact: "#c9482f"
+    RoyalJudgmentStrike: "#ffd76a"
 };
 
 // Gathers every occludable thing on screen ONCE per frame -

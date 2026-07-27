@@ -72,9 +72,9 @@ class Prince extends Enemy {
         this.quakeCooldown = PRINCE.QUAKE_COOLDOWN * 0.5;
         this.quakeTelegraph = null;
 
-        // Boulder Throw - far-range lane, a fire-and-forget
-        // telegraphed impact (see BoulderImpact below).
-        this.boulderCooldown = PRINCE.BOULDER_COOLDOWN * 0.5;
+        // Royal Judgment - far-range lane, a fire-and-forget
+        // telegraphed strike (see RoyalJudgmentStrike below).
+        this.judgmentCooldown = PRINCE.JUDGMENT_COOLDOWN * 0.5;
 
         // Guard - shields the Princess. Exclusive: rooted for
         // the whole channel, same as the leap telegraph, and
@@ -261,8 +261,8 @@ class Prince extends Enemy {
         if (this.quakeCooldown > 0)
             this.quakeCooldown -= Game.dt;
 
-        if (this.boulderCooldown > 0)
-            this.boulderCooldown -= Game.dt;
+        if (this.judgmentCooldown > 0)
+            this.judgmentCooldown -= Game.dt;
 
         if (this.guardCooldown > 0)
             this.guardCooldown -= Game.dt;
@@ -307,12 +307,12 @@ class Prince extends Enemy {
 
         }
 
-        // Boulder Throw - independent lane, fire-and-forget
-        // (see BoulderImpact below), usable at any range.
-        if (this.boulderCooldown <= 0) {
+        // Royal Judgment - independent lane, fire-and-forget
+        // (see RoyalJudgmentStrike below), usable at any range.
+        if (this.judgmentCooldown <= 0) {
 
-            this.throwBoulder();
-            this.boulderCooldown = PRINCE.BOULDER_COOLDOWN * this.getCooldownMultiplier();
+            this.castRoyalJudgment();
+            this.judgmentCooldown = PRINCE.JUDGMENT_COOLDOWN * this.getCooldownMultiplier();
 
         }
 
@@ -533,19 +533,21 @@ class Prince extends Enemy {
     }
 
     // =====================================
-    // Boulder Throw
+    // Royal Judgment
     // =====================================
     //
-    // Far-range answer - a telegraphed impact at the player's
-    // position when cast (see BoulderImpact below), so standing
-    // at range isn't automatically safe just because he's slow.
+    // Far-range answer - a telegraphed strike of light at the
+    // player's position when cast (see RoyalJudgmentStrike
+    // below), so standing at range isn't automatically safe just
+    // because he's slow. Reads as royal/arcane rather than the
+    // barbaric thrown-rock version this replaced.
 
-    throwBoulder() {
+    castRoyalJudgment() {
 
         const px = player.x + player.size / 2;
         const py = player.y + player.size / 2;
 
-        Game.hazards.push(new BoulderImpact(px, py));
+        Game.hazards.push(new RoyalJudgmentStrike(px, py));
 
         Sound.play("bossSlam");
 
@@ -796,23 +798,24 @@ class Prince extends Enemy {
 }
 
 // =====================================
-// Boulder Throw - telegraphed impact
+// Royal Judgment - telegraphed strike of light
 // =====================================
 //
 // Same telegraph-then-impact shape as Royal Magus' MeteorStrike
-// (see royalMagus.js) - a growing shadow/impact zone at the
-// player's position when thrown, resolving PRINCE.BOULDER_
-// TELEGRAPH_MS later. Lives in Game.hazards like every other
-// fire-and-forget attack in this game.
+// (see royalMagus.js), but themed as a descending column of
+// radiant judgment rather than a thrown rock - a growing halo
+// of light at the player's position when cast, resolving
+// PRINCE.JUDGMENT_TELEGRAPH_MS later. Lives in Game.hazards like
+// every other fire-and-forget attack in this game.
 
-class BoulderImpact {
+class RoyalJudgmentStrike {
 
     constructor(x, y) {
 
         this.x = x;
         this.y = y;
-        this.radius = PRINCE.BOULDER_RADIUS;
-        this.timer = PRINCE.BOULDER_TELEGRAPH_MS;
+        this.radius = PRINCE.JUDGMENT_RADIUS;
+        this.timer = PRINCE.JUDGMENT_TELEGRAPH_MS;
         this.landed = false;
 
     }
@@ -844,23 +847,24 @@ class BoulderImpact {
 
     draw() {
 
-        const progress = 1 - this.timer / PRINCE.BOULDER_TELEGRAPH_MS;
+        const progress = 1 - this.timer / PRINCE.JUDGMENT_TELEGRAPH_MS;
         const alpha = 0.3 + Math.sin(Date.now() / 60) * 0.12;
 
-        // Impact zone telegraph.
+        // Impact zone telegraph - a widening halo of light.
         drawPixelZone(this.x, this.y, this.radius, {
-            fill: PRINCE.BOULDER_COLOR,
-            rim: "#c98a5a",
+            fill: PRINCE.JUDGMENT_COLOR,
+            rim: "#fff3c9",
             fillAlpha: alpha * 0.3,
             rimAlpha: alpha + 0.2
         });
 
-        // The boulder's shadow growing as it arcs down.
-        drawPixelDisc(this.x, this.y, 16 + progress * 26, {
-            color: "#2c1c10",
-            alpha: 0.3 + progress * 0.35,
+        // A narrowing column of radiant light gathering overhead
+        // rather than a falling shadow - brightens as it nears.
+        drawPixelDisc(this.x, this.y, 30 - progress * 14, {
+            color: "#fff3c9",
+            alpha: 0.25 + progress * 0.5,
             unit: Math.max(3, Math.round(this.radius * 0.06)),
-            dither: 0.5
+            dither: 0.3
         });
 
     }
