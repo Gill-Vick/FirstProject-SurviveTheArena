@@ -150,6 +150,12 @@ class Enemy {
         // once the enemy walks clear. See update().
         this.chillTimer = 0;
 
+        // Flat damage-absorption pool (see the Prince's Guard
+        // ability in prince.js) - distinct from wardShield's
+        // all-or-nothing 1-hit block: this eats damage up to the
+        // remaining amount, and any overflow still lands on hp.
+        this.shieldHp = 0;
+
     }
 
     update() {
@@ -382,6 +388,28 @@ class Enemy {
 
         }
 
+        // Flat shield pool (see the Prince's Guard) - absorbs up
+        // to its remaining amount, any overflow still lands on
+        // hp so a shield doesn't fully negate a much bigger hit.
+        if (this.shieldHp > 0) {
+
+            const absorbed = Math.min(this.shieldHp, amount);
+
+            this.shieldHp -= absorbed;
+            amount -= absorbed;
+
+            this.flashTimer = 7;
+
+            Particle.createHitBurst(
+                this.x + this.size / 2,
+                this.y + this.size / 2
+            );
+
+            if (amount <= 0)
+                return;
+
+        }
+
         this.hp -= amount;
 
         this.flashTimer = 7;
@@ -463,6 +491,9 @@ class Enemy {
 
         if (this.wardShield)
             this.drawWardShield();
+
+        if (this.shieldHp > 0)
+            this.drawFlatShield();
 
         if (this.damageImmune)
             this.drawImmuneRing();
@@ -614,6 +645,29 @@ class Enemy {
                 glintColor: "#ffffff",
                 alpha: pulse,
                 fillAlpha: 0.12
+            }
+        );
+
+    }
+
+    // Gold flat-shield bubble (the Prince's Guard) - steadier
+    // than the ward's pulse since it depletes gradually rather
+    // than popping in one hit.
+
+    drawFlatShield() {
+
+        const pulse = 0.65 + Math.sin(Date.now() / 220) * 0.2;
+
+        drawPixelShield(
+            this.x + this.size / 2,
+            this.y + this.size / 2,
+            this.size * 0.85,
+            {
+                color: PRINCE.GUARD_COLOR,
+                glowColor: PRINCE.GUARD_COLOR,
+                glintColor: "#fff6d8",
+                alpha: pulse,
+                fillAlpha: 0.14
             }
         );
 

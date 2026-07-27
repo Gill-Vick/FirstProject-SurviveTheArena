@@ -102,14 +102,59 @@ class Mage extends Player {
         this.scepterCooldown = 0;
         this.scepterFlashTimer = 0;
 
+        // Arcane Step - independent of the dash-charge system
+        // (see dash() below), since it teleports toward the aim
+        // point rather than a WASD direction.
+        this.blinkCooldown = 0;
+
     }
 
     // =====================================
     // Class Hooks
     // =====================================
 
-    // The Mage's signature weakness: no dash at all.
+    // The Mage's signature weakness: no dash at all - Arcane
+    // Step (see dash() below) is a separate aim-directed
+    // teleport, not an extra charge of the normal dash.
     getDashSlotCount() { return 0; }
+
+    // The normal dash key (Space/Shift - see input.js) still
+    // calls player.dash() for every class; with no dash charges
+    // the base implementation is a no-op, so overriding it here
+    // is what actually gives Arcane Step a keybind, without
+    // touching the shared Player.dash()/input.js at all.
+    dash() {
+
+        if (!Save.isEquipped("arcaneStep") || this.blinkCooldown > 0)
+            return;
+
+        if (this.rootTimer > 0)
+            return;
+
+        const startX = this.x;
+        const startY = this.y;
+
+        this.x += Math.cos(aimAngle) * ARCANE_STEP.DISTANCE;
+        this.y += Math.sin(aimAngle) * ARCANE_STEP.DISTANCE;
+
+        this.keepOnScreen();
+
+        this.invulnTimer = Math.max(this.invulnTimer, DASH.GRACE_MS);
+        this.blinkCooldown = ARCANE_STEP.COOLDOWN;
+
+        DashAfterimage.createTrail(
+            startX, startY,
+            this.x, this.y,
+            this.size,
+            this.frameIndex,
+            aimAngle
+        );
+
+        Sound.play("dash");
+
+        this.onDash(Math.cos(aimAngle), Math.sin(aimAngle), startX, startY);
+
+    }
 
     getBodyGlowColor() {
 
@@ -208,6 +253,9 @@ class Mage extends Player {
 
         if (this.scepterFlashTimer > 0)
             this.scepterFlashTimer -= Game.dt;
+
+        if (this.blinkCooldown > 0)
+            this.blinkCooldown -= Game.dt;
 
         // Elemental Prism burn stacks.
         this.updateBurns();
@@ -531,8 +579,7 @@ class Mage extends Player {
             this.y + this.size / 2,
             t.x, t.y,
             SUNBURST.DAMAGE[stage],
-            SUNBURST.RADIUS[stage],
-            Save.isEquipped("sanctuary")
+            SUNBURST.RADIUS[stage]
         ));
 
     }
@@ -649,6 +696,17 @@ class Mage extends Player {
                 : "READY"}`,
             color: beamCooldown > 0 ? "#888" : "white"
         });
+
+        if (Save.isEquipped("arcaneStep")) {
+
+            lines.push({
+                text: `Step: ${this.blinkCooldown > 0
+                    ? (this.blinkCooldown / 1000).toFixed(1) + "s"
+                    : "READY [DASH]"}`,
+                color: this.blinkCooldown > 0 ? "#888" : "white"
+            });
+
+        }
 
         // Elemental Prism - which element the NEXT cast lands
         // as, so the rotation can actually be played around.
@@ -957,7 +1015,7 @@ class SunbeamStrike {
 
 class SunburstOrb {
 
-    constructor(sx, sy, tx, ty, damage, radius, leavesField) {
+    constructor(sx, sy, tx, ty, damage, radius) {
 
         this.x = sx;
         this.y = sy;
@@ -965,7 +1023,6 @@ class SunburstOrb {
         this.ty = ty;
         this.damage = damage;
         this.radius = radius;
-        this.leavesField = leavesField;
         this.exploded = false;
 
         const dx = tx - sx;
@@ -1027,9 +1084,6 @@ class SunburstOrb {
         Particle.createHitBurst(this.tx, this.ty);
         Game.hazards.push(new SunbeamStrike(this.tx, this.ty, this.radius, true));
 
-        if (this.leavesField)
-            Game.hazards.push(new SanctuaryField(this.tx, this.ty, this.radius));
-
     }
 
     isDead() { return this.exploded; }
@@ -1056,69 +1110,3 @@ class SunburstOrb {
 
 }
 
-// =====================================
-// Sanctuary Field - lingering radiant zone
-// =====================================
-
-class SanctuaryField {
-
-    constructor(x, y, radius) {
-
-        this.x = x;
-        this.y = y;
-        this.radius = radius;
-        this.life = SANCTUARY.DURATION_MS;
-        this.tickTimer = 0;
-
-    }
-
-    update() {
-
-        this.life -= Game.dt;
-        this.tickTimer -= Game.dt;
-
-        if (this.tickTimer <= 0) {
-
-            this.tickTimer = SANCTUARY.TICK_MS;
-
-            Game.enemies.forEach(enemy => {
-
-                if (enemy.isDead())
-                    return;
-
-                const ex = enemy.x + enemy.size / 2;
-                const ey = enemy.y + enemy.size / 2;
-
-                if (Math.hypot(ex - this.x, ey - this.y) > this.radius)
-                    return;
-
-                enemy.takeDamage(mageDamageTo(enemy, SANCTUARY.TICK_DAMAGE));
-
-                if (enemy.isDead())
-                    onEnemyKilled(enemy);
-
-            });
-
-        }
-
-    }
-
-    isDead() { return this.life <= 0; }
-
-    draw() {
-
-        const fade = Math.min(1, this.life / 800);
-        const flicker = 0.8 + Math.sin(Date.now() / 130) * 0.15;
-
-        drawPixelZone(this.x, this.y, this.radius, {
-            fill: "#fff0aa",
-            rim: "#ffeb96",
-            fillAlpha: 0.3 * fade * flicker,
-            rimAlpha: 0.5 * fade,
-            glow: 8,
-            glowColor: "#ffd25a"
-        });
-
-    }
-
-}

@@ -1274,11 +1274,12 @@ const HAZARD_XRAY_COLORS = {
     MagusFirestorm: "#ff8a3d",
     KegKillZone: "#ff5a3c",
     ClusterBomb: "#ff5a3c",
-    SanctuaryField: "#ffd25a",
     LeylineVortex: "#a57dff",
     MeteorStrike: "#ff5a3c",
     LightningStrike: "#ffeb78",
-    ArcaneNova: "#5f7dff"
+    ArcaneNova: "#5f7dff",
+    MirrorDecoy: "#b06ae0",
+    BoulderImpact: "#c9482f"
 };
 
 // Gathers every occludable thing on screen ONCE per frame -

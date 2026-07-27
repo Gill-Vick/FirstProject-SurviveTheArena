@@ -64,6 +64,26 @@ class Prince extends Enemy {
         this.roarCooldown = PRINCE.ROAR_COOLDOWN * 0.5;
         this.roarTimer = 0;
 
+        // Quake Slam - AOE lane, usable regardless of range.
+        // Telegraph ticks independently of his leap/cleave state
+        // (it's a ground-crack building up, not a body
+        // commitment), but only STARTS from the idle decision
+        // zone in attack().
+        this.quakeCooldown = PRINCE.QUAKE_COOLDOWN * 0.5;
+        this.quakeTelegraph = null;
+
+        // Boulder Throw - far-range lane, a fire-and-forget
+        // telegraphed impact (see BoulderImpact below).
+        this.boulderCooldown = PRINCE.BOULDER_COOLDOWN * 0.5;
+
+        // Guard - shields the Princess. Exclusive: rooted for
+        // the whole channel, same as the leap telegraph, and
+        // only attempted from the idle decision zone so it never
+        // interrupts a leap/cleave already in progress.
+        this.guardCooldown = PRINCE.GUARD_COOLDOWN * 0.25;
+        this.guarding = false;
+        this.guardChannelTimer = 0;
+
         // Enrage - flipped once, never reverts (see enrage()).
         this.enraged = false;
 
@@ -190,6 +210,11 @@ class Prince extends Enemy {
         if (this.cleaving)
             return;
 
+        // Rooted for the whole Guard channel - "he can't move
+        // when casting" is the whole point of its vulnerability.
+        if (this.guarding)
+            return;
+
         // Temporary buffs (Princess's heal-buff, his own Battle
         // Roar) scale however far the chase actually travelled
         // this frame - same after-the-fact trick the base Enemy
@@ -233,10 +258,35 @@ class Prince extends Enemy {
         if (this.roarTimer > 0)
             this.roarTimer -= Game.dt;
 
+        if (this.quakeCooldown > 0)
+            this.quakeCooldown -= Game.dt;
+
+        if (this.boulderCooldown > 0)
+            this.boulderCooldown -= Game.dt;
+
+        if (this.guardCooldown > 0)
+            this.guardCooldown -= Game.dt;
+
         if (this.comboTimer > 0)
             this.comboTimer -= Game.dt;
         else
             this.cleaveCombo = 0;
+
+        // Guard is a full commitment - rooted, and nothing else
+        // (not even Roar) fires while he's channeling it.
+        if (this.guarding) {
+
+            this.updateGuardChannel();
+
+            return;
+
+        }
+
+        // Quake Slam's telegraph ticks independently of the
+        // leap/cleave state below (it's a ground-crack building
+        // up, not a body commitment) - only STARTING a new one
+        // is gated to the idle zone further down.
+        this.updateQuakeTelegraph();
 
         // Battle Roar - an independent lane, off cooldown
         // whenever, regardless of the leap/cleave state machine
@@ -254,6 +304,15 @@ class Prince extends Enemy {
             Game.screenShake = Math.max(Game.screenShake ?? 0, 10);
             Particle.createHitBurst(this.x + this.size / 2, this.y + this.size / 2);
             Sound.play("bossSlam");
+
+        }
+
+        // Boulder Throw - independent lane, fire-and-forget
+        // (see BoulderImpact below), usable at any range.
+        if (this.boulderCooldown <= 0) {
+
+            this.throwBoulder();
+            this.boulderCooldown = PRINCE.BOULDER_COOLDOWN * this.getCooldownMultiplier();
 
         }
 
@@ -348,6 +407,27 @@ class Prince extends Enemy {
             this.leapCooldown =
                 PRINCE.LEAP_COOLDOWN * this.getCooldownMultiplier();
 
+            return;
+
+        }
+
+        // Quake Slam - only STARTS from here (the idle decision
+        // zone), so it never fires mid-leap/mid-cleave.
+        if (this.quakeCooldown <= 0 && !this.quakeTelegraph) {
+
+            this.quakeTelegraph = { timer: PRINCE.QUAKE_TELEGRAPH_MS };
+            this.quakeCooldown = PRINCE.QUAKE_COOLDOWN * this.getCooldownMultiplier();
+
+            return;
+
+        }
+
+        // Guard - same idea: only attempted while idle, so it
+        // never interrupts a leap/cleave already committed to.
+        if (this.guardCooldown <= 0) {
+
+            this.tryStartGuard();
+
         }
 
     }
@@ -416,6 +496,134 @@ class Prince extends Enemy {
     }
 
     // =====================================
+    // Quake Slam
+    // =====================================
+    //
+    // A telegraphed AOE centered on himself - his answer to
+    // being kited now that he's slow. Ticks down regardless of
+    // his leap/cleave state (see attack()); resolves into a
+    // single hit-test against wherever the player actually is
+    // when the telegraph completes, same "dodge the tell" logic
+    // as every other telegraphed attack in this fight.
+
+    updateQuakeTelegraph() {
+
+        if (!this.quakeTelegraph)
+            return;
+
+        this.quakeTelegraph.timer -= Game.dt;
+
+        if (this.quakeTelegraph.timer > 0)
+            return;
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        const px = player.x + player.size / 2;
+        const py = player.y + player.size / 2;
+
+        if (Math.hypot(px - cx, py - cy) <= PRINCE.QUAKE_RADIUS)
+            player.takeHit(ENEMY_LABELS.prince);
+
+        Game.screenShake = Math.max(Game.screenShake ?? 0, 16);
+        Particle.createHitBurst(cx, cy);
+
+        this.quakeTelegraph = null;
+
+    }
+
+    // =====================================
+    // Boulder Throw
+    // =====================================
+    //
+    // Far-range answer - a telegraphed impact at the player's
+    // position when cast (see BoulderImpact below), so standing
+    // at range isn't automatically safe just because he's slow.
+
+    throwBoulder() {
+
+        const px = player.x + player.size / 2;
+        const py = player.y + player.size / 2;
+
+        Game.hazards.push(new BoulderImpact(px, py));
+
+        Sound.play("bossSlam");
+
+    }
+
+    // =====================================
+    // Guard (shields the Princess)
+    // =====================================
+    //
+    // A committed 2s channel - rooted (see move()) - that grants
+    // the Princess a flat GUARD_SHIELD_HP shield (see the
+    // generic shieldHp handling in Enemy.takeDamage). Only
+    // starts if she's alive, not already shielded, and within
+    // range; otherwise a short retry rather than burning the
+    // full cooldown on a no-op.
+
+    tryStartGuard() {
+
+        const princess = Game.enemies.find(
+            e => e.type === "princess" && !e.isDead()
+        );
+
+        if (!princess || princess.shieldHp > 0) {
+
+            this.guardCooldown = PRINCE.GUARD_RETRY_MS;
+
+            return;
+
+        }
+
+        const dist = Math.hypot(
+            (princess.x + princess.size / 2) - (this.x + this.size / 2),
+            (princess.y + princess.size / 2) - (this.y + this.size / 2)
+        );
+
+        if (dist > PRINCE.GUARD_CAST_RANGE) {
+
+            this.guardCooldown = PRINCE.GUARD_RETRY_MS;
+
+            return;
+
+        }
+
+        this.guarding = true;
+        this.guardChannelTimer = PRINCE.GUARD_CHANNEL_MS;
+
+    }
+
+    updateGuardChannel() {
+
+        this.guardChannelTimer -= Game.dt;
+
+        if (this.guardChannelTimer > 0)
+            return;
+
+        this.guarding = false;
+        this.guardCooldown = PRINCE.GUARD_COOLDOWN * this.getCooldownMultiplier();
+
+        const princess = Game.enemies.find(
+            e => e.type === "princess" && !e.isDead()
+        );
+
+        // She may have died mid-channel - the cast just fizzles.
+        if (!princess)
+            return;
+
+        princess.shieldHp = PRINCE.GUARD_SHIELD_HP;
+
+        Game.screenShake = Math.max(Game.screenShake ?? 0, 10);
+        Particle.createHitBurst(
+            princess.x + princess.size / 2,
+            princess.y + princess.size / 2
+        );
+        Sound.play("haloBreak");
+
+    }
+
+    // =====================================
     // Drawing
     // =====================================
 
@@ -423,6 +631,12 @@ class Prince extends Enemy {
 
         if (this.leapCharge > 0)
             this.drawLeapTelegraph();
+
+        if (this.quakeTelegraph)
+            this.drawQuakeTelegraph();
+
+        if (this.guarding)
+            this.drawGuardChannel();
 
         super.draw();
 
@@ -435,13 +649,15 @@ class Prince extends Enemy {
 
     drawLabel() {
 
-        const tag = this.enraged
-            ? "ENRAGED"
-            : this.roarTimer > 0
-                ? "ROARING"
-                : this.buffTimer > 0
-                    ? "BUFFED"
-                    : null;
+        const tag = this.guarding
+            ? "GUARDING"
+            : this.enraged
+                ? "ENRAGED"
+                : this.roarTimer > 0
+                    ? "ROARING"
+                    : this.buffTimer > 0
+                        ? "BUFFED"
+                        : null;
 
         const label = [
             "PRINCE",
@@ -449,15 +665,17 @@ class Prince extends Enemy {
             tag
         ].filter(Boolean).join(" - ");
 
-        const color = this.enraged
-            ? "#ff5a3d"
-            : this.roarTimer > 0
-                ? "#ff8a3d"
-                : this.buffTimer > 0
-                    ? "#e8c84a"
-                    : this.phase2
-                        ? "#ff5a3d"
-                        : "#e0a0c0";
+        const color = this.guarding
+            ? PRINCE.GUARD_COLOR
+            : this.enraged
+                ? "#ff5a3d"
+                : this.roarTimer > 0
+                    ? "#ff8a3d"
+                    : this.buffTimer > 0
+                        ? "#e8c84a"
+                        : this.phase2
+                            ? "#ff5a3d"
+                            : "#e0a0c0";
 
         drawPixelText(
             label,
@@ -496,6 +714,49 @@ class Prince extends Enemy {
 
     }
 
+    // Ground cracks spreading out from under him as Quake Slam
+    // builds - centered on his own position (unlike the leap's
+    // telegraph, which tracks the player).
+
+    drawQuakeTelegraph() {
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        const progress = 1 - this.quakeTelegraph.timer / PRINCE.QUAKE_TELEGRAPH_MS;
+        const alpha = 0.3 + Math.sin(Date.now() / 50) * 0.15;
+
+        drawPixelZone(cx, cy, PRINCE.QUAKE_RADIUS * progress, {
+            fill: PRINCE.QUAKE_COLOR,
+            rim: "#ff8a5a",
+            fillAlpha: alpha * 0.3,
+            rimAlpha: alpha + 0.2
+        });
+
+    }
+
+    // Golden ward gathering around him while he channels Guard -
+    // reads as "committed" (matches the root) rather than a
+    // quick cast.
+
+    drawGuardChannel() {
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        const progress = 1 - this.guardChannelTimer / PRINCE.GUARD_CHANNEL_MS;
+        const pulse = 0.5 + Math.sin(Date.now() / 100) * 0.25;
+
+        drawPixelShield(cx, cy, this.size * (0.7 + progress * 0.3), {
+            color: PRINCE.GUARD_COLOR,
+            glowColor: PRINCE.GUARD_COLOR,
+            glintColor: "#fff6d8",
+            alpha: pulse,
+            fillAlpha: 0.1
+        });
+
+    }
+
     // A wide claw-swipe wedge rather than a drawn blade -
     // visually distinct from the Knight's sword.
 
@@ -529,6 +790,78 @@ class Prince extends Enemy {
         ctx.fill();
 
         ctx.restore();
+
+    }
+
+}
+
+// =====================================
+// Boulder Throw - telegraphed impact
+// =====================================
+//
+// Same telegraph-then-impact shape as Royal Magus' MeteorStrike
+// (see royalMagus.js) - a growing shadow/impact zone at the
+// player's position when thrown, resolving PRINCE.BOULDER_
+// TELEGRAPH_MS later. Lives in Game.hazards like every other
+// fire-and-forget attack in this game.
+
+class BoulderImpact {
+
+    constructor(x, y) {
+
+        this.x = x;
+        this.y = y;
+        this.radius = PRINCE.BOULDER_RADIUS;
+        this.timer = PRINCE.BOULDER_TELEGRAPH_MS;
+        this.landed = false;
+
+    }
+
+    update() {
+
+        this.timer -= Game.dt;
+
+        if (this.timer <= 0 && !this.landed) {
+
+            this.landed = true;
+
+            const px = player.x + player.size / 2;
+            const py = player.y + player.size / 2;
+
+            if (Math.hypot(px - this.x, py - this.y) < this.radius)
+                player.takeHit(ENEMY_LABELS.prince);
+
+            Game.screenShake = Math.max(Game.screenShake ?? 0, 12);
+            Particle.createHitBurst(this.x, this.y);
+
+        }
+
+    }
+
+    isDead() {
+        return this.landed;
+    }
+
+    draw() {
+
+        const progress = 1 - this.timer / PRINCE.BOULDER_TELEGRAPH_MS;
+        const alpha = 0.3 + Math.sin(Date.now() / 60) * 0.12;
+
+        // Impact zone telegraph.
+        drawPixelZone(this.x, this.y, this.radius, {
+            fill: PRINCE.BOULDER_COLOR,
+            rim: "#c98a5a",
+            fillAlpha: alpha * 0.3,
+            rimAlpha: alpha + 0.2
+        });
+
+        // The boulder's shadow growing as it arcs down.
+        drawPixelDisc(this.x, this.y, 16 + progress * 26, {
+            color: "#2c1c10",
+            alpha: 0.3 + progress * 0.35,
+            unit: Math.max(3, Math.round(this.radius * 0.06)),
+            dither: 0.5
+        });
 
     }
 

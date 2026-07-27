@@ -839,12 +839,17 @@ const ELEMENTAL_PRISM = {
 
 };
 
-// Sanctuary (Magus) - the Sunburst [E] leaves a lingering
-// radiant field that denies that ground.
-const SANCTUARY = {
-    DURATION_MS: 2500,
-    TICK_MS: 800,
-    TICK_DAMAGE: 1
+// Arcane Step (Magus) - replaces the old Sanctuary. The Mage's
+// whole answer to having no dash at all (see getDashSlotCount):
+// an aim-directed teleport on its own short cooldown, bound to
+// the same dash key every other class uses (see Mage.dash()).
+// Unlocked at the Magus tier (not the Siblings tier) so it's
+// already in hand well before the Prince fight, which is
+// exactly the matchup that exposed how badly a dashless class
+// needs an escape tool.
+const ARCANE_STEP = {
+    DISTANCE: 220,
+    COOLDOWN: 5000
 };
 
 // Corona (Magus) - a radiant aura that burns enemies who get
@@ -1385,11 +1390,11 @@ const SHOP_ITEMS = {
         equippable: true
     },
 
-    sanctuary: {
+    arcaneStep: {
         classId: "mage",
         price: 400,
-        name: "Sanctuary",
-        desc: "Your Sunburst leaves a lingering radiant field that burns the ground it lands on",
+        name: "Arcane Step",
+        desc: "Teleport toward your cursor/aim - the Mage's only dash, 5s cooldown",
         requiresMagusKilled: true,
         equippable: true
     },
@@ -2022,7 +2027,13 @@ const MAGUS = {
 const PRINCE = {
 
     SIZE: 72,
-    SPEED: 1.7,
+
+    // Deliberately slow - a mobility pass cut this hard from an
+    // earlier 1.7. He used to out-chase everyone; now standing
+    // your ground or kiting is a real option, and his threat
+    // comes from Quake Slam / Boulder Throw (below) reaching out
+    // to you instead of him running you down.
+    SPEED: 0.7,
     COLOR: "#7a1f3d",
 
     // Same wave-scaling scheme as the other bosses. Debuts at
@@ -2030,17 +2041,19 @@ const PRINCE = {
     BASE_HP: 100,
     HP_PER_WAVE: 7,
 
-    // Leap-slam: his gap-closer AND his ranged answer in one -
-    // a telegraphed leap onto the player's current position,
-    // landing in a damaging AOE burst. Used whenever he's out
-    // of cleave range and off cooldown. (No numeric damage here
-    // or below - contact with the player is a binary takeHit()
-    // in this game, not a variable damage amount; what actually
-    // makes a hit scarier is reach/arc/frequency.)
-    LEAP_TELEGRAPH_MS: 400,
-    LEAP_SPEED: 9.5,
-    LEAP_DURATION: 36,
-    LEAP_COOLDOWN: 2800,
+    // Leap-slam: still his gap-closer, but much rarer and
+    // shorter now that it's not his primary way of reaching you
+    // (see the ranged/AOE lanes below) - a telegraphed leap onto
+    // the player's current position, landing in a damaging AOE
+    // burst. Used whenever he's out of cleave range and off
+    // cooldown. (No numeric damage here or below - contact with
+    // the player is a binary takeHit() in this game, not a
+    // variable damage amount; what actually makes a hit scarier
+    // is reach/arc/frequency.)
+    LEAP_TELEGRAPH_MS: 600,
+    LEAP_SPEED: 7,
+    LEAP_DURATION: 28,
+    LEAP_COOLDOWN: 6500,
     SLAM_RADIUS: 110,
 
     // Up-close fist cleave once Leap is on cooldown - same
@@ -2068,6 +2081,37 @@ const PRINCE = {
     ROAR_SPEED_MULT: 1.3,
     ROAR_COOLDOWN_MULT: 0.75,
     ROAR_COLOR: "#ff5a3d",
+
+    // Quake Slam - an independent AOE lane, usable at ANY range
+    // (his answer to being kited now that he's slow): a
+    // telegraphed shockwave centered on himself.
+    QUAKE_COOLDOWN: 5500,
+    QUAKE_TELEGRAPH_MS: 900,
+    QUAKE_RADIUS: 230,
+    QUAKE_COLOR: "#c9482f",
+
+    // Boulder Throw - his far-range answer: a telegraphed,
+    // dodgeable impact at the player's position when it's cast
+    // (mirrors MeteorStrike's telegraph-then-impact in
+    // royalMagus.js), so standing at range isn't free either.
+    BOULDER_COOLDOWN: 4500,
+    BOULDER_TELEGRAPH_MS: 1000,
+    BOULDER_RADIUS: 100,
+    BOULDER_COLOR: "#8a5a3c",
+
+    // Guard - shields the Princess. A committed 2s channel
+    // (rooted, same as the leap telegraph) that grants her a
+    // flat GUARD_SHIELD_HP damage-absorption shield (see the
+    // generic shieldHp handling in Enemy.takeDamage). Only
+    // starts if she's alive, unshielded, and within
+    // GUARD_CAST_RANGE - otherwise retries shortly rather than
+    // burning the full cooldown on a no-op.
+    GUARD_COOLDOWN: 9000,
+    GUARD_RETRY_MS: 1200,
+    GUARD_CHANNEL_MS: 2000,
+    GUARD_SHIELD_HP: 20,
+    GUARD_CAST_RANGE: 320,
+    GUARD_COLOR: "#ffd76a",
 
     // Enrage - flipped once the Princess dies, read live every
     // time speed/cooldowns are computed (never mutates the base
@@ -2605,7 +2649,7 @@ const BESTIARY = {
         size: 72,
         isBoss: true,
         desc: "One of the wave 20 gatekeepers - a linked pair; both must fall.",
-        behavior: "Leaps in with a telegraphed slam, then presses with fast fist strikes up close - chain 3 cleaves and the last one is a bigger Finisher. Roars periodically for a speed/haste surge. Enrages if the Princess dies first.",
+        behavior: "Slow-moving but not safe at any range: quakes the ground around himself, hurls boulders at distance, and still leaps in occasionally for a slam. Up close, chain 3 cleaves and the last one is a bigger Finisher. Periodically channels a shield onto the Princess (rooted while casting), and roars for a speed/haste surge. Enrages if the Princess dies first.",
         lore: "The King's heir, blooded in the arena since he could walk. His father taught him the only lesson that mattered: an audience only remembers who was still standing.",
         hpAtWave(w) { return PRINCE.BASE_HP + w * PRINCE.HP_PER_WAVE; },
         hpScale: `${PRINCE.BASE_HP} HP, plus ${PRINCE.HP_PER_WAVE} for every wave you've reached`,
@@ -2618,7 +2662,7 @@ const BESTIARY = {
         size: 48,
         isBoss: true,
         desc: "The other wave 20 gatekeeper - a linked pair; both must fall.",
-        behavior: "Kites at range, peppers bolts and volleys, drops slowing zones, and casts a telegraphed root. Periodically heals and empowers the Prince - rooted while she channels it. Once the pair's combined hp drops to half, she pours the rest of herself into him and can finally be killed.",
+        behavior: "Kites at range, peppers bolts and volleys, drops slowing zones, and casts a telegraphed root. Periodically heals and empowers the Prince - rooted while she channels it. The Prince can also shield her outright, so break it before she's actually vulnerable. Once the pair's combined hp drops to half, she pours the rest of herself into him and can finally be killed.",
         lore: "Where her brother learned the sword, she learned the court - poisons, wards, and the patient art of keeping a favorite alive. She has never needed to lift a blade herself, so long as he's still standing.",
         hpAtWave(w) { return PRINCESS.BASE_HP + w * PRINCESS.HP_PER_WAVE; },
         hpScale: `${PRINCESS.BASE_HP} HP, plus ${PRINCESS.HP_PER_WAVE} for every wave you've reached`,

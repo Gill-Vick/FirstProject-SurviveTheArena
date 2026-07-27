@@ -642,7 +642,7 @@ const SHOP_ITEM_IDS = [
     "halo", "sunburst", "sunstone",
     "refraction", "amberlightField",
     "radiantOverload", "elementalPrism",
-    "sanctuary", "corona",
+    "arcaneStep", "corona",
     "twincastPrism", "siblingsGrace", "sovereignScepter",
 
     // Shared
