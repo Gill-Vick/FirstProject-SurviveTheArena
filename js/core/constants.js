@@ -1742,6 +1742,7 @@ const ENEMY_LABELS = {
     royalMagus: "the Royal Magus",
     prince: "the Prince",
     princess: "the Princess",
+    hero: "the Hero",
     king: "the King"
 
 };
@@ -2168,12 +2169,70 @@ const HERO = {
     // One-time multiplies applied when the freeze ends, on top
     // of whatever he already is (phase2's speed bump included) -
     // same "permanent, never reverts" shape as phase2 itself.
-    SPEED_MULT: 1.6,
-    COOLDOWN_MULT: 0.65,
+    //
+    // Toned down from an earlier pass (1.6 / 0.65 / 1.2) once
+    // Hero picked up 3 full new attack lanes below - stacking
+    // the original aggressive multipliers on top of a much
+    // bigger kit made the fight nearly unwinnable. Still
+    // meaningfully faster/tighter/wider than the base Prince,
+    // just not as extreme now that the new moves carry more of
+    // the threat themselves.
+    SPEED_MULT: 1.35,
+    COOLDOWN_MULT: 0.8,
 
     // Widens Slam/Quake/Judgment's AOE reach - "much stronger...
     // at all ranges" needs more than just faster cooldowns.
-    RADIUS_MULT: 1.2
+    RADIUS_MULT: 1.1,
+
+    // Leap-slam is his only real "dash" - an ABSOLUTE cooldown
+    // (bypasses getCooldownMultiplier entirely) so it stays
+    // deliberately half as frequent as the base Prince's, even
+    // though everything else about Hero is faster on cooldown.
+    LEAP_COOLDOWN: PRINCE.LEAP_COOLDOWN * 2,
+
+    // Right-arm swing: a wide wall of fire thrown forward along
+    // wherever the player was standing when it's cast (locked at
+    // cast time, same fairness as every other telegraphed attack
+    // in this fight). Travels outward from HIM rather than
+    // sweeping the whole screen - dodge by stepping sideways out
+    // of its width, not by dashing through it (that's the
+    // Sweeping Laser's trick, below).
+    FIREWALL_COOLDOWN: 5200,
+    FIREWALL_TELEGRAPH_MS: 550,
+    FIREWALL_WIDTH: 220,
+    FIREWALL_HALF_THICKNESS: 45,
+    FIREWALL_TRAVEL_DISTANCE: 560,
+    FIREWALL_TRAVEL_MS: 750,
+    FIREWALL_COLOR: "#ff5a1f",
+    FIREWALL_GLOW_COLOR: "#ffae42",
+
+    // Left-hand swing: his own empowerment - replaces the plain
+    // Prince's Battle Roar (speed + cooldown only) with a 3-stat
+    // version once he's Hero, adding a temporary swell to his
+    // AOE attacks' radius on top (see getTempRadiusMultiplier()
+    // in prince.js). Reuses the same roarTimer/roarCooldown
+    // fields Battle Roar already used - just bigger numbers and
+    // a 3rd stat, not a whole new lane.
+    EMPOWER_COOLDOWN: 7000,
+    EMPOWER_DURATION_MS: 3000,
+    EMPOWER_SPEED_MULT: 1.3,
+    EMPOWER_COOLDOWN_MULT: 0.7,
+    EMPOWER_RADIUS_MULT: 1.25,
+    EMPOWER_COLOR: "#fff3b0",
+
+    // Sweeping laser: a full-screen beam that physically
+    // translates across the arena rather than firing in place.
+    // Standing still or walking away from a screen-spanning beam
+    // isn't a real option - the only reliable way through is a
+    // well-timed dash, since the brief invulnerability it grants
+    // (DASH.GRACE_MS in player.js) is what actually saves you,
+    // not outrunning it on foot.
+    SWEEP_COOLDOWN: 9000,
+    SWEEP_TELEGRAPH_MS: 900,
+    SWEEP_DURATION_MS: 1500,
+    SWEEP_WIDTH: 85,
+    SWEEP_COLOR: "#fff3b0",
+    SWEEP_RIM_COLOR: "#ff8c1a"
 
 };
 
@@ -2763,7 +2822,7 @@ const BESTIARY = {
             name: "Hero",
             color: HERO.COLOR,
             desc: "What the Prince becomes if the Princess falls first - no longer holding anything back.",
-            behavior: "Faster, tighter on every cooldown, and reaching further at every range: his Quake Slam, Royal Judgment, and landing slam all cover more ground than before. No longer shields anyone - there's no one left to protect.",
+            behavior: "Faster and tighter on cooldown, though he leaps far less often now - his real threat is a new moveset: a wall of fire hurled forward with his right arm (step out of its width to dodge), a screen-wide sweeping laser only a well-timed dash can carry you through, and a left-hand swing that empowers his speed, cooldowns, and AOE reach all at once. No longer shields anyone - there's no one left to protect.",
             lore: "Stripped of the audience he performed for, only the fighting remains. Whatever was left of the prince burns away with her.",
             baseSpeed: PRINCE.SPEED * HERO.SPEED_MULT
         }

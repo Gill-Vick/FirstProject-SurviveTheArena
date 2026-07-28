@@ -2327,12 +2327,12 @@ function getBestiaryBossPortraitRect() {
 function getBestiaryHeroSwapButton() {
 
     const portrait = getBestiaryBossPortraitRect();
-    const width = portrait.size * 0.62;
-    const height = portrait.size * 0.26;
+    const width = portrait.size * 0.52;
+    const height = portrait.size * 0.22;
 
     return {
-        x: portrait.x + portrait.size - width * 0.55,
-        y: portrait.y - height * 0.45,
+        x: portrait.x - width * 0.45,
+        y: portrait.y - height * 0.4,
         width,
         height
     };

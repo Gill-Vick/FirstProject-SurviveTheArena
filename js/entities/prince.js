@@ -86,6 +86,13 @@ class Prince extends Enemy {
         this.guarding = false;
         this.guardChannelTimer = 0;
 
+        // Fire Wall (right-arm swing) and Sweeping Laser - Hero-
+        // only lanes, both dormant until completeHeroTransformation()
+        // gives them their real starting cooldowns.
+        this.firewallCooldown = Infinity;
+        this.firewallTelegraph = null;
+        this.sweepCooldown = Infinity;
+
         // Hero transformation - triggered once by the Princess's
         // death (see triggerHeroTransformation()), never reverts.
         // "transforming" covers the frozen cutscene window;
@@ -158,6 +165,13 @@ class Prince extends Enemy {
         this.color = HERO.COLOR;
         this.speed *= HERO.SPEED_MULT;
 
+        // Fire Wall and Sweeping Laser go live here, not at
+        // Infinity anymore - started at half cooldown so the
+        // player gets a brief look at the new form before either
+        // one fires for the first time.
+        this.firewallCooldown = HERO.FIREWALL_COOLDOWN * 0.5;
+        this.sweepCooldown = HERO.SWEEP_COOLDOWN * 0.5;
+
         Game.screenShake = Math.max(Game.screenShake ?? 0, 18);
         Particle.createHitBurst(this.x + this.size / 2, this.y + this.size / 2);
         Sound.play("haloBreak");
@@ -191,8 +205,11 @@ class Prince extends Enemy {
         if (this.buffTimer > 0)
             mult *= PRINCESS.BUFF_COOLDOWN_MULT;
 
+        // Left-hand Empower (Hero) replaces the plain Prince's
+        // Battle Roar in this same lane - same field, bigger
+        // number once he's Hero (see HERO.EMPOWER_COOLDOWN_MULT).
         if (this.roarTimer > 0)
-            mult *= PRINCE.ROAR_COOLDOWN_MULT;
+            mult *= this.isHero ? HERO.EMPOWER_COOLDOWN_MULT : PRINCE.ROAR_COOLDOWN_MULT;
 
         return mult;
 
@@ -211,9 +228,23 @@ class Prince extends Enemy {
             mult *= PRINCESS.BUFF_SPEED_MULT;
 
         if (this.roarTimer > 0)
-            mult *= PRINCE.ROAR_SPEED_MULT;
+            mult *= this.isHero ? HERO.EMPOWER_SPEED_MULT : PRINCE.ROAR_SPEED_MULT;
 
         return mult;
+
+    }
+
+    // Empower's 3rd stat - a temporary swell to Slam/Quake/
+    // Judgment's AOE radius, layered on top of Hero's permanent
+    // HERO.RADIUS_MULT (see the radius calcs below). Only ever
+    // non-1 for Hero - the base Prince's Battle Roar never
+    // touched radius.
+    getTempRadiusMultiplier() {
+
+        if (this.isHero && this.roarTimer > 0)
+            return HERO.EMPOWER_RADIUS_MULT;
+
+        return 1;
 
     }
 
@@ -330,6 +361,12 @@ class Prince extends Enemy {
         if (this.guardCooldown > 0)
             this.guardCooldown -= Game.dt;
 
+        if (this.firewallCooldown > 0)
+            this.firewallCooldown -= Game.dt;
+
+        if (this.sweepCooldown > 0)
+            this.sweepCooldown -= Game.dt;
+
         if (this.comboTimer > 0)
             this.comboTimer -= Game.dt;
         else
@@ -351,20 +388,27 @@ class Prince extends Enemy {
         // is gated to the idle zone further down.
         this.updateQuakeTelegraph();
 
-        // Battle Roar - an independent lane, off cooldown
-        // whenever, regardless of the leap/cleave state machine
-        // below (same "runs in parallel" idea as Royal Magus'
-        // nova check).
+        // Fire Wall's telegraph, same independent-lane shape.
+        this.updateFirewallTelegraph();
+
+        // Battle Roar / left-hand Empower - an independent lane,
+        // off cooldown whenever, regardless of the leap/cleave
+        // state machine below (same "runs in parallel" idea as
+        // Royal Magus' nova check). Same fields either way - see
+        // getCooldownMultiplier/getTempSpeedMultiplier/
+        // getTempRadiusMultiplier for the isHero-specific numbers.
         if (this.roarCooldown > 0) {
 
             this.roarCooldown -= Game.dt;
 
         } else {
 
-            this.roarTimer = PRINCE.ROAR_DURATION_MS;
-            this.roarCooldown = PRINCE.ROAR_COOLDOWN * this.getCooldownMultiplier();
+            this.roarTimer = this.isHero ? HERO.EMPOWER_DURATION_MS : PRINCE.ROAR_DURATION_MS;
+            this.roarCooldown =
+                (this.isHero ? HERO.EMPOWER_COOLDOWN : PRINCE.ROAR_COOLDOWN) *
+                this.getCooldownMultiplier();
 
-            Game.screenShake = Math.max(Game.screenShake ?? 0, 10);
+            Game.screenShake = Math.max(Game.screenShake ?? 0, this.isHero ? 14 : 10);
             Particle.createHitBurst(this.x + this.size / 2, this.y + this.size / 2);
             Sound.play("bossSlam");
 
@@ -376,6 +420,36 @@ class Prince extends Enemy {
 
             this.castRoyalJudgment();
             this.judgmentCooldown = PRINCE.JUDGMENT_COOLDOWN * this.getCooldownMultiplier();
+
+        }
+
+        // Sweeping Laser - Hero only. An independent lane like
+        // Judgment above; the hazard itself owns its telegraph/
+        // sweep timing once spawned (see HeroSweepingLaser below).
+        if (this.isHero && this.sweepCooldown <= 0) {
+
+            Game.hazards.push(new HeroSweepingLaser());
+            this.sweepCooldown = HERO.SWEEP_COOLDOWN * this.getCooldownMultiplier();
+
+        }
+
+        // Fire Wall (right-arm swing) - Hero only, independent
+        // lane. Locks the direction toward the player NOW (cast
+        // time), same fairness as every other telegraphed attack
+        // here - see updateFirewallTelegraph()/resolveFirewall().
+        if (this.isHero && this.firewallCooldown <= 0 && !this.firewallTelegraph) {
+
+            const cx = this.x + this.size / 2;
+            const cy = this.y + this.size / 2;
+            const px = player.x + player.size / 2;
+            const py = player.y + player.size / 2;
+
+            this.firewallTelegraph = {
+                angle: Math.atan2(py - cy, px - cx),
+                timer: HERO.FIREWALL_TELEGRAPH_MS
+            };
+
+            this.firewallCooldown = HERO.FIREWALL_COOLDOWN * this.getCooldownMultiplier();
 
         }
 
@@ -467,8 +541,15 @@ class Prince extends Enemy {
         ) {
 
             this.leapCharge = PRINCE.LEAP_TELEGRAPH_MS;
-            this.leapCooldown =
-                PRINCE.LEAP_COOLDOWN * this.getCooldownMultiplier();
+
+            // Leap is his only real "dash" - Hero uses an
+            // ABSOLUTE cooldown here (HERO.LEAP_COOLDOWN, already
+            // double the base) rather than getCooldownMultiplier(),
+            // so it stays deliberately half as frequent even
+            // though every other cooldown of his got shorter.
+            this.leapCooldown = this.isHero
+                ? HERO.LEAP_COOLDOWN
+                : PRINCE.LEAP_COOLDOWN * this.getCooldownMultiplier();
 
             return;
 
@@ -510,10 +591,10 @@ class Prince extends Enemy {
         const px = player.x + player.size / 2;
         const py = player.y + player.size / 2;
 
-        const radius = PRINCE.SLAM_RADIUS * (this.isHero ? HERO.RADIUS_MULT : 1);
+        const radius = PRINCE.SLAM_RADIUS * (this.isHero ? HERO.RADIUS_MULT : 1) * this.getTempRadiusMultiplier();
 
         if (Math.hypot(px - cx, py - cy) <= radius)
-            player.takeHit(ENEMY_LABELS.prince);
+            player.takeHit(this.isHero ? ENEMY_LABELS.hero : ENEMY_LABELS.prince);
 
         Game.screenShake = Math.max(Game.screenShake ?? 0, 14);
 
@@ -556,7 +637,7 @@ class Prince extends Enemy {
 
         if (diff < 0.5) {
 
-            player.takeHit(ENEMY_LABELS.prince);
+            player.takeHit(this.isHero ? ENEMY_LABELS.hero : ENEMY_LABELS.prince);
             this.cleaveHitPlayer = true;
 
         }
@@ -590,10 +671,10 @@ class Prince extends Enemy {
         const px = player.x + player.size / 2;
         const py = player.y + player.size / 2;
 
-        const radius = PRINCE.QUAKE_RADIUS * (this.isHero ? HERO.RADIUS_MULT : 1);
+        const radius = PRINCE.QUAKE_RADIUS * (this.isHero ? HERO.RADIUS_MULT : 1) * this.getTempRadiusMultiplier();
 
         if (Math.hypot(px - cx, py - cy) <= radius)
-            player.takeHit(ENEMY_LABELS.prince);
+            player.takeHit(this.isHero ? ENEMY_LABELS.hero : ENEMY_LABELS.prince);
 
         Game.screenShake = Math.max(Game.screenShake ?? 0, 16);
         Particle.createHitBurst(cx, cy);
@@ -617,11 +698,43 @@ class Prince extends Enemy {
         const px = player.x + player.size / 2;
         const py = player.y + player.size / 2;
 
-        const radius = PRINCE.JUDGMENT_RADIUS * (this.isHero ? HERO.RADIUS_MULT : 1);
+        const radius = PRINCE.JUDGMENT_RADIUS * (this.isHero ? HERO.RADIUS_MULT : 1) * this.getTempRadiusMultiplier();
 
-        Game.hazards.push(new RoyalJudgmentStrike(px, py, radius));
+        Game.hazards.push(new RoyalJudgmentStrike(px, py, radius, this.isHero));
 
         Sound.play("bossSlam");
+
+    }
+
+    // =====================================
+    // Fire Wall (Hero's right-arm swing)
+    // =====================================
+    //
+    // A wide wall of fire thrown forward along a direction locked
+    // at cast time (same fairness as every other telegraph here),
+    // dodged by stepping sideways out of its width rather than by
+    // dashing through it - see FireWall below for the travelling
+    // hazard itself.
+
+    updateFirewallTelegraph() {
+
+        if (!this.firewallTelegraph)
+            return;
+
+        this.firewallTelegraph.timer -= Game.dt;
+
+        if (this.firewallTelegraph.timer > 0)
+            return;
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        Game.hazards.push(new FireWall(cx, cy, this.firewallTelegraph.angle));
+
+        Game.screenShake = Math.max(Game.screenShake ?? 0, 12);
+        Sound.play("bossSlam");
+
+        this.firewallTelegraph = null;
 
     }
 
@@ -719,6 +832,9 @@ class Prince extends Enemy {
         if (this.quakeTelegraph)
             this.drawQuakeTelegraph();
 
+        if (this.firewallTelegraph)
+            this.drawFirewallTelegraph();
+
         if (this.guarding)
             this.drawGuardChannel();
 
@@ -787,13 +903,11 @@ class Prince extends Enemy {
             ? "TRANSFORMING"
             : this.guarding
                 ? "GUARDING"
-                : this.isHero
-                    ? null
-                    : this.roarTimer > 0
-                        ? "ROARING"
-                        : this.buffTimer > 0
-                            ? "BUFFED"
-                            : null;
+                : this.roarTimer > 0
+                    ? (this.isHero ? "EMPOWERED" : "ROARING")
+                    : this.buffTimer > 0
+                        ? "BUFFED"
+                        : null;
 
         const label = [
             this.isHero ? "HERO" : "PRINCE",
@@ -864,7 +978,7 @@ class Prince extends Enemy {
         const progress = 1 - this.quakeTelegraph.timer / PRINCE.QUAKE_TELEGRAPH_MS;
         const alpha = 0.3 + Math.sin(Date.now() / 50) * 0.15;
 
-        const radius = PRINCE.QUAKE_RADIUS * (this.isHero ? HERO.RADIUS_MULT : 1);
+        const radius = PRINCE.QUAKE_RADIUS * (this.isHero ? HERO.RADIUS_MULT : 1) * this.getTempRadiusMultiplier();
 
         drawPixelZone(cx, cy, radius * progress, {
             fill: PRINCE.QUAKE_COLOR,
@@ -872,6 +986,36 @@ class Prince extends Enemy {
             fillAlpha: alpha * 0.3,
             rimAlpha: alpha + 0.2
         });
+
+    }
+
+    // A narrow cone of gathering flame along the locked angle,
+    // widening as the telegraph nears completion - shows both
+    // the direction AND the eventual width, so stepping out of
+    // the way is a real, informed choice rather than a guess.
+
+    drawFirewallTelegraph() {
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        const progress = 1 - this.firewallTelegraph.timer / HERO.FIREWALL_TELEGRAPH_MS;
+        const alpha = 0.3 + Math.sin(Date.now() / 55) * 0.15;
+
+        const angle = this.firewallTelegraph.angle;
+        const halfWidth = (HERO.FIREWALL_WIDTH / 2) * (0.3 + progress * 0.7);
+        const length = HERO.FIREWALL_TRAVEL_DISTANCE * 0.5;
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(angle);
+
+        ctx.fillStyle = `rgba(255, 90, 31, ${alpha * 0.4})`;
+        ctx.shadowBlur = 16;
+        ctx.shadowColor = HERO.FIREWALL_GLOW_COLOR;
+        ctx.fillRect(0, -halfWidth, length, halfWidth * 2);
+
+        ctx.restore();
 
     }
 
@@ -948,11 +1092,12 @@ class Prince extends Enemy {
 
 class RoyalJudgmentStrike {
 
-    constructor(x, y, radius = PRINCE.JUDGMENT_RADIUS) {
+    constructor(x, y, radius = PRINCE.JUDGMENT_RADIUS, isHero = false) {
 
         this.x = x;
         this.y = y;
         this.radius = radius;
+        this.label = isHero ? ENEMY_LABELS.hero : ENEMY_LABELS.prince;
         this.timer = PRINCE.JUDGMENT_TELEGRAPH_MS;
         this.landed = false;
 
@@ -970,7 +1115,7 @@ class RoyalJudgmentStrike {
             const py = player.y + player.size / 2;
 
             if (Math.hypot(px - this.x, py - this.y) < this.radius)
-                player.takeHit(ENEMY_LABELS.prince);
+                player.takeHit(this.label);
 
             Game.screenShake = Math.max(Game.screenShake ?? 0, 12);
             Particle.createHitBurst(this.x, this.y);
@@ -1004,6 +1149,260 @@ class RoyalJudgmentStrike {
             unit: Math.max(3, Math.round(this.radius * 0.06)),
             dither: 0.3
         });
+
+    }
+
+}
+
+// =====================================
+// Fire Wall - Hero's right-arm swing
+// =====================================
+//
+// A wide wall thrown forward from wherever Hero was standing
+// when it was cast, travelling outward along the locked angle
+// (see Prince.updateFirewallTelegraph()) rather than tracking the
+// player - once it's moving, it goes where it's aimed regardless
+// of where the player runs. Hit-tested via the same rotate-into-
+// local-space rectangle test as Princess's weak laser, just
+// walking the leading edge outward over time instead of testing
+// a full-length instant line.
+
+class FireWall {
+
+    constructor(x, y, angle) {
+
+        this.x = x;
+        this.y = y;
+        this.angle = angle;
+        this.timer = HERO.FIREWALL_TRAVEL_MS;
+        this.hitRegistered = false;
+
+    }
+
+    getTravel() {
+
+        const progress = 1 - Math.max(0, this.timer) / HERO.FIREWALL_TRAVEL_MS;
+
+        return progress * HERO.FIREWALL_TRAVEL_DISTANCE;
+
+    }
+
+    update() {
+
+        this.timer -= Game.dt;
+
+        this.checkHit();
+
+    }
+
+    isDead() {
+
+        return this.timer <= 0;
+
+    }
+
+    checkHit() {
+
+        if (this.hitRegistered)
+            return;
+
+        const travel = this.getTravel();
+
+        const wx = this.x + Math.cos(this.angle) * travel;
+        const wy = this.y + Math.sin(this.angle) * travel;
+
+        const px = player.x + player.size / 2;
+        const py = player.y + player.size / 2;
+
+        const dx = px - wx;
+        const dy = py - wy;
+
+        const cos = Math.cos(-this.angle);
+        const sin = Math.sin(-this.angle);
+
+        const localX = dx * cos - dy * sin;
+        const localY = dx * sin + dy * cos;
+
+        const pad = player.size / 2;
+
+        if (
+            Math.abs(localX) <= HERO.FIREWALL_HALF_THICKNESS + pad &&
+            Math.abs(localY) <= HERO.FIREWALL_WIDTH / 2 + pad
+        ) {
+
+            player.takeHit(ENEMY_LABELS.hero);
+            this.hitRegistered = true;
+
+        }
+
+    }
+
+    draw() {
+
+        const travel = this.getTravel();
+
+        const wx = this.x + Math.cos(this.angle) * travel;
+        const wy = this.y + Math.sin(this.angle) * travel;
+
+        ctx.save();
+
+        ctx.translate(wx, wy);
+        ctx.rotate(this.angle);
+
+        ctx.fillStyle = "rgba(255, 90, 31, 0.6)";
+        ctx.shadowBlur = 22;
+        ctx.shadowColor = HERO.FIREWALL_GLOW_COLOR;
+
+        ctx.fillRect(
+            -HERO.FIREWALL_HALF_THICKNESS,
+            -HERO.FIREWALL_WIDTH / 2,
+            HERO.FIREWALL_HALF_THICKNESS * 2,
+            HERO.FIREWALL_WIDTH
+        );
+
+        ctx.restore();
+
+    }
+
+}
+
+// =====================================
+// Sweeping Laser - Hero's ultimate
+// =====================================
+//
+// Unlike every other hazard in this fight, this one doesn't fire
+// in place or track a locked point - it physically translates
+// across the whole arena, from one edge to the other, over
+// HERO.SWEEP_DURATION_MS. Standing still or walking away from a
+// screen-spanning beam isn't a real option; the intended dodge is
+// a well-timed dash, since the brief invulnerability it grants
+// (DASH.GRACE_MS - see player.js) is what actually gets you
+// through, not outrunning it on foot. The telegraph shows which
+// edge it's coming from and gives a full warning window before
+// it starts moving, so the direction is never a surprise - only
+// the timing is.
+
+class HeroSweepingLaser {
+
+    constructor() {
+
+        // Half the time it's a vertical beam sweeping left/right,
+        // half the time a horizontal beam sweeping up/down.
+        this.vertical = Math.random() < 0.5;
+        this.dir = Math.random() < 0.5 ? 1 : -1;
+
+        this.state = "telegraph";
+        this.timer = HERO.SWEEP_TELEGRAPH_MS;
+        this.progress = 0;
+
+    }
+
+    getAxisSpan() {
+
+        return this.vertical ? canvas.width : canvas.height;
+
+    }
+
+    getPosition() {
+
+        const span = this.getAxisSpan();
+        const start = this.dir === 1 ? -60 : span + 60;
+        const end = this.dir === 1 ? span + 60 : -60;
+
+        return start + (end - start) * this.progress;
+
+    }
+
+    update() {
+
+        if (this.state === "telegraph") {
+
+            this.timer -= Game.dt;
+
+            if (this.timer <= 0) {
+
+                this.state = "sweeping";
+                this.timer = HERO.SWEEP_DURATION_MS;
+
+            }
+
+            return;
+
+        }
+
+        if (this.state === "sweeping") {
+
+            this.timer -= Game.dt;
+            this.progress = 1 - Math.max(0, this.timer) / HERO.SWEEP_DURATION_MS;
+
+            this.checkHit();
+
+            if (this.timer <= 0)
+                this.state = "done";
+
+        }
+
+    }
+
+    isDead() {
+
+        return this.state === "done";
+
+    }
+
+    checkHit() {
+
+        const pos = this.getPosition();
+        const halfWidth = HERO.SWEEP_WIDTH / 2;
+        const pad = player.size / 2;
+
+        const playerCoord = this.vertical
+            ? player.x + player.size / 2
+            : player.y + player.size / 2;
+
+        if (Math.abs(playerCoord - pos) <= halfWidth + pad)
+            player.takeHit(ENEMY_LABELS.hero);
+
+    }
+
+    draw() {
+
+        if (this.state === "telegraph") {
+
+            const span = this.getAxisSpan();
+            const edgePos = this.dir === 1 ? 0 : span;
+            const alpha = 0.35 + Math.sin(Date.now() / 70) * 0.2;
+
+            ctx.save();
+            ctx.fillStyle = `rgba(255, 200, 90, ${alpha})`;
+            ctx.shadowBlur = 16;
+            ctx.shadowColor = HERO.SWEEP_RIM_COLOR;
+
+            if (this.vertical)
+                ctx.fillRect(edgePos - 10, 0, 20, canvas.height);
+            else
+                ctx.fillRect(0, edgePos - 10, canvas.width, 20);
+
+            ctx.restore();
+
+            return;
+
+        }
+
+        const pos = this.getPosition();
+
+        ctx.save();
+
+        ctx.fillStyle = "rgba(255, 243, 176, 0.8)";
+        ctx.shadowBlur = 26;
+        ctx.shadowColor = HERO.SWEEP_RIM_COLOR;
+
+        if (this.vertical)
+            ctx.fillRect(pos - HERO.SWEEP_WIDTH / 2, 0, HERO.SWEEP_WIDTH, canvas.height);
+        else
+            ctx.fillRect(0, pos - HERO.SWEEP_WIDTH / 2, canvas.width, HERO.SWEEP_WIDTH);
+
+        ctx.restore();
 
     }
 
