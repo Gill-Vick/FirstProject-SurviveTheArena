@@ -1789,9 +1789,9 @@ function drawArmouryScrollbar(viewTop, viewBottom) {
 
 }
 
-function drawEnemyPreview(type, x, y, w, h, unlocked) {
+function drawEnemyPreview(type, x, y, w, h, unlocked, entryOverride = null) {
 
-    const entry = BESTIARY[type];
+    const entry = entryOverride ?? BESTIARY[type];
 
     ctx.save();
 
@@ -2044,9 +2044,9 @@ function drawBestiaryCard(cell, type, entry, unlocked) {
 
 // Larger framed portrait for the boss and detail pages - same
 // carved-stone tile, with a bright gold frame for bosses.
-function drawBestiaryPortrait(type, x, y, size, unlocked) {
+function drawBestiaryPortrait(type, x, y, size, unlocked, entryOverride = null) {
 
-    const entry = BESTIARY[type];
+    const entry = entryOverride ?? BESTIARY[type];
     const r = size * 0.06;
 
     ctx.save();
@@ -2068,14 +2068,34 @@ function drawBestiaryPortrait(type, x, y, size, unlocked) {
     ctx.fillRect(x, y, size, size);
     ctx.restore();
 
-    drawEnemyPreview(type, x, y, size, size, unlocked);
+    drawEnemyPreview(type, x, y, size, size, unlocked, entryOverride);
 
     roundRectPath(x, y, size, size, r);
-    ctx.strokeStyle = entry.isBoss
-        ? (unlocked ? "rgba(255, 215, 0, 0.95)" : "rgba(140, 110, 50, 0.55)")
-        : (unlocked ? "rgba(201, 162, 39, 0.9)" : "rgba(120, 100, 62, 0.5)");
-    ctx.lineWidth = Math.max(2, size * 0.03);
-    ctx.stroke();
+
+    // The Hero swap view gets its own pulsing gold aura instead
+    // of the normal boss-gold frame, so the toggle reads
+    // instantly rather than just via the text underneath.
+    if (entryOverride) {
+
+        const pulse = 0.7 + Math.sin(Date.now() / 160) * 0.3;
+
+        ctx.save();
+        ctx.shadowBlur = size * 0.18 * pulse;
+        ctx.shadowColor = HERO.GLOW_COLOR;
+        ctx.strokeStyle = HERO.COLOR;
+        ctx.lineWidth = Math.max(2, size * 0.035);
+        ctx.stroke();
+        ctx.restore();
+
+    } else {
+
+        ctx.strokeStyle = entry.isBoss
+            ? (unlocked ? "rgba(255, 215, 0, 0.95)" : "rgba(140, 110, 50, 0.55)")
+            : (unlocked ? "rgba(201, 162, 39, 0.9)" : "rgba(120, 100, 62, 0.5)");
+        ctx.lineWidth = Math.max(2, size * 0.03);
+        ctx.stroke();
+
+    }
 
 }
 
@@ -2120,6 +2140,7 @@ function cycleBestiaryPage(step) {
     const count = getBestiaryPageCount();
 
     Game.bestiaryPage = (Game.bestiaryPage + step + count) % count;
+    Game.bestiaryShowHero = false;
 
 }
 
@@ -2221,10 +2242,17 @@ function drawBestiary() {
 
     const bossUnlocked = bossType ? Save.isBestiaryUnlocked(bossType) : false;
 
+    // The swap button toggles the Prince's page over to his Hero
+    // name too, so the title never contradicts the glowing
+    // portrait/lore underneath it.
+    const showHeroTitle = bossType === "prince" && Game.bestiaryShowHero;
+
     // Page title + arrows (the boss's name once discovered)
     const title = isCreaturePage
         ? "BESTIARY"
-        : (bossUnlocked ? BESTIARY[bossType].name.toUpperCase() : "???");
+        : (bossUnlocked
+            ? (showHeroTitle ? BESTIARY.prince.hero.name.toUpperCase() : BESTIARY[bossType].name.toUpperCase())
+            : "???");
 
     // Held inside the gap between the page arrows (they sit at
     // +/- pw(0.19), half a button wide each) so a long boss
@@ -2235,7 +2263,7 @@ function drawBestiary() {
         ph(0.175),
         fitPixelScale(title, canvas.width * 0.28, ph(0.05)),
         {
-            color: isCreaturePage ? "#f6efdd" : "#ffd23f",
+            color: isCreaturePage ? "#f6efdd" : (showHeroTitle ? HERO.COLOR : "#ffd23f"),
             shadow: "#6b4c0d"
         }
     );
@@ -2277,18 +2305,80 @@ function drawBestiary() {
 
 // A boss's dedicated page: big portrait, lore, and stats.
 // Locked bosses only show their silhouette.
+// The boss page's portrait rect - factored out so the click
+// handler for the Hero swap button (see getBestiaryHeroSwapButton)
+// can line up with exactly where the portrait is actually drawn,
+// rather than duplicating the geometry.
+function getBestiaryBossPortraitRect() {
+
+    const panel = getBestiaryPanelRect();
+
+    return {
+        size: Math.min(pw(0.17), panel.height * 0.38),
+        x: panel.x + pw(0.05),
+        y: ph(0.30)
+    };
+
+}
+
+// A small swap button pinned to the top-right corner of the
+// boss portrait - only ever drawn/clickable on the Prince's own
+// page (see drawBestiaryBossPage), toggling Game.bestiaryShowHero.
+function getBestiaryHeroSwapButton() {
+
+    const portrait = getBestiaryBossPortraitRect();
+    const width = portrait.size * 0.62;
+    const height = portrait.size * 0.26;
+
+    return {
+        x: portrait.x + portrait.size - width * 0.55,
+        y: portrait.y - height * 0.45,
+        width,
+        height
+    };
+
+}
+
 function drawBestiaryBossPage(type) {
 
-    const entry = BESTIARY[type];
+    const showHero = type === "prince" && Game.bestiaryShowHero;
+
+    // Hero is a toggled OVERLAY on the Prince's own entry, not a
+    // separate bestiary page - it inherits size/isBoss/hp (the
+    // transformation changes neither) and only overrides the
+    // name/color/desc/behavior/lore/speed fields it actually sets
+    // (see BESTIARY.prince.hero in constants.js).
+    const entry = showHero
+        ? { ...BESTIARY[type], ...BESTIARY[type].hero }
+        : BESTIARY[type];
+
     const panel = getBestiaryPanelRect();
 
     const unlocked = Save.isBestiaryUnlocked(type);
 
-    const previewSize = Math.min(pw(0.17), panel.height * 0.38);
-    const previewX = panel.x + pw(0.05);
-    const previewY = ph(0.30);
+    const portrait = getBestiaryBossPortraitRect();
+    const previewSize = portrait.size;
+    const previewX = portrait.x;
+    const previewY = portrait.y;
 
-    drawBestiaryPortrait(type, previewX, previewY, previewSize, unlocked);
+    drawBestiaryPortrait(type, previewX, previewY, previewSize, unlocked, showHero ? entry : null);
+
+    if (unlocked && type === "prince") {
+
+        const btn = getBestiaryHeroSwapButton();
+
+        // Labeled with whichever form it SWITCHES TO, not the
+        // one currently shown - the pixel font has no arrow/swap
+        // glyph outside ◀▶, so text carries the intent instead.
+        drawButton(
+            btn,
+            showHero ? "PRINCE" : "HERO",
+            showHero ? HERO.COLOR : "#3a2a20",
+            showHero ? "#221d17" : "white",
+            btn.height * 0.4
+        );
+
+    }
 
     const textX = previewX + previewSize + pw(0.04);
     const textWidth = panel.x + panel.width - pw(0.04) - textX;
@@ -2884,6 +2974,26 @@ function handleMenuClick(x, y) {
             return;
         }
 
+        // Hero swap button - only present on the Prince's own
+        // boss page, and only once he's actually been unlocked.
+        const creaturePages = getBestiaryCreaturePageCount();
+        const currentBossType = Game.bestiaryPage >= creaturePages
+            ? BESTIARY_BOSS_ORDER[Game.bestiaryPage - creaturePages]
+            : null;
+
+        if (
+            currentBossType === "prince" &&
+            Save.isBestiaryUnlocked("prince") &&
+            hitRect(getBestiaryHeroSwapButton(), x, y)
+        ) {
+
+            Game.bestiaryShowHero = !Game.bestiaryShowHero;
+            Sound.play("uiClick");
+
+            return;
+
+        }
+
         // Only the creature grids have clickable cells - boss
         // pages already show everything.
         getBestiaryPageTypes(Game.bestiaryPage).forEach((type, i) => {
@@ -2925,6 +3035,7 @@ function handleMenuClick(x, y) {
         Sound.play("uiClick");
         Game.menuView = "bestiary";
         Game.bestiaryPage = 0;
+        Game.bestiaryShowHero = false;
     }
 
 }

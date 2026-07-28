@@ -339,6 +339,26 @@ class Enemy {
         if (amount <= 0)
             return;
 
+        // Siblings fight - class-specific damage scale (see
+        // SIBLINGS_CLASS_DAMAGE_SCALE in constants.js), applied
+        // to every hit landed on either the Prince or Princess
+        // regardless of which weapon/ability dealt it. Same idea
+        // as the Mage's existing per-boss mageDamageTo() scaling,
+        // just keyed by class and centralized here instead of
+        // threading a helper through every class's damage call
+        // sites. Left as an exact float rather than floored/
+        // rounded - Thief's cheap, frequent dagger hits would
+        // round to 0 at a 45% scale otherwise, silently doing
+        // nothing rather than just doing less.
+        if (this.type === "prince" || this.type === "princess") {
+
+            amount *= SIBLINGS_CLASS_DAMAGE_SCALE[Save.selectedClass] ?? 1;
+
+            if (amount <= 0)
+                return;
+
+        }
+
         // Royal Magus honor guard (untouchable while their
         // master lives - see RoyalMagus.takeDamage), Blood
         // Cleric heal targets (invincible while the tether
@@ -441,7 +461,10 @@ class Enemy {
 
                 centerY - 10,
 
-                amount,
+                // Rounded for the popup only - a Siblings-scaled
+                // hit can be a fraction of a point (see above),
+                // and "0" would misleadingly read as a whiff.
+                Math.max(1, Math.round(amount)),
 
                 crit
 

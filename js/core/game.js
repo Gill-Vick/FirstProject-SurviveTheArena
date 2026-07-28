@@ -121,6 +121,13 @@ const Game = {
     // dedicated page per boss (see BESTIARY_BOSS_ORDER).
     bestiaryPage: 0,
 
+    // Toggled by the swap button on the Prince's own boss page
+    // (see getBestiaryHeroSwapButton in ui.js) to show his Hero
+    // form's info instead. Reset whenever the page changes or
+    // the bestiary is reopened, so it never sticks on some other
+    // boss's page.
+    bestiaryShowHero: false,
+
     // Who/what killed the player, shown on the game over
     // screen (e.g. "a Grunt", "the King").
     killedBy: null,
@@ -456,8 +463,9 @@ function onEnemyKilled(enemy) {
     if (enemy.type === "prince" || enemy.type === "princess") {
 
         // Killing the Princess first denies the Prince his
-        // sustain but enrages him - a real cost either way (see
-        // Prince.enrage() in prince.js).
+        // sustain but transforms him into Hero - a real cost
+        // either way (see Prince.triggerHeroTransformation() in
+        // prince.js).
         if (enemy.type === "princess") {
 
             const prince = Game.enemies.find(
@@ -465,7 +473,7 @@ function onEnemyKilled(enemy) {
             );
 
             if (prince)
-                prince.enrage();
+                prince.triggerHeroTransformation();
 
         }
 

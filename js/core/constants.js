@@ -2020,9 +2020,9 @@ const MAGUS = {
 // close-range brawler, the Princess a far-range support/CC
 // caster who periodically heals and buffs him. Both must die
 // for the wave to clear (see onEnemyKilled in game.js); killing
-// the Princess first denies the sustain but enrages the Prince
-// (see PRINCE.ENRAGE_SPEED_MULT/ENRAGE_COOLDOWN_MULT, applied
-// in prince.js), so there's a real choice either way.
+// the Princess first denies the sustain but transforms the
+// Prince into Hero (see the HERO block below, applied in
+// prince.js), so there's a real choice either way.
 
 const PRINCE = {
 
@@ -2133,13 +2133,47 @@ const PRINCE = {
     GUARD_CHANNEL_MS: 2000,
     GUARD_SHIELD_HP: 20,
     GUARD_CAST_RANGE: 320,
-    GUARD_COLOR: "#ffd76a",
+    GUARD_COLOR: "#ffd76a"
 
-    // Enrage - flipped once the Princess dies, read live every
-    // time speed/cooldowns are computed (never mutates the base
-    // stat directly, so it can't stack or get stuck).
-    ENRAGE_SPEED_MULT: 1.35,
-    ENRAGE_COOLDOWN_MULT: 0.55
+};
+
+// =====================================
+// Hero Form (Prince, post-transformation)
+// =====================================
+//
+// What used to happen when the Princess died was a flat enrage
+// bump - every class found the fight trivial once she was gone,
+// since the real difficulty was HER assisting him, not him
+// alone. This replaces that entirely: her death now triggers a
+// full form change. A brief full-sim freeze (applyHitStop, same
+// mechanism as HITSTOP.BOSS_KILL_MS but much longer - see
+// triggerHeroTransformation in prince.js) plays out a
+// transformation beat with nothing moving, then he returns
+// yellow/glowing, faster, with every cooldown tightened and his
+// AOE/ranged reach widened - "a completely different boss
+// fight" rather than a numeric tweak. this.type stays "prince"
+// throughout (SIBLINGS_CLASS_DAMAGE_SCALE and the various
+// Game.enemies.find(e => e.type === "prince") lookups all keep
+// working unchanged) - only this.isHero and this.color flip.
+const HERO = {
+
+    COLOR: "#ffe066",
+    GLOW_COLOR: "#fff6c9",
+
+    // Real ms, not scaled - same as HITSTOP.BOSS_KILL_MS. Long
+    // enough to read as a real beat, short enough not to become
+    // a chore on every repeat run.
+    TRANSFORM_FREEZE_MS: 1900,
+
+    // One-time multiplies applied when the freeze ends, on top
+    // of whatever he already is (phase2's speed bump included) -
+    // same "permanent, never reverts" shape as phase2 itself.
+    SPEED_MULT: 1.6,
+    COOLDOWN_MULT: 0.65,
+
+    // Widens Slam/Quake/Judgment's AOE reach - "much stronger...
+    // at all ranges" needs more than just faster cooldowns.
+    RADIUS_MULT: 1.2
 
 };
 
@@ -2247,6 +2281,28 @@ const SIBLINGS_PHASE2 = {
     PRINCE_HEAL_TO_FRACTION: 0.5,
     PRINCE_SPEED_MULT: 1.2,
     PRINCE_COOLDOWN_MULT: 0.75
+};
+
+// =====================================
+// Siblings Fight - Per-Class Damage Scale
+// =====================================
+//
+// Difficulty feedback landed all over the map by class: Warrior
+// was a well-tuned 8/10, but Ranger/Mage/Thief were all sitting
+// noticeably easier despite facing the identical boss kit - the
+// gap is in how much damage each class can pour out, not in what
+// the fight throws back. Rather than retune the fight itself
+// (and risk un-tuning Warrior, which is already right), this
+// scales every hit landed on either sibling by whichever class is
+// current - see the takeDamage() check in enemy.js. Same idea as
+// the Mage's existing per-boss mageDamageTo() scaling, just
+// keyed by class and specific to this one fight rather than
+// every boss in the game.
+const SIBLINGS_CLASS_DAMAGE_SCALE = {
+    warrior: 1.0,
+    mage: 0.7,
+    ranger: 0.65,
+    thief: 0.45
 };
 
 // =====================================
@@ -2691,11 +2747,26 @@ const BESTIARY = {
         size: 72,
         isBoss: true,
         desc: "One of the wave 20 gatekeepers - a linked pair; both must fall.",
-        behavior: "Slow-moving but not safe at any range: quakes the ground around himself, calls down a Royal Judgment at distance, and still leaps in occasionally for a slam. Up close, chain 3 cleaves and the last one is a bigger Finisher. Periodically channels a shield onto the Princess (rooted while casting), and roars for a speed/haste surge. Enrages if the Princess dies first.",
+        behavior: "Slow-moving but not safe at any range: quakes the ground around himself, calls down a Royal Judgment at distance, and still leaps in occasionally for a slam. Up close, chain 3 cleaves and the last one is a bigger Finisher. Periodically channels a shield onto the Princess (rooted while casting), and roars for a speed/haste surge. If the Princess dies first, he transforms into Hero - faster, tighter on cooldown, and wider-reaching at every range.",
         lore: "The King's heir, blooded in the arena since he could walk. His father taught him the only lesson that mattered: an audience only remembers who was still standing.",
         hpAtWave(w) { return PRINCE.BASE_HP + w * PRINCE.HP_PER_WAVE; },
         hpScale: `${PRINCE.BASE_HP} HP, plus ${PRINCE.HP_PER_WAVE} for every wave you've reached`,
-        baseSpeed: PRINCE.SPEED
+        baseSpeed: PRINCE.SPEED,
+
+        // Toggled view for the bestiary's swap button (see
+        // drawBestiaryBossPage in ui.js) - not a separate page,
+        // just an overlay of these fields onto the entry above.
+        // Same size/HP as the Prince (the transformation doesn't
+        // change either), so those fields are deliberately left
+        // out here and inherited from the spread instead.
+        hero: {
+            name: "Hero",
+            color: HERO.COLOR,
+            desc: "What the Prince becomes if the Princess falls first - no longer holding anything back.",
+            behavior: "Faster, tighter on every cooldown, and reaching further at every range: his Quake Slam, Royal Judgment, and landing slam all cover more ground than before. No longer shields anyone - there's no one left to protect.",
+            lore: "Stripped of the audience he performed for, only the fighting remains. Whatever was left of the prince burns away with her.",
+            baseSpeed: PRINCE.SPEED * HERO.SPEED_MULT
+        }
     },
 
     princess: {

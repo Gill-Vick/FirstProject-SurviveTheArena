@@ -13,9 +13,11 @@
 // is left at the Enemy base default) - he punishes standing near
 // him, not just his telegraphed swings.
 //
-// Enrages if the Princess dies first (see enrage(), called from
-// onEnemyKilled in game.js) - a real cost for denying her sustain
-// by killing her before him.
+// If the Princess dies first (see triggerHeroTransformation(),
+// called from onEnemyKilled in game.js), he transforms into
+// Hero after a brief cutscene freeze - a real cost for denying
+// her sustain by killing her before him, and a genuinely
+// different fight rather than a numeric buff.
 
 class Prince extends Enemy {
 
@@ -84,8 +86,13 @@ class Prince extends Enemy {
         this.guarding = false;
         this.guardChannelTimer = 0;
 
-        // Enrage - flipped once, never reverts (see enrage()).
-        this.enraged = false;
+        // Hero transformation - triggered once by the Princess's
+        // death (see triggerHeroTransformation()), never reverts.
+        // "transforming" covers the frozen cutscene window;
+        // "isHero" flips true only once it completes.
+        this.transforming = false;
+        this.isHero = false;
+        this.transformFreezeMs = 0;
 
         // Phase 2 - flipped once by the Princess's 50% sacrifice
         // (see enterPhase2(), checkPhaseTransition() in
@@ -109,17 +116,51 @@ class Prince extends Enemy {
     }
 
     // Called once from onEnemyKilled when the Princess dies
-    // first. A permanent, one-time bump - same idea as the
-    // Blood Cleric's ward-haste multiplying this.speed directly
-    // rather than routing through a live-read getter, since it
-    // never needs to revert.
-    enrage() {
+    // first. Freezes the whole sim (applyHitStop - same
+    // mechanism the boss-kill hit-stop uses, just far longer)
+    // for a transformation beat, and cleanly cancels anything he
+    // was mid-committed to so nothing carries into the new form.
+    // completeHeroTransformation() (below) fires once the freeze
+    // actually runs out - see attack()'s check at the top of the
+    // state machine, since Game.hitStopTimer ticks on real time
+    // and keeps counting down even while Game.dt is zeroed.
+    triggerHeroTransformation() {
 
-        if (this.enraged)
+        if (this.transforming || this.isHero)
             return;
 
-        this.enraged = true;
-        this.speed *= PRINCE.ENRAGE_SPEED_MULT;
+        this.transforming = true;
+        this.transformFreezeMs = HERO.TRANSFORM_FREEZE_MS;
+
+        this.leaping = false;
+        this.leapCharge = 0;
+        this.cleaving = false;
+        this.guarding = false;
+        this.guardChannelTimer = 0;
+        this.quakeTelegraph = null;
+
+        applyHitStop(HERO.TRANSFORM_FREEZE_MS);
+
+        Game.screenShake = Math.max(Game.screenShake ?? 0, 20);
+        Sound.play("bossSlam");
+
+    }
+
+    // Fires the instant the transformation freeze ends. A
+    // permanent, one-time bump - same idea as phase2's speed
+    // multiply directly on this.speed rather than a live-read
+    // getter, since it never needs to revert.
+    completeHeroTransformation() {
+
+        this.transforming = false;
+        this.isHero = true;
+
+        this.color = HERO.COLOR;
+        this.speed *= HERO.SPEED_MULT;
+
+        Game.screenShake = Math.max(Game.screenShake ?? 0, 18);
+        Particle.createHitBurst(this.x + this.size / 2, this.y + this.size / 2);
+        Sound.play("haloBreak");
 
     }
 
@@ -141,8 +182,8 @@ class Prince extends Enemy {
 
         let mult = 1;
 
-        if (this.enraged)
-            mult *= PRINCE.ENRAGE_COOLDOWN_MULT;
+        if (this.isHero)
+            mult *= HERO.COOLDOWN_MULT;
 
         if (this.phase2)
             mult *= SIBLINGS_PHASE2.PRINCE_COOLDOWN_MULT;
@@ -181,6 +222,13 @@ class Prince extends Enemy {
     // =====================================
 
     move() {
+
+        // Rooted for the whole transformation cutscene - the
+        // global freeze already zeroes Game.dt/timeScale so this
+        // is mostly belt-and-suspenders, but it keeps the intent
+        // explicit alongside every other rooted state below.
+        if (this.transforming)
+            return;
 
         if (this.leaping) {
 
@@ -245,6 +293,21 @@ class Prince extends Enemy {
     // =====================================
 
     attack() {
+
+        // The transformation freeze zeroes Game.dt globally, so
+        // nothing below would actually progress anyway - but
+        // Game.hitStopTimer itself ticks on real time regardless
+        // (see main.js's gameLoop), so this is where the exact
+        // frame the freeze ends gets caught and the new form
+        // actually takes effect.
+        if (this.transforming) {
+
+            if (Game.hitStopTimer <= 0)
+                this.completeHeroTransformation();
+
+            return;
+
+        }
 
         if (this.leapCooldown > 0)
             this.leapCooldown -= Game.dt;
@@ -424,7 +487,10 @@ class Prince extends Enemy {
 
         // Guard - same idea: only attempted while idle, so it
         // never interrupts a leap/cleave already committed to.
-        if (this.guardCooldown <= 0) {
+        // Once he's Hero, the Princess is dead - nothing left to
+        // shield, so this lane just goes quiet instead of
+        // endlessly retrying a no-op.
+        if (!this.isHero && this.guardCooldown <= 0) {
 
             this.tryStartGuard();
 
@@ -444,7 +510,9 @@ class Prince extends Enemy {
         const px = player.x + player.size / 2;
         const py = player.y + player.size / 2;
 
-        if (Math.hypot(px - cx, py - cy) <= PRINCE.SLAM_RADIUS)
+        const radius = PRINCE.SLAM_RADIUS * (this.isHero ? HERO.RADIUS_MULT : 1);
+
+        if (Math.hypot(px - cx, py - cy) <= radius)
             player.takeHit(ENEMY_LABELS.prince);
 
         Game.screenShake = Math.max(Game.screenShake ?? 0, 14);
@@ -522,7 +590,9 @@ class Prince extends Enemy {
         const px = player.x + player.size / 2;
         const py = player.y + player.size / 2;
 
-        if (Math.hypot(px - cx, py - cy) <= PRINCE.QUAKE_RADIUS)
+        const radius = PRINCE.QUAKE_RADIUS * (this.isHero ? HERO.RADIUS_MULT : 1);
+
+        if (Math.hypot(px - cx, py - cy) <= radius)
             player.takeHit(ENEMY_LABELS.prince);
 
         Game.screenShake = Math.max(Game.screenShake ?? 0, 16);
@@ -547,7 +617,9 @@ class Prince extends Enemy {
         const px = player.x + player.size / 2;
         const py = player.y + player.size / 2;
 
-        Game.hazards.push(new RoyalJudgmentStrike(px, py));
+        const radius = PRINCE.JUDGMENT_RADIUS * (this.isHero ? HERO.RADIUS_MULT : 1);
+
+        Game.hazards.push(new RoyalJudgmentStrike(px, py, radius));
 
         Sound.play("bossSlam");
 
@@ -631,6 +703,16 @@ class Prince extends Enemy {
 
     draw() {
 
+        if (this.transforming) {
+
+            this.drawTransformationCutscene();
+            super.draw();
+            this.drawLabel();
+
+            return;
+
+        }
+
         if (this.leapCharge > 0)
             this.drawLeapTelegraph();
 
@@ -649,35 +731,89 @@ class Prince extends Enemy {
 
     }
 
+    // The frozen cutscene beat - an intensifying golden nova
+    // centered on him (world-space, so it stays anchored to
+    // wherever he actually is) plus a screen-centered banner
+    // (canvas-absolute, so it reads regardless of his position).
+    // Progress is read straight off Game.hitStopTimer rather than
+    // a timer of its own: hitStopTimer already ticks on real time
+    // even while this freeze zeroes Game.dt/timeScale for
+    // everything else (see main.js's gameLoop), so it's the one
+    // clock still actually running during the cutscene.
+
+    drawTransformationCutscene() {
+
+        const progress = 1 - Game.hitStopTimer / this.transformFreezeMs;
+        const clamped = Math.max(0, Math.min(1, progress));
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        const pulse = 0.5 + Math.sin(Date.now() / (140 - clamped * 80)) * 0.3;
+
+        drawPixelZone(cx, cy, this.size * (0.6 + clamped * 1.3), {
+            fill: HERO.COLOR,
+            rim: HERO.GLOW_COLOR,
+            fillAlpha: (0.15 + clamped * 0.3) * pulse,
+            rimAlpha: 0.4 + clamped * 0.4
+        });
+
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, clamped * 2.5);
+
+        drawPixelText(
+            "THE PRINCE FALLS",
+            canvas.width / 2,
+            canvas.height / 2 - 34,
+            3,
+            { color: "#c9bda4", shadow: "rgba(0, 0, 0, 0.9)" }
+        );
+
+        drawPixelText(
+            "HERO RISES",
+            canvas.width / 2,
+            canvas.height / 2 + 10,
+            6,
+            { color: HERO.COLOR, shadow: "rgba(0, 0, 0, 0.9)" }
+        );
+
+        ctx.restore();
+
+    }
+
     drawLabel() {
 
-        const tag = this.guarding
-            ? "GUARDING"
-            : this.enraged
-                ? "ENRAGED"
-                : this.roarTimer > 0
-                    ? "ROARING"
-                    : this.buffTimer > 0
-                        ? "BUFFED"
-                        : null;
+        const tag = this.transforming
+            ? "TRANSFORMING"
+            : this.guarding
+                ? "GUARDING"
+                : this.isHero
+                    ? null
+                    : this.roarTimer > 0
+                        ? "ROARING"
+                        : this.buffTimer > 0
+                            ? "BUFFED"
+                            : null;
 
         const label = [
-            "PRINCE",
-            this.phase2 ? "PHASE 2" : null,
+            this.isHero ? "HERO" : "PRINCE",
+            (this.phase2 && !this.isHero) ? "PHASE 2" : null,
             tag
         ].filter(Boolean).join(" - ");
 
-        const color = this.guarding
-            ? PRINCE.GUARD_COLOR
-            : this.enraged
-                ? "#ff5a3d"
-                : this.roarTimer > 0
-                    ? "#ff8a3d"
-                    : this.buffTimer > 0
-                        ? "#e8c84a"
-                        : this.phase2
-                            ? "#ff5a3d"
-                            : "#e0a0c0";
+        const color = this.transforming
+            ? HERO.COLOR
+            : this.guarding
+                ? PRINCE.GUARD_COLOR
+                : this.isHero
+                    ? HERO.COLOR
+                    : this.roarTimer > 0
+                        ? "#ff8a3d"
+                        : this.buffTimer > 0
+                            ? "#e8c84a"
+                            : this.phase2
+                                ? "#ff5a3d"
+                                : "#e0a0c0";
 
         drawPixelText(
             label,
@@ -728,7 +864,9 @@ class Prince extends Enemy {
         const progress = 1 - this.quakeTelegraph.timer / PRINCE.QUAKE_TELEGRAPH_MS;
         const alpha = 0.3 + Math.sin(Date.now() / 50) * 0.15;
 
-        drawPixelZone(cx, cy, PRINCE.QUAKE_RADIUS * progress, {
+        const radius = PRINCE.QUAKE_RADIUS * (this.isHero ? HERO.RADIUS_MULT : 1);
+
+        drawPixelZone(cx, cy, radius * progress, {
             fill: PRINCE.QUAKE_COLOR,
             rim: "#ff8a5a",
             fillAlpha: alpha * 0.3,
@@ -810,11 +948,11 @@ class Prince extends Enemy {
 
 class RoyalJudgmentStrike {
 
-    constructor(x, y) {
+    constructor(x, y, radius = PRINCE.JUDGMENT_RADIUS) {
 
         this.x = x;
         this.y = y;
-        this.radius = PRINCE.JUDGMENT_RADIUS;
+        this.radius = radius;
         this.timer = PRINCE.JUDGMENT_TELEGRAPH_MS;
         this.landed = false;
 
