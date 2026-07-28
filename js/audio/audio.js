@@ -613,7 +613,14 @@ function syncMusicToGameState() {
 
     const boss = Game.enemies.find(enemy => enemy.isBoss);
 
-    if (boss)
+    // The Prince's transformation never changes enemy.type (still
+    // "prince", so SIBLINGS_CLASS_DAMAGE_SCALE and every other
+    // type === "prince" lookup keeps working) - his Hero form is
+    // read off the isHero flag instead of a BOSS_TRACKS entry.
+    if (boss && boss.type === "prince" && boss.isHero)
+        Sound.playMusic("hero");
+
+    else if (boss)
         Sound.playMusic(BOSS_TRACKS[boss.type] ?? "battle");
 
     else

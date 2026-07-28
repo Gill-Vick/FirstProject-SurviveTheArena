@@ -583,6 +583,215 @@ def compose_king():
     return finalize(buf)
 
 
+def compose_prince_princess():
+    """Wave 20 - a linked duet, traded back and forth like the
+    fight's own target-priority tension: the Prince's brawling
+    march in C minor, answered by the Princess's waltzing harp
+    and bell in the relative major (Eb) - both layered together
+    for the last two sections once neither one backs down."""
+
+    buf, spb = make_buffer(bpm=136, beats=48)
+
+    def prince_riff(base, notes):
+
+        for i, name in enumerate(notes):
+
+            if name is None:
+                continue
+
+            t = (base + i * 0.5) * spb
+            f = note_freq(name)
+
+            tone(buf, t, 0.4 * spb, f, "square", 0.15, duty=0.35, release=0.03)
+            tone(buf, t, 0.4 * spb, f * 2, "square", 0.05, duty=0.35, release=0.03)
+
+    def prince_kit(base):
+
+        for beat in range(8):
+
+            if beat % 2 == 0:
+                kick(buf, (base + beat) * spb, 0.46)
+            else:
+                snare(buf, (base + beat) * spb, 0.25)
+
+            hat(buf, (base + beat) * spb)
+
+    def princess_pads(base, tones):
+
+        chord(buf, spb, base, 8, tones, "tri", 0.05,
+              attack=0.3, release=0.6)
+
+    def princess_arp(base, notes):
+
+        for i in range(24):
+            name = notes[i % len(notes)]
+            tone(buf, (base + i / 3) * spb, 0.3 * spb, note_freq(name),
+                 "tri", 0.09, release=0.08)
+
+    def princess_kit(base):
+
+        for beat in range(8):
+
+            hat(buf, (base + beat) * spb, 0.05)
+
+            if beat % 4 == 3:
+                tom(buf, (base + beat + 0.5) * spb, 150, 0.12, 0.15)
+
+    riff_a = ["C3", "C3", None, "Eb3", "G3", None, "C3", None,
+              "F3", None, "G3", None, "Ab3", "G3", "F3", "Eb3"]
+
+    riff_b = ["C3", "C3", None, "Eb3", "G3", None, "C3", None,
+              "Bb2", None, "C3", None, "D3", "Eb3", "F3", "G3"]
+
+    prince_melody_a = [
+        (0, 1, "G4"), (1, 1, "Eb4"), (2, 2, "C4"),
+        (4, 1, "F4"), (5, 1, "Eb4"), (6, 2, "D4"),
+    ]
+
+    prince_melody_b = [
+        (0, 1, "Bb4"), (1, 1, "G4"), (2, 2, "Eb4"),
+        (4, 1, "C5"), (5, 1, "Bb4"), (6, 2, "G4"),
+    ]
+
+    princess_melody_a = [
+        (0, 1.5, "Bb5"), (1.5, 1.5, "G5"), (3, 2, "Eb5"),
+        (5, 1.5, "F5"), (6.5, 1.5, "D5"),
+    ]
+
+    princess_melody_b = [
+        (0, 1.5, "C6"), (1.5, 1.5, "Bb5"), (3, 2, "G5"),
+        (5, 1.5, "Ab5"), (6.5, 1.5, "F5"),
+    ]
+
+    # Section 1 - Prince (C minor).
+    prince_riff(0, riff_a)
+    seq(buf, spb, prince_melody_a, "square", 0.12, release=0.04,
+        vib=0.004, vib_rate=5.0)
+    prince_kit(0)
+
+    # Section 2 - Princess (Eb major).
+    princess_pads(8, ["Eb3", "G3", "Bb3"])
+    princess_arp(8, ["Eb4", "G4", "Bb4", "Eb5", "Bb4", "G4"])
+    seq(buf, spb, [(8 + b, d, n) for b, d, n in princess_melody_a],
+        "sine", 0.09, attack=0.05, release=0.25, vib=0.006, vib_rate=4.5)
+    princess_kit(8)
+
+    # Section 3 - Prince, varied.
+    prince_riff(16, riff_b)
+    seq(buf, spb, [(16 + b, d, n) for b, d, n in prince_melody_b],
+        "square", 0.12, release=0.04, vib=0.004, vib_rate=5.0)
+    prince_kit(16)
+
+    # Section 4 - Princess, varied (a fourth higher - brighter).
+    princess_pads(24, ["Ab3", "C4", "Eb4"])
+    princess_arp(24, ["Ab4", "C5", "Eb5", "Ab5", "Eb5", "C5"])
+    seq(buf, spb, [(24 + b, d, n) for b, d, n in princess_melody_b],
+        "sine", 0.09, attack=0.05, release=0.25, vib=0.006, vib_rate=4.5)
+    princess_kit(24)
+
+    # Sections 5-6 - combined: his march underneath, her bell
+    # melody riding on top, neither one backing down.
+    for base, riff, pmel in [(32, riff_a, princess_melody_a),
+                             (40, riff_b, princess_melody_b)]:
+
+        prince_riff(base, riff)
+        prince_kit(base)
+
+        seq(buf, spb, [(base + b, d, n) for b, d, n in pmel],
+            "sine", 0.08, attack=0.05, release=0.25,
+            vib=0.006, vib_rate=4.5)
+
+    crash(buf, 46 * spb, 0.14)
+
+    echo(buf, 0.22, 0.2)
+
+    return finalize(buf)
+
+
+def compose_hero():
+    """The Prince's transformation payoff - angelic and majestic:
+    a soaring choir-like lead over pulsing organ chords, bells,
+    and timpani in bright D major. Still driven by a bass/kick
+    pulse underneath, so it reads as a harder ongoing fight, not
+    the Victory screen's fanfare pause."""
+
+    buf, spb = make_buffer(bpm=144, beats=40)
+
+    # I - V - vi - IV - I: a classic uplifting progression, closing
+    # back on the tonic so the loop point lands cleanly.
+    sections = [
+        ("D3", ["D4", "F#4", "A4"]),
+        ("A2", ["A3", "C#4", "E4"]),
+        ("B2", ["B3", "D4", "F#4"]),
+        ("G2", ["G3", "B3", "D4"]),
+        ("D3", ["D4", "F#4", "A4"]),
+    ]
+
+    melody = {
+        0: [(0, 2, "F#5"), (2, 2, "A5"), (4, 2, "D6"), (6, 2, "C#6")],
+        1: [(0, 2, "C#5"), (2, 2, "E5"), (4, 2, "A5"), (6, 2, "G5")],
+        2: [(0, 2, "D5"), (2, 2, "F#5"), (4, 3, "B5"), (7, 1, "A5")],
+        3: [(0, 2, "B4"), (2, 2, "D5"), (4, 2, "G5"), (6, 2, "F#5")],
+        4: [(0, 3, "D6"), (3, 3, "A5"), (6, 2, "D6")]
+    }
+
+    bell_notes = {0: "D6", 1: "A5", 2: "B5", 3: "G5", 4: "D6"}
+
+    for ci, (root, chord_tones) in enumerate(sections):
+
+        base = ci * 8
+        rf = note_freq(root)
+
+        # Pulsing organ chord, quarter-note swells.
+        for i in range(8):
+            for name in chord_tones:
+                f = note_freq(name)
+                t = (base + i) * spb
+                tone(buf, t, 0.85 * spb, f, "square", 0.06, duty=0.45,
+                     attack=0.05, release=0.15)
+
+        # Low sustained root - gives it weight.
+        tone(buf, base * spb, 8 * spb, rf, "tri", 0.12,
+             attack=0.15, release=0.3)
+
+        # Driving eighth-note bass underneath - keeps it a fight,
+        # not a chorale.
+        for i in range(16):
+            f = rf * 2 if i % 4 == 3 else rf
+            tone(buf, (base + i * 0.5) * spb, 0.36 * spb, f,
+                 "square", 0.13, duty=0.3, release=0.02)
+
+        # Choir-like lead - voice-ish vibrato on a sine tone.
+        seq(buf, spb, [(base + b, d, n) for b, d, n in melody[ci]],
+            "sine", 0.13, attack=0.08, release=0.3,
+            vib=0.012, vib_rate=5.5)
+
+        # A bell chime answering each phrase's end.
+        tone(buf, (base + 6.5) * spb, 1.4 * spb,
+             note_freq(bell_notes[ci]), "sine", 0.1,
+             attack=0.01, release=0.5)
+
+        # Timpani + crash for grandeur at the top of each phrase.
+        timpani(buf, base * spb, rf * 0.5, 0.4)
+
+        if ci % 2 == 0:
+            crash(buf, base * spb, 0.12)
+
+    # Driving but not martial - kick on the downbeat, hats
+    # keeping the pulse, no snare (the choir carries the
+    # intensity, not a war-drum backbeat).
+    for beat in range(40):
+
+        if beat % 4 == 0:
+            kick(buf, beat * spb, 0.4)
+
+        hat(buf, beat * spb, 0.06)
+
+    echo(buf, 0.3, 0.28)
+
+    return finalize(buf)
+
+
 def compose_victory():
     """Victory screen - a bright major-key fanfare."""
 
@@ -630,6 +839,8 @@ TRACKS = {
     "knight.wav": compose_knight,
     "magus.wav": compose_magus,
     "king.wav": compose_king,
+    "prince_princess.wav": compose_prince_princess,
+    "hero.wav": compose_hero,
     "victory.wav": compose_victory,
 }
 

@@ -110,6 +110,11 @@ const MUSIC = {
     knight:      { src: "assets/audio/music/knight.wav",       volume: 0.5 },
     magus:       { src: "assets/audio/music/magus.wav",        volume: 0.5 },
     king:        { src: "assets/audio/music/king.wav",         volume: 0.5 },
+    princeAndPrincess: {
+        src: "assets/audio/music/prince_princess.wav",
+        volume: 0.5
+    },
+    hero:        { src: "assets/audio/music/hero.wav",         volume: 0.5 },
     victory:     { src: "assets/audio/music/victory.wav",      volume: 0.5 }
 
 };
@@ -126,13 +131,28 @@ const MUSIC = {
 //                  rolling thunder for the storm-caller
 //   King         - the full final-boss treatment: relentless
 //                  organ stabs and harmonic-minor runs
+//   Prince &
+//   Princess     - a linked duet traded back and forth: his
+//                  brawling march in C minor answered by her
+//                  waltzing harp/bell in the relative major,
+//                  both layered together once neither backs down
+//   Hero         - the Prince's transformation payoff, once the
+//                  Princess falls first: angelic and majestic,
+//                  a soaring choir lead over organ, bells, and
+//                  timpani - still driven by bass/kick, so it
+//                  reads as a harder fight, not a fanfare pause.
+//                  Not in this table - selected by boss.isHero
+//                  in syncMusicToGameState() since his enemy
+//                  type never changes from "prince"
 
 const BOSS_TRACKS = {
 
     boss: "castleGuard",
     knight: "knight",
     royalMagus: "magus",
-    king: "king"
+    king: "king",
+    prince: "princeAndPrincess",
+    princess: "princeAndPrincess"
 
 };
 
