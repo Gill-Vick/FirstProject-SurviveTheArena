@@ -2062,11 +2062,14 @@ const PRINCE = {
     // Up-close fist cleave once Leap is on cooldown - same
     // angle-arc hit test as the Knight's sword (see
     // Knight.checkSwordHit), just shorter reach and a faster
-    // cadence, and drawn as fists rather than a blade.
+    // cadence, and drawn as fists rather than a blade. Nudged
+    // back down slightly to give melee a hair more breathing
+    // room between hits now that Quake/Judgment are more of a
+    // presence too (see below).
     CLEAVE_RANGE: 78,
     CLEAVE_ARC: Math.PI * 1.1,
     CLEAVE_SWING_MS: 22,
-    CLEAVE_COOLDOWN: 850,
+    CLEAVE_COOLDOWN: 950,
 
     // Fury Combo - land 2 cleaves within COMBO_WINDOW_MS of each
     // other and the 3rd is a bigger, wider Finisher instead. The
@@ -2087,22 +2090,35 @@ const PRINCE = {
 
     // Quake Slam - an independent AOE lane, usable at ANY range
     // (his answer to being kited now that he's slow): a
-    // telegraphed shockwave centered on himself.
+    // telegraphed shockwave centered on himself. Radius cut
+    // hard (230 -> 170) after melee feedback: at 230 it covered
+    // roughly 3x his own cleave range, so anyone actually
+    // fighting him in melee ate it completely unavoidably every
+    // cooldown regardless of skill, while a ranged player was
+    // already well clear of it either way - all downside for
+    // melee, no real tradeoff for kiting. 170 still comfortably
+    // outranges the 78px cleave (so it's still a real threat up
+    // close) but leaves room to actually step out during the
+    // telegraph.
     QUAKE_COOLDOWN: 5500,
     QUAKE_TELEGRAPH_MS: 900,
-    QUAKE_RADIUS: 230,
+    QUAKE_RADIUS: 170,
     QUAKE_COLOR: "#c9482f",
 
     // Royal Judgment - his far-range answer: a telegraphed,
     // dodgeable strike of light at the player's position when
     // it's cast (mirrors MeteorStrike's telegraph-then-impact in
     // royalMagus.js), so standing at range isn't free either.
-    // (Was a thrown boulder - reskinned to something that reads
-    // as royal/arcane rather than barbaric; same shape, new
-    // theme.)
-    JUDGMENT_COOLDOWN: 4500,
+    // Frequency and radius both increased - kiting at max range
+    // and sniping all fight was trivializing the fight for the
+    // ranged classes, and this (with the weak laser below) is
+    // the only lane that actually reaches a player who never
+    // comes near him. (Was a thrown boulder - reskinned to
+    // something that reads as royal/arcane rather than
+    // barbaric; same shape, new theme.)
+    JUDGMENT_COOLDOWN: 3400,
     JUDGMENT_TELEGRAPH_MS: 1000,
-    JUDGMENT_RADIUS: 100,
+    JUDGMENT_RADIUS: 130,
     JUDGMENT_COLOR: "#ffd76a",
 
     // Guard - shields the Princess. A committed 2s channel
@@ -2162,9 +2178,15 @@ const PRINCESS = {
     // (see WALL_LASER on KING and King's Blade on KINGS_BLADE) -
     // a single telegraphed line toward wherever the player was
     // standing when it was cast, not an arena-spanning wall.
-    LASER_COOLDOWN: 7000,
+    // Frequency and width both bumped up a notch - same reason
+    // as Royal Judgment above: this is one of only two lanes
+    // (with Judgment) that can actually threaten a player who
+    // kites at long range the entire fight. Still well short of
+    // the King's own 46px wall or the Warrior's 30px King's
+    // Blade laser.
+    LASER_COOLDOWN: 5000,
     LASER_TELEGRAPH_MS: 650,
-    LASER_WIDTH: 14,
+    LASER_WIDTH: 20,
     LASER_COLOR: "#8fd6ff",
 
     // Slow zone - a growing ground patch (reuses FrostZone's
