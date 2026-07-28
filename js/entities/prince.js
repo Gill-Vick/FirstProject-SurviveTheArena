@@ -429,7 +429,10 @@ class Prince extends Enemy {
         if (this.isHero && this.sweepCooldown <= 0) {
 
             Game.hazards.push(new HeroSweepingLaser());
-            this.sweepCooldown = HERO.SWEEP_COOLDOWN * this.getCooldownMultiplier();
+
+            // Absolute, not run through getCooldownMultiplier() -
+            // see HERO.SWEEP_COOLDOWN's comment in constants.js.
+            this.sweepCooldown = HERO.SWEEP_COOLDOWN;
 
         }
 
@@ -700,7 +703,9 @@ class Prince extends Enemy {
 
         const radius = PRINCE.JUDGMENT_RADIUS * (this.isHero ? HERO.RADIUS_MULT : 1) * this.getTempRadiusMultiplier();
 
-        Game.hazards.push(new RoyalJudgmentStrike(px, py, radius, this.isHero));
+        const telegraphMs = this.isHero ? HERO.JUDGMENT_TELEGRAPH_MS : PRINCE.JUDGMENT_TELEGRAPH_MS;
+
+        Game.hazards.push(new RoyalJudgmentStrike(px, py, radius, this.isHero, telegraphMs));
 
         Sound.play("bossSlam");
 
@@ -1092,13 +1097,14 @@ class Prince extends Enemy {
 
 class RoyalJudgmentStrike {
 
-    constructor(x, y, radius = PRINCE.JUDGMENT_RADIUS, isHero = false) {
+    constructor(x, y, radius = PRINCE.JUDGMENT_RADIUS, isHero = false, telegraphMs = PRINCE.JUDGMENT_TELEGRAPH_MS) {
 
         this.x = x;
         this.y = y;
         this.radius = radius;
         this.label = isHero ? ENEMY_LABELS.hero : ENEMY_LABELS.prince;
-        this.timer = PRINCE.JUDGMENT_TELEGRAPH_MS;
+        this.telegraphMs = telegraphMs;
+        this.timer = telegraphMs;
         this.landed = false;
 
     }
@@ -1130,7 +1136,7 @@ class RoyalJudgmentStrike {
 
     draw() {
 
-        const progress = 1 - this.timer / PRINCE.JUDGMENT_TELEGRAPH_MS;
+        const progress = 1 - this.timer / this.telegraphMs;
         const alpha = 0.3 + Math.sin(Date.now() / 60) * 0.12;
 
         // Impact zone telegraph - a widening halo of light.
@@ -1294,6 +1300,13 @@ class HeroSweepingLaser {
         this.state = "telegraph";
         this.timer = HERO.SWEEP_TELEGRAPH_MS;
         this.progress = 0;
+
+        // Drawn again in a pass AFTER the arena's pillars (see
+        // drawPlayingScene() in game.js) so it stays visible
+        // wherever it crosses one - it's meant to catch you off
+        // guard by direction/timing, not by literally being
+        // invisible behind scenery.
+        this.drawAbovePillars = true;
 
     }
 

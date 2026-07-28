@@ -2190,6 +2190,12 @@ const HERO = {
     // though everything else about Hero is faster on cooldown.
     LEAP_COOLDOWN: PRINCE.LEAP_COOLDOWN * 2,
 
+    // Royal Judgment's telegraph runs a touch longer for Hero
+    // than the base Prince's - his kit already piles on 3 brand
+    // new lanes, so this one inherited attack gives a little more
+    // reaction time rather than also landing faster.
+    JUDGMENT_TELEGRAPH_MS: PRINCE.JUDGMENT_TELEGRAPH_MS * 1.15,
+
     // Right-arm swing: a wide wall of fire thrown forward along
     // wherever the player was standing when it's cast (locked at
     // cast time, same fairness as every other telegraphed attack
@@ -2227,10 +2233,22 @@ const HERO = {
     // well-timed dash, since the brief invulnerability it grants
     // (DASH.GRACE_MS in player.js) is what actually saves you,
     // not outrunning it on foot.
-    SWEEP_COOLDOWN: 9000,
+    //
+    // SWEEP_COOLDOWN is an ABSOLUTE value - deliberately NOT run
+    // through getCooldownMultiplier() (bypassed the same way
+    // LEAP_COOLDOWN is), so Empower's haste can never shrink the
+    // gap between sweeps. It's pinned just above the Mage's own
+    // Arcane Step cooldown (ARCANE_STEP.COOLDOWN, 5000ms) - the
+    // Mage has no other dash, so if this ever landed faster than
+    // that dash could recharge, some sweeps would simply be
+    // undodgeable for that class regardless of skill.
+    SWEEP_COOLDOWN: ARCANE_STEP.COOLDOWN + 400,
     SWEEP_TELEGRAPH_MS: 900,
     SWEEP_DURATION_MS: 1500,
-    SWEEP_WIDTH: 85,
+
+    // Thinner than the first pass - still a real threat, but not
+    // so wide that a well-timed dash can fail to clear both edges.
+    SWEEP_WIDTH: 58,
     SWEEP_COLOR: "#fff3b0",
     SWEEP_RIM_COLOR: "#ff8c1a"
 

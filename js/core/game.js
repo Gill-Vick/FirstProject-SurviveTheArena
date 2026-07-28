@@ -814,7 +814,14 @@ function drawPlayingScene() {
 
     drawLightingSystem();
 
-    Game.hazards.forEach(hazard => hazard.draw());
+    // Hazards that opt into drawAbovePillars (see HeroSweepingLaser
+    // in prince.js) are skipped here and drawn again after the
+    // foreground pillar pass below, so they stay visible instead
+    // of being occluded by scenery.
+    Game.hazards.forEach(hazard => {
+        if (!hazard.drawAbovePillars)
+            hazard.draw();
+    });
 
     Game.spawnTelegraphs.forEach(telegraph => telegraph.draw());
 
@@ -834,6 +841,13 @@ function drawPlayingScene() {
 
     drawPillars();
     drawTorches();
+
+    // Hazards flagged drawAbovePillars (see above) get their
+    // real draw here, on top of the foreground pillars/torches.
+    Game.hazards.forEach(hazard => {
+        if (hazard.drawAbovePillars)
+            hazard.draw();
+    });
 
     // 6.5 X-RAY PASS: entities hidden behind a pillar are shown
     // as a colored outline over it (red enemies / blue player)
