@@ -114,7 +114,10 @@ const MUSIC = {
         src: "assets/audio/music/prince_princess.wav",
         volume: 0.5
     },
-    hero:        { src: "assets/audio/music/hero.wav",         volume: 0.5 },
+    // Deliberately louder than every other track - this one is
+    // the game's peak moment and is meant to hit harder. (The
+    // file itself is also mastered hotter; see compose_hero.)
+    hero:        { src: "assets/audio/music/hero.wav",         volume: 0.72 },
     victory:     { src: "assets/audio/music/victory.wav",      volume: 0.5 }
 
 };
@@ -127,23 +130,39 @@ const MUSIC = {
 //                  gatekeeper
 //   Knight       - a martial, drum-driven march: the mirror
 //                  match, all snare rolls and trumpet calls
-//   Royal Magus  - shimmering diminished arpeggios and
-//                  rolling thunder for the storm-caller
+//   Royal Magus  - shimmering diminished arpeggios and rolling
+//                  thunder for the storm-caller. Built on
+//                  contrast rather than constant density, across
+//                  eight phrases: heavy half-time hits, a driving
+//                  middle, a 16th-note peak, a landing, then a
+//                  sparse breakdown, a rebuild, a bigger second
+//                  peak and a heavy outro
 //   King         - the full final-boss treatment: relentless
 //                  organ stabs and harmonic-minor runs
 //   Prince &
-//   Princess     - a linked duet traded back and forth: his
-//                  brawling march in C minor answered by her
-//                  waltzing harp/bell in the relative major,
-//                  both layered together once neither backs down
+//   Princess     - a tragic processional in D (harmonic) minor:
+//                  a tense cold open, the Prince's fate motif
+//                  stabbed out in dotted brass, the Princess's
+//                  grieving lament, both driven into a rising,
+//                  dissonant climax, then a dramatic pause and
+//                  one final sting - a doomed pair, not a duet
 //   Hero         - the Prince's transformation payoff, once the
-//                  Princess falls first: angelic and majestic,
-//                  a soaring choir lead over organ, bells, and
-//                  timpani - still driven by bass/kick, so it
-//                  reads as a harder fight, not a fanfare pause.
-//                  Not in this table - selected by boss.isHero
-//                  in syncMusicToGameState() since his enemy
-//                  type never changes from "prince"
+//                  Princess falls first, and the cruellest thing
+//                  in the game: E Phrygian, whose bII sits a
+//                  semitone above the tonic, closing on a
+//                  diminished seventh. Scored for an orchestra
+//                  rather than a synth patch - sustained string
+//                  beds in octaves, brass-section stabs, running
+//                  low strings and a counter-melody against the
+//                  lead, over sub-bass and double-kick. Its
+//                  second half is new material, not a repeat.
+//                  Mixed louder than everything else on purpose,
+//                  and in a different key centre from the
+//                  siblings' own D minor so the change of form
+//                  reads as a change of character. Not in this
+//                  table - selected by boss.isHero in
+//                  syncMusicToGameState() since his enemy type
+//                  never changes from "prince"
 
 const BOSS_TRACKS = {
 

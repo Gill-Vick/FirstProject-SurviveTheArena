@@ -210,14 +210,55 @@ def make_buffer(bpm, beats):
     return [0.0] * n, spb
 
 
-def finalize(buf, peak=0.82):
+def finalize(buf, peak=0.82, target_rms=0.22):
 
-    # Remove DC, then normalize to a consistent loudness.
-    mean = sum(buf) / len(buf)
-    top = max(0.0001, max(abs(s - mean) for s in buf))
+    # Remove DC, soft-limit, then normalize.
+    #
+    # Peak normalization alone is not enough: one instant where a
+    # few low sines happen to land together (a stacked accent, say)
+    # can sit ~6x the track's average level, and scaling to fit
+    # THAT leaves everything else quiet. The Royal Magus cut
+    # measured half the RMS of every other track in the catalogue
+    # for exactly this reason, which read as "no impact" - the hits
+    # were not too small, the rest of the track was too far down.
+    #
+    # So: scale to a target RMS first, then run the signal through
+    # tanh. Below about half-scale tanh is near enough linear and
+    # leaves the body untouched, while isolated transients past it
+    # round off instead of dictating the level of the whole track.
+    # Peak normalization afterwards just sets the ceiling.
+    #
+    # NOTE: a tail-into-head crossfade was tried here and removed.
+    # It truncated every track by the fade length, so the loop was
+    # no longer a whole number of beats and the downbeat crept
+    # earlier on each repeat - a rhythmic stumble, which is worse
+    # than what it was meant to fix. It also wasn't needed: every
+    # write in this file is modulo the buffer length (see tone()
+    # and noise()), so a note or echo tap running past the end
+    # already wraps around and sums into the head. The loop is
+    # sample-continuous by construction.
+    #
+    # That means an audible seam is a COMPOSITIONAL problem, not a
+    # click - a fill that winds down like an ending, or a cymbal
+    # sitting right on position 0 announcing the restart. Fix
+    # those in the compose_*() function itself (see the horn that
+    # deliberately wraps across the loop point in
+    # compose_castle_guard).
+    n = len(buf)
+
+    mean = sum(buf) / n
+    centred = [s - mean for s in buf]
+
+    rms = math.sqrt(sum(s * s for s in centred) / n)
+    drive = target_rms / max(1e-9, rms)
+
+    tanh = math.tanh
+    limited = [tanh(s * drive) for s in centred]
+
+    top = max(1e-9, max(abs(s) for s in limited))
     g = peak / top
 
-    return [(s - mean) * g for s in buf]
+    return [s * g for s in limited]
 
 
 def write_wav(path, buf):
@@ -363,10 +404,14 @@ def compose_castle_guard():
             tone(buf, t, 0.4 * spb, f, "saw", 0.15, release=0.03)
             tone(buf, t, 0.4 * spb, f * 2, "saw", 0.07, release=0.03)
 
-    # Long, dark horn line above the riff.
+    # Long, dark horn line above the riff. The last note runs 10
+    # beats from beat 24 - two beats PAST the end of the track -
+    # so it wraps around and is still sounding underneath the
+    # opening bar. That overlap is what actually hides the loop
+    # point: there's no instant where every voice restarts at once.
     seq(buf, spb, [
         (0, 6, "D4"), (8, 4, "F4"), (12, 4, "E4"),
-        (16, 6, "Bb3"), (24, 8, "A3"),
+        (16, 6, "Bb3"), (24, 10, "A3"),
     ], "square", 0.09, duty=0.4, attack=0.1, release=0.4,
         vib=0.005, vib_rate=4.0)
 
@@ -377,11 +422,18 @@ def compose_castle_guard():
         if beat % 4 == 2:
             snare(buf, beat * spb, 0.3)
 
-    # Tom fill into the loop point.
-    for i, fr in enumerate([110, 98, 86, 74, 66, 58, 52, 46]):
-        tom(buf, (28 + i * 0.5) * spb, fr, 0.3)
+    # A short ASCENDING pickup into the downbeat rather than the
+    # long descending fill that used to sit here - a wind-down
+    # tom run reads as "the track is ending", which is exactly
+    # what made the seam obvious.
+    for i, fr in enumerate([64, 76, 90]):
+        tom(buf, (30.5 + i * 0.5) * spb, fr, 0.26)
 
-    crash(buf, 0, 0.14)
+    # Crash moved off position 0: a cymbal on the downbeat is a
+    # restart announcement every time the loop comes round. It
+    # accents the middle of the track instead.
+    crash(buf, 16 * spb, 0.13)
+
     echo(buf, 0.26, 0.2)
 
     return finalize(buf)
@@ -439,61 +491,180 @@ def compose_knight():
 
 
 def compose_magus():
-    """Wave 15 - diminished shimmer and thunder for the storm-caller."""
+    """Wave 15 - diminished shimmer and thunder for the storm-caller.
 
-    buf, spb = make_buffer(bpm=132, beats=32)
+    Slow throughout, on purpose. An earlier cut alternated half-time
+    sections with 16th-driven ones; the fast material is gone
+    entirely and every phrase is now the heavy, half-time character.
+    The variety comes from layer density, register and dynamics
+    instead of speed - a storm rolling in rather than one already
+    breaking - so the piece still goes somewhere across its eight
+    phrases without ever picking up the tempo:
 
-    # Diminished-seventh arpeggio sets, 8 beats each.
+        0  heavy   the bare riff, huge spaced hits
+        1  heavy   fuller, the shimmer widens an octave
+        2  swell   sustained brass joins, hits get bigger
+        3  break   almost bare - shimmer and lead over a hollow fifth
+        4  heavy   the return, low register
+        5  swell   building again
+        6  swell   the biggest section in the track
+        7  break   thinning out, rolling into the loop
+    """
+
+    buf, spb = make_buffer(bpm=138, beats=64)
+
+    # A hit with real low end under it.
+    #
+    # These are all low sines landing on the same sample, so they
+    # sum almost perfectly and spike the peak - kept modest, and
+    # the sub is offset slightly so it swells under the hit rather
+    # than straight through it.
+    def impact(t, vol=1.0):
+
+        kick(buf, t, 0.5 * vol)
+        tone(buf, t + 0.012, 0.26, 46, "sine", 0.2 * vol,
+             freq_end=30, release=0.15)
+        tom(buf, t, 62, 0.26 * vol, 0.3)
+
     sets = [
         ["C4", "Eb4", "F#4", "A4"],
         ["B3", "D4", "F4", "G#4"],
         ["C4", "Eb4", "F#4", "A4"],
         ["D4", "F4", "G#4", "B4"],
+        ["C4", "Eb4", "F#4", "A4"],
+        ["B3", "D4", "F4", "G#4"],
+        ["Eb4", "F#4", "A4", "C5"],
+        ["D4", "F4", "G#4", "B4"],
+        ["A3", "C4", "Eb4", "F#4"],
+        ["G#3", "B3", "D4", "F4"],
+        ["A3", "C4", "Eb4", "F#4"],
+        ["B3", "D4", "F4", "G#4"],
+        ["C4", "Eb4", "F#4", "A4"],
+        ["D4", "F4", "G#4", "B4"],
+        ["Eb4", "F#4", "A4", "C5"],
+        ["F4", "G#4", "B4", "D5"],
     ]
+
+    roots = ["C2", "B1", "C2", "D2", "C2", "B1", "Eb2", "D2",
+             "A1", "G#1", "A1", "B1", "C2", "D2", "Eb2", "F2"]
+
+    HEAVY, SWELL, BREAK = "heavy", "swell", "break"
+
+    phrase_style = [HEAVY, HEAVY, SWELL, BREAK,
+                    HEAVY, SWELL, SWELL, BREAK]
+
+    shimmer_vol = {HEAVY: 0.085, SWELL: 0.1, BREAK: 0.095}
 
     for ci, tones in enumerate(sets):
 
-        base = ci * 8
+        base = ci * 4
+        style = phrase_style[ci // 2]
+        rf = note_freq(roots[ci])
 
-        # 16th-note shimmer cycling up two octaves and back.
         up = tones + [n[:-1] + str(int(n[-1]) + 1) for n in tones]
         cycle = up + up[-2:0:-1]
 
-        for i in range(32):
+        # Eighths everywhere - the arcane shimmer is the only thing
+        # that moves, and it never doubles up into 16ths now.
+        for i in range(8):
             name = cycle[i % len(cycle)]
-            tone(buf, (base + i * 0.25) * spb, 0.22 * spb,
-                 note_freq(name), "tri", 0.09, release=0.06)
+            tone(buf, (base + i * 0.5) * spb, 0.44 * spb,
+                 note_freq(name), "tri", shimmer_vol[style], release=0.06)
 
-        # Pulsing low bass, half notes.
-        roots = {0: ["C2", "G1", "C2", "B1"], 1: ["B1", "B1", "G#1", "B1"],
-                 2: ["C2", "G1", "C2", "B1"], 3: ["D2", "D2", "B1", "G#1"]}[ci]
+        # An octave above on the fuller phrases - width without pace.
+        if style in (HEAVY, SWELL) and ci % 2 == 1:
+            for i in range(0, 8, 2):
+                name = cycle[i % len(cycle)]
+                tone(buf, (base + i * 0.5) * spb, 0.44 * spb,
+                     note_freq(name) * 2, "tri", 0.03, release=0.06)
 
-        for i, name in enumerate(roots):
-            tone(buf, (base + i * 2) * spb, 1.7 * spb, note_freq(name),
-                 "tri", 0.17, attack=0.03, release=0.1)
+        if style == BREAK:
 
-    # Eerie lead hanging above the storm.
+            # Almost nothing underneath - a hollow low fifth.
+            tone(buf, base * spb, 3.8 * spb, rf, "tri", 0.11,
+                 attack=0.3, release=0.35)
+            tone(buf, base * spb, 3.8 * spb, rf * 1.5, "tri", 0.06,
+                 attack=0.35, release=0.35)
+
+        else:
+
+            tone(buf, base * spb, 3.7 * spb, rf, "tri", 0.2,
+                 attack=0.03, release=0.2)
+            tone(buf, base * spb, 3.7 * spb, rf * 0.5, "sine", 0.11,
+                 attack=0.03, release=0.2)
+
+            # Sustained brass swelling underneath on the big
+            # phrases - weight, not speed.
+            if style == SWELL:
+                for name in tones[:3]:
+                    tone(buf, base * spb, 3.7 * spb, note_freq(name),
+                         "square", 0.04, duty=0.44,
+                         attack=0.35, release=0.3)
+
+    # The lead hangs throughout - no running figures anywhere.
     seq(buf, spb, [
-        (0, 2.5, "G5"), (8, 2.5, "F5"), (16, 1.5, "G5"),
-        (18, 1.5, "A5"), (24, 2, "G#5"), (28, 2.5, "B5"),
-    ], "square", 0.08, duty=0.42, attack=0.08, release=0.3,
-        vib=0.01, vib_rate=6.0)
+        (0, 3, "G5"), (4, 3, "F#5"),
+        (8, 3, "A5"), (12, 2, "F5"), (14, 2, "Eb5"),
 
-    # Thunder: deep tom hits and a rising roll each phrase.
-    for ci in range(4):
+        (16, 4, "C6"), (20, 2, "B5"), (22, 2, "G#5"),
+        (24, 3, "Eb6"), (28, 2, "D6"), (30, 2, "B5"),
 
-        base = ci * 8
+        (32, 3, "C5"), (36, 2, "Eb5"), (38, 2, "A4"),
+        (40, 3, "F#5"), (44, 2, "A5"), (46, 2, "C6"),
 
-        tom(buf, base * spb, 55, 0.45, 0.4)
+        (48, 4, "Eb6"), (52, 2, "D6"), (54, 2, "F6"),
+        (56, 3, "G6"), (60, 2, "F#6"), (62, 2, "D6"),
+    ], "square", 0.11, duty=0.42, attack=0.06, release=0.3,
+        vib=0.01, vib_rate=5.0)
 
-        for i in range(6):
-            tom(buf, (base + 6.5 + i * 0.25) * spb, 70,
-                0.1 + i * 0.05, 0.15)
+    # Half-time throughout: hits every two beats, with space around
+    # them. No section doubles the pulse.
+    for beat in range(64):
 
-    for beat in range(0, 32, 2):
-        kick(buf, beat * spb, 0.3)
+        style = phrase_style[beat // 8]
 
-    echo(buf, 0.28, 0.32)
+        if style == BREAK:
+
+            if beat % 4 == 0:
+                impact(beat * spb, 0.55)
+
+            hat(buf, (beat + 1) * spb, 0.035)
+
+        else:
+
+            big = style == SWELL
+
+            if beat % 2 == 0:
+                impact(beat * spb,
+                       (1.15 if big else 1.0) if beat % 4 == 0
+                       else (0.8 if big else 0.7))
+
+            if beat % 4 == 2:
+                snare(buf, beat * spb, 0.32 if big else 0.3)
+
+            hat(buf, (beat + 0.5) * spb, 0.05)
+
+            # A slow tom answer on the big phrases - still on the
+            # half-time grid.
+            if big and beat % 8 == 6:
+                tom(buf, (beat + 1) * spb, 74, 0.24, 0.26)
+
+    # Slow rolling thunder into each swell, in eighths rather than
+    # the old 16th rolls.
+    for start, freq in ((15, 70), (39, 74), (47, 76)):
+        for i in range(3):
+            tom(buf, (start + i * 0.5) * spb, freq, 0.14 + i * 0.08, 0.2)
+
+    # The two landings. Nothing on beat 0 marks the loop.
+    crash(buf, 16 * spb, 0.15)
+    impact(24 * spb, 1.2)
+    crash(buf, 24 * spb, 0.12)
+
+    crash(buf, 48 * spb, 0.16)
+    impact(56 * spb, 1.3)
+    crash(buf, 56 * spb, 0.14)
+
+    echo(buf, 0.3, 0.28)
 
     return finalize(buf)
 
@@ -584,212 +755,294 @@ def compose_king():
 
 
 def compose_prince_princess():
-    """Wave 20 - a linked duet, traded back and forth like the
-    fight's own target-priority tension: the Prince's brawling
-    march in C minor, answered by the Princess's waltzing harp
-    and bell in the relative major (Eb) - both layered together
-    for the last two sections once neither one backs down."""
+    """Wave 20 - one continuous dramatic piece in D harmonic minor.
 
-    buf, spb = make_buffer(bpm=136, beats=48)
+    The previous version was six contrasting blocks that each swapped
+    out the whole texture (kit and bass dropping in and out, the lead
+    changing instrument every eight beats), which read as a collage of
+    unrelated cues rather than a theme. This is built the way the
+    battle/knight/king tracks are: a single kit, bass, and pad running
+    unbroken end to end over one repeating Dm - Bb - Gm - A cadence,
+    with a recurring fate motif that is restated and varied rather than
+    handed back and forth. His march and her high counter-line are
+    woven through each other the whole way instead of taking turns.
+    """
 
-    def prince_riff(base, notes):
+    buf, spb = make_buffer(bpm=124, beats=32)
 
-        for i, name in enumerate(notes):
-
-            if name is None:
-                continue
-
-            t = (base + i * 0.5) * spb
-            f = note_freq(name)
-
-            tone(buf, t, 0.4 * spb, f, "square", 0.15, duty=0.35, release=0.03)
-            tone(buf, t, 0.4 * spb, f * 2, "square", 0.05, duty=0.35, release=0.03)
-
-    def prince_kit(base):
-
-        for beat in range(8):
-
-            if beat % 2 == 0:
-                kick(buf, (base + beat) * spb, 0.46)
-            else:
-                snare(buf, (base + beat) * spb, 0.25)
-
-            hat(buf, (base + beat) * spb)
-
-    def princess_pads(base, tones):
-
-        chord(buf, spb, base, 8, tones, "tri", 0.05,
-              attack=0.3, release=0.6)
-
-    def princess_arp(base, notes):
-
-        for i in range(24):
-            name = notes[i % len(notes)]
-            tone(buf, (base + i / 3) * spb, 0.3 * spb, note_freq(name),
-                 "tri", 0.09, release=0.08)
-
-    def princess_kit(base):
-
-        for beat in range(8):
-
-            hat(buf, (base + beat) * spb, 0.05)
-
-            if beat % 4 == 3:
-                tom(buf, (base + beat + 0.5) * spb, 150, 0.12, 0.15)
-
-    riff_a = ["C3", "C3", None, "Eb3", "G3", None, "C3", None,
-              "F3", None, "G3", None, "Ab3", "G3", "F3", "Eb3"]
-
-    riff_b = ["C3", "C3", None, "Eb3", "G3", None, "C3", None,
-              "Bb2", None, "C3", None, "D3", "Eb3", "F3", "G3"]
-
-    prince_melody_a = [
-        (0, 1, "G4"), (1, 1, "Eb4"), (2, 2, "C4"),
-        (4, 1, "F4"), (5, 1, "Eb4"), (6, 2, "D4"),
+    sections = [
+        ("D2", ["D3", "F3", "A3"]),
+        ("Bb1", ["Bb2", "D3", "F3"]),
+        ("G1", ["G2", "Bb2", "D3"]),
+        ("A1", ["A2", "C#3", "E3"]),
     ]
 
-    prince_melody_b = [
-        (0, 1, "Bb4"), (1, 1, "G4"), (2, 2, "Eb4"),
-        (4, 1, "C5"), (5, 1, "Bb4"), (6, 2, "G4"),
-    ]
+    for ci, (root, pad) in enumerate(sections):
 
-    princess_melody_a = [
-        (0, 1.5, "Bb5"), (1.5, 1.5, "G5"), (3, 2, "Eb5"),
-        (5, 1.5, "F5"), (6.5, 1.5, "D5"),
-    ]
+        base = ci * 8
+        rf = note_freq(root)
 
-    princess_melody_b = [
-        (0, 1.5, "C6"), (1.5, 1.5, "Bb5"), (3, 2, "G5"),
-        (5, 1.5, "Ab5"), (6.5, 1.5, "F5"),
-    ]
+        # Pad runs slightly long so each chord overlaps the next -
+        # the harmony never gaps at a section boundary.
+        chord(buf, spb, base, 8.4, pad, "tri", 0.055,
+              attack=0.25, release=0.5)
 
-    # Section 1 - Prince (C minor).
-    prince_riff(0, riff_a)
-    seq(buf, spb, prince_melody_a, "square", 0.12, release=0.04,
-        vib=0.004, vib_rate=5.0)
-    prince_kit(0)
+        # Driving eighth-note bass with an octave pop, unbroken.
+        for i in range(16):
+            f = rf * 2 if i % 8 == 7 else rf
+            tone(buf, (base + i * 0.5) * spb, 0.36 * spb, f,
+                 "square", 0.16, duty=0.32, release=0.02)
 
-    # Section 2 - Princess (Eb major).
-    princess_pads(8, ["Eb3", "G3", "Bb3"])
-    princess_arp(8, ["Eb4", "G4", "Bb4", "Eb5", "Bb4", "G4"])
-    seq(buf, spb, [(8 + b, d, n) for b, d, n in princess_melody_a],
-        "sine", 0.09, attack=0.05, release=0.25, vib=0.006, vib_rate=4.5)
-    princess_kit(8)
+        # Off-beat brass stabs - the martial edge, in every
+        # section rather than only in "his" ones.
+        for i in range(4):
+            for name in pad:
+                tone(buf, (base + i * 2 + 1.5) * spb, 0.4 * spb,
+                     note_freq(name), "square", 0.06, duty=0.42,
+                     release=0.04)
 
-    # Section 3 - Prince, varied.
-    prince_riff(16, riff_b)
-    seq(buf, spb, [(16 + b, d, n) for b, d, n in prince_melody_b],
-        "square", 0.12, release=0.04, vib=0.004, vib_rate=5.0)
-    prince_kit(16)
+    # The fate motif: stated, answered a third higher, turned
+    # darker, then climbing to the cadence - one voice throughout.
+    seq(buf, spb, [
+        (0, 1, "A4"), (1, 0.5, "Bb4"), (1.5, 0.5, "A4"),
+        (2, 2, "F4"), (4, 1, "D5"), (5, 1, "C#5"), (6, 2, "D5"),
 
-    # Section 4 - Princess, varied (a fourth higher - brighter).
-    princess_pads(24, ["Ab3", "C4", "Eb4"])
-    princess_arp(24, ["Ab4", "C5", "Eb5", "Ab5", "Eb5", "C5"])
-    seq(buf, spb, [(24 + b, d, n) for b, d, n in princess_melody_b],
-        "sine", 0.09, attack=0.05, release=0.25, vib=0.006, vib_rate=4.5)
-    princess_kit(24)
+        (8, 1, "D5"), (9, 0.5, "F5"), (9.5, 0.5, "D5"),
+        (10, 2, "Bb4"), (12, 1, "F5"), (13, 1, "E5"), (14, 2, "F5"),
 
-    # Sections 5-6 - combined: his march underneath, her bell
-    # melody riding on top, neither one backing down.
-    for base, riff, pmel in [(32, riff_a, princess_melody_a),
-                             (40, riff_b, princess_melody_b)]:
+        (16, 1, "Bb4"), (17, 0.5, "D5"), (17.5, 0.5, "Bb4"),
+        (18, 2, "G4"), (20, 1, "D5"), (21, 1, "Bb4"), (22, 2, "G4"),
 
-        prince_riff(base, riff)
-        prince_kit(base)
+        (24, 1, "A4"), (25, 1, "C#5"), (26, 1, "E5"), (27, 1, "G5"),
+        (28, 2, "F5"), (30, 1, "E5"), (31, 1, "C#5"),
+    ], "square", 0.13, duty=0.38, release=0.05, vib=0.006, vib_rate=5.0)
 
-        seq(buf, spb, [(base + b, d, n) for b, d, n in pmel],
-            "sine", 0.08, attack=0.05, release=0.25,
-            vib=0.006, vib_rate=4.5)
+    # Her counter-line, shadowing the motif high above it - present
+    # in every section, never a separate block of its own.
+    seq(buf, spb, [
+        (2, 2, "D5"), (6, 2, "A5"),
+        (10, 2, "F5"), (14, 2, "D6"),
+        (18, 2, "Bb5"), (22, 2, "D5"),
+        (26, 2, "A5"), (30, 2, "A5"),
+    ], "tri", 0.075, attack=0.08, release=0.3, vib=0.008, vib_rate=4.5)
 
-    crash(buf, 46 * spb, 0.14)
+    # One kit, all 32 beats, no dropouts.
+    for beat in range(32):
 
-    echo(buf, 0.22, 0.2)
+        kick(buf, beat * spb, 0.44)
+
+        if beat % 2 == 1:
+            snare(buf, beat * spb, 0.24)
+
+        hat(buf, beat * spb, 0.07)
+        hat(buf, (beat + 0.5) * spb, 0.05)
+
+        # A short roll turning each 8-beat phrase into the next.
+        if beat % 8 == 7:
+            snare(buf, (beat + 0.5) * spb, 0.14)
+            snare(buf, (beat + 0.75) * spb, 0.18)
+
+    # Accents mid-phrase rather than on beat 0 - nothing announces
+    # the top of the loop.
+    timpani(buf, 8 * spb, 55, 0.38)
+    timpani(buf, 24 * spb, 55, 0.38)
+    crash(buf, 16 * spb, 0.12)
+
+    echo(buf, 0.22, 0.18)
 
     return finalize(buf)
 
 
 def compose_hero():
-    """The Prince's transformation payoff - angelic and majestic:
-    a soaring choir-like lead over pulsing organ chords, bells,
-    and timpani in bright D major. Still driven by a bass/kick
-    pulse underneath, so it reads as a harder ongoing fight, not
-    the Victory screen's fanfare pause."""
+    """The Prince's transformation payoff - the cruellest and
+    loudest music in the game, and the most furiously busy.
 
-    buf, spb = make_buffer(bpm=144, beats=40)
+    Scored like a piano sonata in full flight rather than a synth
+    patch: a continuous broken-chord arpeggio ripples under
+    everything as the motor (the Moonlight signature), rocketing
+    two-octave runs launch out of it into sforzando stabs at the end
+    of every phrase, and a full orchestra sits on top - sustained
+    string beds in octaves, brass-section stabs, running low
+    strings, and a counter-melody working against the lead.
 
-    # I - V - vi - IV - I: a classic uplifting progression, closing
-    # back on the tonic so the loop point lands cleanly.
-    sections = [
-        ("D3", ["D4", "F#4", "A4"]),
-        ("A2", ["A3", "C#4", "E4"]),
-        ("B2", ["B3", "D4", "F#4"]),
-        ("G2", ["G3", "B3", "D4"]),
-        ("D3", ["D4", "F#4", "A4"]),
+    Harmony is E PHRYGIAN - the bII sitting a semitone above the
+    tonic is the sound of something holy gone wrong. The first
+    eight turns are the statement; the second eight are new ground
+    (C - D - Em - F - Am) closing on a B diminished seventh, so the
+    loop is genuinely twice as long rather than played twice.
+    """
+
+    buf, spb = make_buffer(bpm=168, beats=64)
+
+    turns = [
+        # --- statement ---
+        ("E1", ["E3", "G3", "B3", "E4"]),
+        ("F1", ["F3", "A3", "C4", "F4"]),
+        ("E1", ["E3", "G3", "B3", "E4"]),
+        ("F1", ["F3", "A3", "C4", "F4"]),
+        ("G1", ["G3", "Bb3", "D4", "G4"]),
+        ("F1", ["F3", "A3", "C4", "F4"]),
+        ("E1", ["E3", "G3", "B3", "E4"]),
+        ("B1", ["B2", "D3", "F3", "B3"]),
+        # --- new ground ---
+        ("C2", ["C3", "E3", "G3", "C4"]),
+        ("D2", ["D3", "F3", "A3", "D4"]),
+        ("E1", ["E3", "G3", "B3", "E4"]),
+        ("F1", ["F3", "A3", "C4", "F4"]),
+        ("A1", ["A2", "C3", "E3", "A3"]),
+        ("F1", ["F3", "A3", "C4", "F4"]),
+        ("C2", ["C3", "E3", "G3", "C4"]),
+        ("B1", ["B2", "D3", "F3", "Ab3"]),
     ]
 
-    melody = {
-        0: [(0, 2, "F#5"), (2, 2, "A5"), (4, 2, "D6"), (6, 2, "C#6")],
-        1: [(0, 2, "C#5"), (2, 2, "E5"), (4, 2, "A5"), (6, 2, "G5")],
-        2: [(0, 2, "D5"), (2, 2, "F#5"), (4, 3, "B5"), (7, 1, "A5")],
-        3: [(0, 2, "B4"), (2, 2, "D5"), (4, 2, "G5"), (6, 2, "F#5")],
-        4: [(0, 3, "D6"), (3, 3, "A5"), (6, 2, "D6")]
-    }
+    for ti, (root, voicing) in enumerate(turns):
 
-    bell_notes = {0: "D6", 1: "A5", 2: "B5", 3: "G5", 4: "D6"}
-
-    for ci, (root, chord_tones) in enumerate(sections):
-
-        base = ci * 8
+        base = ti * 4
         rf = note_freq(root)
 
-        # Pulsing organ chord, quarter-note swells.
-        for i in range(8):
-            for name in chord_tones:
-                f = note_freq(name)
-                t = (base + i) * spb
-                tone(buf, t, 0.85 * spb, f, "square", 0.06, duty=0.45,
-                     attack=0.05, release=0.15)
+        # THE MOTOR: a continuous broken chord in 16ths, rippling
+        # up and part-way back, never stopping. This is what turns
+        # the piece from stately into relentless.
+        arp = voicing + [voicing[2], voicing[1]]
 
-        # Low sustained root - gives it weight.
-        tone(buf, base * spb, 8 * spb, rf, "tri", 0.12,
-             attack=0.15, release=0.3)
-
-        # Driving eighth-note bass underneath - keeps it a fight,
-        # not a chorale.
         for i in range(16):
-            f = rf * 2 if i % 4 == 3 else rf
-            tone(buf, (base + i * 0.5) * spb, 0.36 * spb, f,
-                 "square", 0.13, duty=0.3, release=0.02)
+            name = arp[i % len(arp)]
+            tone(buf, (base + i * 0.25) * spb, 0.23 * spb,
+                 note_freq(name), "tri", 0.075, release=0.05)
 
-        # Choir-like lead - voice-ish vibrato on a sine tone.
-        seq(buf, spb, [(base + b, d, n) for b, d, n in melody[ci]],
-            "sine", 0.13, attack=0.08, release=0.3,
-            vib=0.012, vib_rate=5.5)
+        # An octave above, quieter - widens the ripple.
+        for i in range(0, 16, 2):
+            name = arp[i % len(arp)]
+            tone(buf, (base + i * 0.25) * spb, 0.23 * spb,
+                 note_freq(name) * 2, "tri", 0.032, release=0.05)
 
-        # A bell chime answering each phrase's end.
-        tone(buf, (base + 6.5) * spb, 1.4 * spb,
-             note_freq(bell_notes[ci]), "sine", 0.1,
-             attack=0.01, release=0.5)
+        # Sustained string bed plus upper octave.
+        chord(buf, spb, base, 4.3, voicing, "tri", 0.042,
+              attack=0.12, release=0.4)
 
-        # Timpani + crash for grandeur at the top of each phrase.
-        timpani(buf, base * spb, rf * 0.5, 0.4)
+        for name in voicing[:3]:
+            tone(buf, base * spb, 4.1 * spb, note_freq(name) * 2, "tri",
+                 0.022, attack=0.18, release=0.4)
 
-        if ci % 2 == 0:
-            crash(buf, base * spb, 0.12)
+        # Brass section stabs, octave-doubled.
+        for i in range(4):
+            for name in voicing[:3]:
+                t = (base + i) * spb
+                tone(buf, t, 0.4 * spb, note_freq(name), "square", 0.062,
+                     duty=0.42, attack=0.006, release=0.05)
+                tone(buf, t, 0.4 * spb, note_freq(name) * 2, "square", 0.02,
+                     duty=0.42, attack=0.006, release=0.05)
 
-    # Driving but not martial - kick on the downbeat, hats
-    # keeping the pulse, no snare (the choir carries the
-    # intensity, not a war-drum backbeat).
-    for beat in range(40):
+        # Low strings running eighths.
+        for i in range(8):
+            f = rf * 4 if i % 4 == 3 else rf * 2
+            tone(buf, (base + i * 0.5) * spb, 0.3 * spb, f,
+                 "saw", 0.12, release=0.02)
 
-        if beat % 4 == 0:
-            kick(buf, beat * spb, 0.4)
+        # Sub - E1 is ~41Hz, unbroken under everything.
+        tone(buf, base * spb, 3.9 * spb, rf, "sine", 0.25,
+             attack=0.02, release=0.12)
 
-        hat(buf, beat * spb, 0.06)
+    lead = [
+        (0, 1, "B5"), (1, 0.5, "C6"), (1.5, 0.5, "B5"), (2, 2, "E5"),
+        (4, 1, "C6"), (5, 0.5, "B5"), (5.5, 0.5, "C6"), (6, 2, "F5"),
+        (8, 1, "B5"), (9, 0.5, "A5"), (9.5, 0.5, "B5"), (10, 2, "E5"),
+        (12, 1, "C6"), (13, 1, "B5"), (14, 2, "F5"),
+        (16, 1, "D6"), (17, 0.5, "C6"), (17.5, 0.5, "Bb5"), (18, 2, "G5"),
+        (20, 1, "C6"), (21, 0.5, "A5"), (21.5, 0.5, "F5"), (22, 2, "C6"),
+        (24, 1, "B5"), (25, 0.5, "G5"), (25.5, 0.5, "E5"), (26, 2, "B5"),
+        (28, 1, "F6"), (29, 1, "D6"), (30, 2, "B5"),
 
-    echo(buf, 0.3, 0.28)
+        (32, 2, "G5"), (34, 1, "C6"), (35, 1, "E6"), (36, 2, "D6"),
+        (38, 1, "A5"), (39, 1, "D6"),
+        (40, 2, "E6"), (42, 1, "B5"), (43, 1, "G5"), (44, 2, "F6"),
+        (46, 1, "C6"), (47, 1, "A5"),
+        (48, 2, "E6"), (50, 1, "C6"), (51, 1, "A5"), (52, 2, "F6"),
+        (54, 1, "E6"), (55, 1, "C6"),
+        (56, 2, "G6"), (58, 1, "E6"), (59, 1, "C6"),
+        (60, 1, "F6"), (61, 1, "D6"), (62, 2, "B5"),
+    ]
 
-    return finalize(buf)
+    seq(buf, spb, lead, "sine", 0.14, attack=0.02, release=0.18,
+        vib=0.012, vib_rate=5.5)
+
+    # Saw double an octave below - teeth, without losing the sung
+    # line on top.
+    seq(buf, spb, [(b, d, n[:-1] + str(int(n[-1]) - 1)) for b, d, n in lead],
+        "saw", 0.055, attack=0.02, release=0.12)
+
+    # Counter-melody in the middle register, moving against the
+    # lead rather than shadowing it.
+    seq(buf, spb, [
+        (2, 2, "G4"), (6, 2, "A4"), (10, 2, "B4"), (14, 2, "A4"),
+        (18, 2, "D5"), (22, 2, "C5"), (26, 2, "G4"), (30, 2, "F4"),
+        (34, 2, "E5"), (38, 2, "F5"), (42, 2, "D5"), (46, 2, "C5"),
+        (50, 2, "A4"), (54, 2, "C5"), (58, 2, "B4"), (62, 2, "F4"),
+    ], "tri", 0.065, attack=0.1, release=0.3, vib=0.006, vib_rate=4.5)
+
+    # Rocketing two-octave runs launching out of the arpeggio into
+    # a sforzando chord - the loudest gesture in the piece, at the
+    # end of every eight-beat phrase.
+    rockets = [
+        (6.5, ["E4", "G4", "B4", "E5", "G5", "B5"], ["E4", "G4", "B4", "E5"]),
+        (14.5, ["F4", "A4", "C5", "F5", "A5", "C6"], ["F4", "A4", "C5", "F5"]),
+        (22.5, ["G4", "Bb4", "D5", "G5", "Bb5", "D6"], ["G4", "Bb4", "D5", "G5"]),
+        (30.5, ["B3", "D4", "F4", "B4", "D5", "F5"], ["B3", "D4", "F4", "B4"]),
+        (38.5, ["C4", "E4", "G4", "C5", "E5", "G5"], ["C4", "E4", "G4", "C5"]),
+        (46.5, ["F4", "A4", "C5", "F5", "A5", "C6"], ["F4", "A4", "C5", "F5"]),
+        (54.5, ["A3", "C4", "E4", "A4", "C5", "E5"], ["A3", "C4", "E4", "A4"]),
+        (62.5, ["B3", "D4", "F4", "Ab4", "B4", "D5"], ["B3", "D4", "F4", "Ab4"]),
+    ]
+
+    for start, run, stab in rockets:
+
+        for i, name in enumerate(run):
+            tone(buf, (start + i * 0.25) * spb, 0.22 * spb,
+                 note_freq(name), "tri", 0.1, release=0.04)
+
+        # Sforzando: the run slams into a chord on the downbeat.
+        landing = start + len(run) * 0.25
+
+        for name in stab:
+            tone(buf, landing * spb, 0.55 * spb, note_freq(name),
+                 "square", 0.085, duty=0.44, attack=0.004, release=0.08)
+
+    # Low tolling bells rather than bright chimes.
+    for ti in range(0, 16, 4):
+        tone(buf, (ti * 4) * spb, 2.2 * spb, note_freq("E3"), "sine",
+             0.08, attack=0.004, release=0.7)
+
+    # Double-kick, backbeat with ghost notes, 16th hats.
+    for beat in range(64):
+
+        kick(buf, beat * spb, 0.48)
+        kick(buf, (beat + 0.5) * spb, 0.24)
+
+        if beat % 2 == 1:
+            snare(buf, beat * spb, 0.28)
+        else:
+            snare(buf, (beat + 0.75) * spb, 0.09)
+
+        for h in range(4):
+            hat(buf, (beat + h * 0.25) * spb,
+                0.05 if h % 2 == 0 else 0.028)
+
+        if beat % 8 == 7:
+            snare(buf, (beat + 0.5) * spb, 0.18)
+            snare(buf, (beat + 0.75) * spb, 0.24)
+
+    for beat in (0, 16, 32, 48):
+        timpani(buf, beat * spb, 41, 0.4)
+
+    crash(buf, 32 * spb, 0.15)
+    crash(buf, 48 * spb, 0.13)
+
+    echo(buf, 0.18, 0.2)
+
+    # The loudest thing in the game, deliberately: a harder drive
+    # into the limiter than the 0.22 the rest of the catalogue uses,
+    # and a higher ceiling.
+    return finalize(buf, peak=0.96, target_rms=0.3)
 
 
 def compose_victory():
