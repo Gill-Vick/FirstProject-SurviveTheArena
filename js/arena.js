@@ -6,8 +6,18 @@ const Arena = {
 
     theme: "castle",
 
+    // Foreground occluders - things entities can walk behind.
+    // Historically always pillars, hence the name; the garden's
+    // trees and the storm ruin's broken stumps live here too (see
+    // getOccluderRect for how a non-full-height one declares
+    // the part of the screen it actually covers).
     pillars: [],
     torches: [],
+
+    // Ground dressing that does NOT occlude and is not lit as
+    // an object - bushes, flower beds, benches. Drawn flat onto
+    // the floor pass (see drawArenaProps).
+    props: [],
 
     // Static decoration for the castle-entrance arena (grass
     // tufts, path cobbles). Generated once per arena so the
@@ -18,12 +28,19 @@ const Arena = {
 
 function updateArenaForWave() {
 
-    // Castle entrance for waves 1-5, night throne room (the
-    // Knight's arena) for 6-10, throne approach for 11+.
+    // One look per boss, changing every five waves: castle
+    // entrance 1-5, night throne room 6-10, throne approach
+    // 11-15, the rose court 16-20, the storm-broken ruin 21+.
     // Comparing against the CURRENT theme (rather than
     // one-way checks) means custom-mode wave jumps regenerate
     // correctly in both directions.
+    //
+    // The two late bands read from their own ARENA_* constants
+    // rather than the SET*_START ones - see the note in
+    // constants.js: those drive spawning, these only drive looks.
     const desired =
+        Game.wave >= WAVES.ARENA_SET5_START ? "storm" :
+        Game.wave >= WAVES.ARENA_SET4_START ? "garden" :
         Game.wave >= WAVES.SET3_START ? "throne" :
         Game.wave >= WAVES.SET2_START ? "night" :
         "castle";
@@ -33,7 +50,17 @@ function updateArenaForWave() {
 
     Arena.theme = desired;
 
-    if (desired === "throne")
+    // Every generator below rebuilds its own occluders and
+    // lights, but only the themes that HAVE ground dressing set
+    // Arena.props - clearing it here stops a theme inheriting the
+    // previous one's bushes.
+    Arena.props = [];
+
+    if (desired === "storm")
+        generateStormRuin();
+    else if (desired === "garden")
+        generateRoseCourt();
+    else if (desired === "throne")
         generateThroneRoom();
     else if (desired === "night")
         generateNightThrone();
@@ -211,6 +238,223 @@ function generateNightThrone() {
         Arena.torches.push({ x: p.x, y: baseY, parentPillar: p });
 
     });
+
+}
+
+// The rose court (waves 16-20, the Prince & Princess's arena):
+// a walled palace garden at dusk. The only arena with no columns
+// at all - trees are the cover (see drawGardenTree), standing
+// lantern posts are the light, and bushes, flower beds and
+// benches dress the ground (see drawArenaProps).
+
+function generateRoseCourt() {
+
+    // No columns here - a garden has trees. They still go in
+    // Arena.pillars because that's the foreground-occluder list
+    // (entities walk behind them, and the shadow and x-ray passes
+    // read from it), but each declares a `top` so only the canopy
+    // counts as cover rather than a full-height strip.
+    Arena.pillars = [];
+    Arena.props = [];
+    Arena.torches = [];
+
+    const W = canvas.width;
+    const H = canvas.height;
+
+    // Trees stand IN the planted border down each side, not out
+    // on the paving - a tree rooted in the middle of a marble
+    // court makes no sense, and it also kept the fighting lane
+    // clear only by accident. Centred on the border strip, which
+    // puts the trunks on soil and lets the canopies lean over
+    // the court.
+    // Far enough in that the widest canopy still clears the
+    // screen edge, while the trunk stays on the border's soil.
+    const bx = W * (GARDEN_BORDER * 0.63);
+
+    const treeSpots = [
+        { x: bx, y: H * 0.26, width: 110 },
+        { x: bx, y: H * 0.66, width: 124 },
+        { x: bx, y: H * 1.04, width: 134 },
+        { x: W - bx, y: H * 0.26, width: 110 },
+        { x: W - bx, y: H * 0.66, width: 124 },
+        { x: W - bx, y: H * 1.04, width: 134 }
+    ];
+
+    treeSpots.forEach(t => {
+
+        // occWidth/top describe the pine's actual silhouette so
+        // the x-ray and shadow passes match what's drawn. Both
+        // are derived from the same TREE_* proportions
+        // drawGardenTree uses - change them in one place.
+        const canopyTop = t.y + 40
+                          - t.width * TREE_TRUNK_H
+                          + t.width * TREE_CANOPY_OVERLAP
+                          - t.width * TREE_CANOPY_H;
+
+        Arena.pillars.push({
+            x: t.x,
+            y: t.y,
+            width: t.width,
+            occWidth: t.width * TREE_CANOPY_HALF * 2,
+            top: Math.max(0, canopyTop),
+            kind: "tree"
+        });
+
+    });
+
+    // Lantern posts standing on their own between the trees -
+    // the garden's light, and deliberately not bolted to a
+    // trunk the way the old wall brackets were.
+    [
+        { x: W * 0.26, y: H * 0.34 },
+        { x: W * 0.26, y: H * 0.80 },
+        { x: W * 0.74, y: H * 0.34 },
+        { x: W * 0.74, y: H * 0.80 }
+    ].forEach(l => Arena.torches.push({ x: l.x, y: l.y }));
+
+    // Ground dressing. None of this occludes or collides - it is
+    // there to make the place read as a garden rather than a
+    // marble box.
+    const hedge = H * 0.11;
+
+    for (let i = 0; i < 9; i++) {
+
+        const x = W * (0.06 + i * 0.11);
+
+        Arena.props.push({ kind: "bush", x, y: hedge + 16, r: 20 + (i % 3) * 5 });
+        Arena.props.push({ kind: "bush", x: x + W * 0.05, y: H - hedge - 16, r: 18 + (i % 4) * 5 });
+
+    }
+
+    [0.20, 0.50, 0.80].forEach(f => {
+
+        Arena.props.push({ kind: "bed", x: W * f, y: hedge + 52, w: 96, h: 26 });
+        Arena.props.push({ kind: "bed", x: W * f, y: H - hedge - 52, w: 96, h: 26 });
+
+    });
+
+    Arena.props.push({ kind: "bench", x: W * 0.35, y: hedge + 96 });
+    Arena.props.push({ kind: "bench", x: W * 0.65, y: H - hedge - 96 });
+
+}
+
+// The storm-broken ruin (waves 21+, the King's arena): what is
+// left of the great hall after the roof came down, open to the
+// sky in a downpour. Nothing survives of the old room but broken
+// pillar stumps; the light comes from lightning and a handful of
+// braziers still guttering in the wind.
+//
+// The stumps are short on purpose - they read as cover without
+// walling the arena in, which matters here because this is the
+// final fight and the floor needs to stay legible.
+
+function generateStormRuin() {
+
+    Arena.pillars = [];
+    Arena.props = [];
+    Arena.torches = [];
+
+    const W = canvas.width;
+    const H = canvas.height;
+
+    // stumpFrac is the remnant's height as a fraction of its own
+    // width - they all snapped at different heights.
+    const stumps = [
+        { x: W * 0.10, y: H * 0.20, width: 88, frac: 0.62 },
+        { x: W * 0.18, y: H * 0.58, width: 104, frac: 0.42 },
+        { x: W * 0.07, y: H * 0.90, width: 94, frac: 0.7 },
+        { x: W * 0.90, y: H * 0.20, width: 88, frac: 0.58 },
+        { x: W * 0.82, y: H * 0.58, width: 104, frac: 0.46 },
+        { x: W * 0.93, y: H * 0.90, width: 94, frac: 0.66 },
+        { x: W * 0.40, y: H * 0.12, width: 80, frac: 0.52 },
+        { x: W * 0.62, y: H * 0.96, width: 80, frac: 0.56 }
+    ];
+
+    stumps.forEach(s => {
+
+        const stumpH = s.width * s.frac;
+
+        Arena.pillars.push({
+            x: s.x,
+            y: s.y,
+            width: s.width,
+            stumpH,
+            // Only the remnant itself is cover - see
+            // getOccluderRect.
+            top: Math.max(0, s.y + 40 - stumpH),
+            // Broken stone throws a stubby shadow, not a
+            // column-length one.
+            shadowWidth: s.width * 0.8,
+            kind: "stump"
+        });
+
+    });
+
+    // Fallen masonry scattered around the stumps. Ground-level
+    // dressing only - it never occludes or blocks.
+    const rubble = [
+        [0.14, 0.34], [0.24, 0.48], [0.12, 0.74], [0.29, 0.86],
+        [0.86, 0.34], [0.76, 0.48], [0.88, 0.74], [0.71, 0.86],
+        [0.45, 0.26], [0.55, 0.72], [0.34, 0.62], [0.66, 0.4]
+    ];
+
+    rubble.forEach(([fx, fy], i) => {
+
+        Arena.props.push({
+            kind: "rubble",
+            x: W * fx,
+            y: H * fy,
+            r: 13 + (i % 4) * 6,
+            seed: i
+        });
+
+    });
+
+    // The few fires still alight, tucked against the standing
+    // stone where the wind can't kill them.
+    [
+        { x: W * 0.29, y: H * 0.22 },
+        { x: W * 0.29, y: H * 0.80 },
+        { x: W * 0.71, y: H * 0.22 },
+        { x: W * 0.71, y: H * 0.80 }
+    ].forEach(b => Arena.torches.push({ x: b.x, y: b.y }));
+
+}
+
+// Stable pseudo-random 0..1 from an integer.
+//
+// The rain needs each drop to keep its own lane, speed and length
+// without storing any per-drop state, and it needs those values
+// spread evenly. A plain arithmetic step (i * k) % n does NOT
+// spread - it lands on a handful of repeating values - so this
+// hashes instead.
+
+function stormHash(n) {
+
+    const s = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+
+    return s - Math.floor(s);
+
+}
+
+// How hard the lightning is flaring right now, 0..1.
+//
+// Single source of truth so the floor wash, the entity-level
+// overlay and the rain highlight all flash on exactly the same
+// frame. Driven straight off the clock - a real double strike,
+// bright snap then a dimmer echo, then a long dark gap.
+
+function getStormFlash() {
+
+    const t = (Date.now() % 7200) / 7200;
+
+    if (t < 0.035)
+        return 1 - t / 0.035;
+
+    if (t > 0.06 && t < 0.115)
+        return (1 - (t - 0.06) / 0.055) * 0.55;
+
+    return 0;
 
 }
 
@@ -407,6 +651,73 @@ function paintPixelGrass(fctx, rx, ry, rw, rh, rng) {
 
 }
 
+// Pixel hedge: a dense dark-green mass with leaf mottle and a
+// lit top lip, for the rose court's garden walls. Denser and
+// darker than paintPixelGrass - that's a lawn seen from above,
+// this is a clipped wall of foliage seen edge-on.
+function paintPixelHedge(fctx, rx, ry, rw, rh, rng) {
+
+    const T = FLOOR_TEXEL;
+    const base = [34, 64, 38];
+
+    fctx.fillStyle = shadeColor(base, 1);
+    fctx.fillRect(rx, ry, rw, rh);
+
+    // Leaf mottle - a fraction of the texels, not all of them,
+    // so the one-time bake stays cheap.
+    const cells = (rw / T) * (rh / T);
+
+    for (let i = 0; i < cells * 0.4; i++) {
+
+        const x = rx + Math.floor(rng() * (rw / T)) * T;
+        const y = ry + Math.floor(rng() * (rh / T)) * T;
+
+        fctx.fillStyle = shadeColor(base, 0.7 + rng() * 0.75);
+        fctx.fillRect(x, y, T, T);
+
+    }
+
+    // Lit lip along the top edge, shadowed underside.
+    for (let x = rx; x < rx + rw; x += T) {
+
+        const lift = rng() < 0.5 ? T : T * 2;
+
+        fctx.fillStyle = shadeColor(base, 1.55);
+        fctx.fillRect(x, ry, T, lift);
+
+    }
+
+    fctx.fillStyle = "rgba(0, 0, 0, 0.35)";
+    fctx.fillRect(rx, ry + rh - T * 2, rw, T * 2);
+
+}
+
+// Scatters small petal clusters over a rect - the rose court's
+// one bit of colour on the pale marble.
+function paintRosePetals(fctx, rx, ry, rw, rh, rng, count) {
+
+    const T = FLOOR_TEXEL;
+    const petals = ["#8f1e33", "#b8324b", "#d9556d", "#6e1526"];
+
+    for (let i = 0; i < count; i++) {
+
+        const x = rx + Math.floor(rng() * (rw / T)) * T;
+        const y = ry + Math.floor(rng() * (rh / T)) * T;
+
+        fctx.fillStyle = petals[Math.floor(rng() * petals.length)];
+
+        // A petal is two or three texels, never a lone dot -
+        // single pixels read as noise rather than as debris.
+        fctx.fillRect(x, y, T, T);
+        fctx.fillRect(x + T, y, T, T);
+
+        if (rng() < 0.5)
+            fctx.fillRect(x, y + T, T, T);
+
+    }
+
+}
+
 // Rebuilds the offscreen floor for the current theme/size if
 // it isn't already current.
 function ensureFloorTexture() {
@@ -430,12 +741,130 @@ function ensureFloorTexture() {
     fctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Seed from size so a resize reshuffles but a redraw never
-    // does; XOR a per-theme salt so the three floors differ.
+    // does; XOR a per-theme salt so the floors all differ.
     const salt =
         Arena.theme === "castle" ? 0x1a2b :
-        Arena.theme === "night" ? 0x51de : 0x7403;
+        Arena.theme === "night" ? 0x51de :
+        Arena.theme === "garden" ? 0x2c91 :
+        Arena.theme === "storm" ? 0x6ad4 : 0x7403;
 
     const rng = makeFloorRng((canvas.width * 73856093) ^ (canvas.height * 19349663) ^ salt);
+
+    if (Arena.theme === "garden") {
+
+        // Pale marble terrace inset inside a planted border on
+        // all four sides. The border matters: the trees are
+        // planted in it, and without it they stood in the middle
+        // of the paving looking like they had grown through it.
+        const hedgeY = snapTexel(canvas.height * 0.11);
+        const hedgeX = snapTexel(canvas.width * GARDEN_BORDER);
+
+        paintPixelStone(fctx, 0, 0, canvas.width, canvas.height,
+                        [176, 168, 152], rng, { tile: 40 });
+
+        paintPixelHedge(fctx, 0, 0, canvas.width, hedgeY, rng);
+        paintPixelHedge(fctx, 0, canvas.height - hedgeY, canvas.width, hedgeY, rng);
+        paintPixelHedge(fctx, 0, 0, hedgeX, canvas.height, rng);
+        paintPixelHedge(fctx, canvas.width - hedgeX, 0, hedgeX, canvas.height, rng);
+
+        // Petals drift across the open marble court only.
+        paintRosePetals(fctx, hedgeX, hedgeY,
+                        canvas.width - hedgeX * 2,
+                        canvas.height - hedgeY * 2, rng, 90);
+
+        floorSig = sig;
+
+        return floorCanvas;
+
+    }
+
+    if (Arena.theme === "storm") {
+
+        // Rain-soaked flagstone, cold and cracked.
+        paintPixelStone(fctx, 0, 0, canvas.width, canvas.height,
+                        [46, 52, 62], rng, { tile: 56 });
+
+        // Standing water. Built as rows of varying width so each
+        // pool is a blobby texel shape rather than an ellipse,
+        // with a pale sky reflection caught along its top lip -
+        // that highlight is what makes the floor read as WET
+        // rather than just dark.
+        const T = FLOOR_TEXEL;
+
+        // Keep pools clear of the stumps. The floor is baked after
+        // generateStormRuin has run, so the stump footprints are
+        // known here - a puddle drawn under standing stone read as
+        // water running THROUGH the pillar.
+        const blocked = Arena.pillars.map(s => {
+
+            const half = s.width / 2;
+            const sh = s.stumpH ?? s.width * 0.55;
+
+            return {
+                x: s.x - half - 26,
+                y: s.y + 40 - sh - 18,
+                w: s.width + 52,
+                h: sh + 62
+            };
+
+        });
+
+        const clashes = (x, y, w, h) => blocked.some(r =>
+            x < r.x + r.w && x + w > r.x && y < r.y + r.h && y + h > r.y);
+
+        for (let i = 0; i < 16; i++) {
+
+            const pw = snapTexel(70 + rng() * 150);
+            const ph = snapTexel(30 + rng() * 70);
+
+            // Rejection-sample a clear spot; if this pool can't
+            // find one, drop it rather than force an overlap.
+            let px = 0;
+            let py = 0;
+            let placed = false;
+
+            for (let attempt = 0; attempt < 24; attempt++) {
+
+                px = snapTexel(rng() * canvas.width);
+                py = snapTexel(rng() * canvas.height);
+
+                if (!clashes(px - pw / 2, py, pw, ph)) {
+                    placed = true;
+                    break;
+                }
+
+            }
+
+            if (!placed)
+                continue;
+
+            for (let y = 0; y < ph; y += T) {
+
+                const t = y / ph;
+                const bulge = Math.sin(t * Math.PI);
+                const w = snapTexel(pw * (0.4 + bulge * 0.6));
+                const x = snapTexel(px - w / 2);
+
+                if (w <= 0)
+                    continue;
+
+                fctx.fillStyle = "rgba(20, 30, 44, 0.72)";
+                fctx.fillRect(x, py + y, w, T);
+
+                if (y < T * 2) {
+                    fctx.fillStyle = "rgba(158, 188, 222, 0.22)";
+                    fctx.fillRect(x, py + y, w, T);
+                }
+
+            }
+
+        }
+
+        floorSig = sig;
+
+        return floorCanvas;
+
+    }
 
     if (Arena.theme === "castle") {
 
@@ -492,8 +921,15 @@ function drawArenaFloor() {
 
     }
 
+    // The rose court and the storm ruin have their own baked floor
+    // treatments, so the carpet stays with the two
+    // throne-approach arenas.
     if (Arena.theme === "throne" || Arena.theme === "night")
         drawRedCarpet();
+
+    // Ground dressing last, on top of the baked floor but under
+    // everything that moves.
+    drawArenaProps();
 
 }
 
@@ -785,11 +1221,14 @@ function drawLightingSystem() {
 
     if (Arena.theme === "night") {
 
-        // ---- night throne room: no sun, no moon. The room
-        // starts near-black with a cold blue cast, and the
-        // base torches carve out the only pools of light. ----
+        // ---- night throne room: lit by torchlight rather than
+        // sun, but no longer a blackout. An earlier pass ran this
+        // near-opaque with a moonbeam in the middle, which made
+        // most of the arena unreadable; the cold cast and the warm
+        // torch pools still set the mood, but you can actually see
+        // what is walking at you. ----
 
-        ctx.fillStyle = "rgba(4, 5, 14, 0.93)";
+        ctx.fillStyle = "rgba(12, 16, 34, 0.45)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         const pulse = Math.sin(Date.now() / 90) * 6;
@@ -797,7 +1236,7 @@ function drawLightingSystem() {
 
         Arena.torches.forEach(t => {
 
-            const radius = 345 + pulse + flicker;
+            const radius = 430 + pulse + flicker;
 
             // Broad warm wash - the candlelit floor pool.
             let warmGlow = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, radius);
@@ -824,20 +1263,121 @@ function drawLightingSystem() {
 
         });
 
-        // A small moonbeam spotlight dead center - a cool
-        // pale pool so the middle of the room isn't a total
-        // void, contrasting the warm torch pools at the edges.
-        const spot = getNightSpotlight();
+        ctx.restore();
+        return;
 
-        let moon = ctx.createRadialGradient(spot.x, spot.y, 0, spot.x, spot.y, spot.radius);
-        moon.addColorStop(0, "rgba(190, 210, 255, 0.4)");
-        moon.addColorStop(0.6, "rgba(170, 195, 250, 0.18)");
-        moon.addColorStop(1, "rgba(160, 185, 245, 0)");
+    }
 
-        ctx.fillStyle = moon;
-        ctx.beginPath();
-        ctx.arc(spot.x, spot.y, spot.radius, 0, Math.PI * 2);
-        ctx.fill();
+    if (Arena.theme === "garden") {
+
+        // ---- rose court: dusk. A violet sky wash settling over
+        // the whole garden, warm amber sunset low on the right
+        // where the sun is going down, and the lanterns picking
+        // up the slack. Bright enough to read clearly, but
+        // unmistakably evening rather than daylight. ----
+
+        // Kept light: too much violet turned the marble to mud
+        // rather than reading as pale stone at dusk.
+        let dusk = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        dusk.addColorStop(0, "rgba(34, 24, 58, 0.34)");
+        dusk.addColorStop(0.5, "rgba(40, 30, 62, 0.14)");
+        dusk.addColorStop(1, "rgba(28, 20, 48, 0.3)");
+
+        ctx.fillStyle = dusk;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const sun = getLightSource();
+
+        let sunset = ctx.createRadialGradient(
+            sun.x, sun.y, 0,
+            sun.x, sun.y, canvas.width * 1.05
+        );
+
+        sunset.addColorStop(0, "rgba(255, 198, 138, 0.52)");
+        sunset.addColorStop(0.45, "rgba(250, 172, 126, 0.24)");
+        sunset.addColorStop(1, "rgba(210, 140, 130, 0)");
+
+        ctx.fillStyle = sunset;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Lantern pools - cooler and softer than a torch.
+        const sway = Math.sin(Date.now() / 220) * 4;
+
+        Arena.torches.forEach(t => {
+
+            let lamp = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, 130 + sway);
+            lamp.addColorStop(0, "rgba(255, 214, 150, 0.34)");
+            lamp.addColorStop(0.5, "rgba(255, 190, 130, 0.14)");
+            lamp.addColorStop(1, "rgba(255, 180, 120, 0)");
+
+            ctx.fillStyle = lamp;
+            ctx.beginPath();
+            ctx.arc(t.x, t.y, 130 + sway, 0, Math.PI * 2);
+            ctx.fill();
+
+        });
+
+        ctx.restore();
+        return;
+
+    }
+
+    if (Arena.theme === "storm") {
+
+        // ---- storm-broken ruin: no roof and no sun. A cold
+        // overcast base, the braziers holding small warm pools
+        // against it, and lightning periodically flooding the
+        // whole floor. ----
+
+        ctx.fillStyle = "rgba(16, 22, 34, 0.62)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Diffuse grey daylight leaking through the broken roof,
+        // strongest toward the middle where the span collapsed.
+        let overcast = ctx.createRadialGradient(
+            canvas.width / 2, canvas.height * 0.42, 0,
+            canvas.width / 2, canvas.height * 0.42, canvas.width * 0.7
+        );
+
+        overcast.addColorStop(0, "rgba(150, 175, 210, 0.2)");
+        overcast.addColorStop(0.5, "rgba(120, 145, 180, 0.09)");
+        overcast.addColorStop(1, "rgba(90, 110, 145, 0)");
+
+        ctx.fillStyle = overcast;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Brazier pools - wind-thrashed, so they flicker harder
+        // and reach less far than a sheltered torch would.
+        const gust = Math.sin(Date.now() / 61) * 9 + Math.sin(Date.now() / 143) * 6;
+
+        Arena.torches.forEach(t => {
+
+            const radius = 210 + gust;
+
+            let fire = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, radius);
+            fire.addColorStop(0, "rgba(255, 172, 74, 0.44)");
+            fire.addColorStop(0.45, "rgba(226, 124, 44, 0.18)");
+            fire.addColorStop(1, "rgba(170, 80, 30, 0)");
+
+            ctx.fillStyle = fire;
+            ctx.beginPath();
+            ctx.arc(t.x, t.y, radius, 0, Math.PI * 2);
+            ctx.fill();
+
+        });
+
+        // Lightning washing the floor.
+        const flash = getStormFlash();
+
+        if (flash > 0) {
+
+            // Deliberately short of a whiteout: at full strength
+            // a heavier wash than this loses the enemies for a
+            // beat, which is not a fair trade during a boss fight.
+            ctx.fillStyle = `rgba(198, 218, 255, ${flash * 0.28})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        }
 
         ctx.restore();
         return;
@@ -990,20 +1530,6 @@ function drawLightingSystem() {
 
 }
 
-// Single source of truth for the night arena's center
-// spotlight - the floor glow and the veil hole both read
-// from this so they can never drift apart.
-
-function getNightSpotlight() {
-
-    return {
-        x: canvas.width / 2,
-        y: canvas.height / 2,
-        radius: 150 + Math.sin(Date.now() / 400) * 5
-    };
-
-}
-
 // =====================================
 // NIGHT VEIL (entity darkness)
 // =====================================
@@ -1041,7 +1567,9 @@ function drawNightVeil() {
 
     vctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    vctx.fillStyle = "rgba(3, 4, 12, 0.9)";
+    // Light enough that an enemy outside a torch pool is dimmed
+    // rather than invisible - see the note in drawLightingSystem.
+    vctx.fillStyle = "rgba(6, 9, 22, 0.4)";
     vctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Punch a flickering hole of visibility around each torch:
@@ -1054,11 +1582,11 @@ function drawNightVeil() {
 
     Arena.torches.forEach(t => {
 
-        const radius = 330 + pulse + flicker;
+        const radius = 420 + pulse + flicker;
 
         let hole = vctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, radius);
         hole.addColorStop(0, "rgba(0, 0, 0, 1)");
-        hole.addColorStop(0.4, "rgba(0, 0, 0, 0.9)");
+        hole.addColorStop(0.5, "rgba(0, 0, 0, 0.92)");
         hole.addColorStop(1, "rgba(0, 0, 0, 0)");
 
         vctx.fillStyle = hole;
@@ -1068,22 +1596,119 @@ function drawNightVeil() {
 
     });
 
-    // Matching visibility hole under the center spotlight.
-    const spot = getNightSpotlight();
-
-    let spotHole = vctx.createRadialGradient(spot.x, spot.y, 0, spot.x, spot.y, spot.radius);
-    spotHole.addColorStop(0, "rgba(0, 0, 0, 1)");
-    spotHole.addColorStop(0.5, "rgba(0, 0, 0, 0.85)");
-    spotHole.addColorStop(1, "rgba(0, 0, 0, 0)");
-
-    vctx.fillStyle = spotHole;
-    vctx.beginPath();
-    vctx.arc(spot.x, spot.y, spot.radius, 0, Math.PI * 2);
-    vctx.fill();
-
     vctx.globalCompositeOperation = "source-over";
 
     ctx.drawImage(nightVeilCanvas, 0, 0);
+
+}
+
+// The screen rect a foreground occluder actually covers.
+//
+// A pillar is a full-height shaft, so it occludes everything
+// from the top of the screen down to its base - that's the
+// default. The garden's trees and the ruin's stumps only
+// cover their own silhouette, so they set `top` and get an
+// honest rect instead of a full-height strip (which would
+// x-ray a column of empty air above them).
+
+function getOccluderRect(p) {
+
+    const top = p.top ?? 0;
+    const bottom = p.y + 40;
+
+    // A pillar's silhouette is exactly its shaft width, but a
+    // tree canopy is far wider than the trunk it's declared with -
+    // without this override anything standing behind the outer
+    // half of the foliage got no x-ray outline at all.
+    const width = p.occWidth ?? p.width;
+
+    return {
+        x: p.x - width / 2,
+        y: top,
+        width,
+        height: Math.max(0, bottom - top)
+    };
+
+}
+
+// The occluder's real silhouette, as a path, for the x-ray clip.
+//
+// A pillar fills its rect exactly, so it returns null and the
+// caller just clips to the bounds. A tree and a stump don't -
+// clipping those to a box showed outlines floating in the gaps
+// between the branches and the broken crown, so they trace their
+// actual shape instead. Both tracers are built from the same
+// numbers their draw functions use.
+
+function getOccluderClip(p) {
+
+    if (p.kind === "tree")
+        return c => traceGardenTreePath(c, p);
+
+    if (p.kind === "stump")
+        return c => traceStormStumpPath(c, p);
+
+    return null;
+
+}
+
+function traceGardenTreePath(c, p) {
+
+    const baseY = p.y + 40;
+
+    const trunkH = p.width * TREE_TRUNK_H;
+    const trunkTop = baseY - trunkH;
+    const trunkHalf = p.width * TREE_TRUNK_HALF;
+
+    const canopyBottom = trunkTop + p.width * TREE_CANOPY_OVERLAP;
+    const canopyH = p.width * TREE_CANOPY_H;
+    const canopyTop = canopyBottom - canopyH;
+    const halfMax = p.width * TREE_CANOPY_HALF;
+
+    // Trunk.
+    c.rect(p.x - trunkHalf, trunkTop, trunkHalf * 2, baseY - trunkTop);
+
+    // One triangle per canopy tier.
+    TREE_TIERS.forEach(tier => {
+
+        const tTop = canopyTop + canopyH * tier.top;
+        const tBottom = tTop + canopyH * tier.h;
+        const half = halfMax * tier.half;
+
+        c.moveTo(p.x, tTop);
+        c.lineTo(p.x + half, tBottom);
+        c.lineTo(p.x - half, tBottom);
+        c.closePath();
+
+    });
+
+}
+
+function traceStormStumpPath(c, p) {
+
+    const baseY = p.y + 40;
+    const h = p.stumpH ?? p.width * 0.55;
+    const top = baseY - h;
+    const half = p.width / 2;
+
+    const U = 6;
+    const snap = v => Math.round(v / U) * U;
+    const seed = Math.abs(Math.round(p.x)) % 7;
+
+    const cols = Math.max(4, Math.round(p.width / U));
+    const colW = Math.max(U, snap(p.width / cols));
+
+    // Same per-column break heights drawStormStump uses, so the
+    // clip lines up with the ragged crown exactly.
+    for (let i = 0; i < cols; i++) {
+
+        const x = snap(p.x - half + i * (p.width / cols));
+        const bite = ((i * 7 + seed * 3) % 5) * U;
+        const colTop = snap(top + bite);
+
+        c.rect(x, colTop, colW, snap(baseY) - colTop);
+
+    }
 
 }
 
@@ -1106,7 +1731,27 @@ function drawPillarShadows() {
     if (Arena.theme === "night")
         return;
 
-    const light = getLightSource();
+    // Shadows have to agree with where each arena's light
+    // actually is, or they read as dark smears painted on the
+    // floor that never change.
+    //
+    // getLightSource() answers for the DIRECTIONAL arenas (an
+    // off-screen sun), which is right for castle/throne/garden.
+    // The storm ruin is lit from the broken span overhead rather
+    // than from one side, so its shadows radiate outward from
+    // the middle instead of all leaning the same way.
+    const centreLit = Arena.theme === "storm";
+
+    const light = centreLit
+        ? { x: canvas.width / 2, y: canvas.height * 0.42 }
+        : getLightSource();
+
+    // Softer where the arena itself is dim - a hard black wedge
+    // under broken stone in the rain looks pasted on.
+    const strength =
+        Arena.theme === "storm" ? 0.3 :
+        Arena.theme === "garden" ? 0.3 :
+        0.45;
 
     ctx.save();
 
@@ -1139,10 +1784,15 @@ function drawPillarShadows() {
         const perpX = -dirY;
         const perpY = dirX;
 
-        const halfWidth = p.width * 0.55;
+        // Scale the shadow off whatever the thing actually looks
+        // like, not its declared width - a tree's canopy throws a
+        // far wider shadow than its trunk would.
+        const castWidth = p.shadowWidth ?? p.occWidth ?? p.width;
+
+        const halfWidth = castWidth * 0.55;
         const tipHalfWidth = halfWidth * 0.5;
 
-        const shadowLength = p.width * 3.2;
+        const shadowLength = castWidth * (centreLit ? 2.2 : 3.2);
 
         const baseLeftX = baseX - perpX * halfWidth;
         const baseLeftY = baseY - perpY * halfWidth;
@@ -1168,7 +1818,7 @@ function drawPillarShadows() {
             tipX, tipY
         );
 
-        gradient.addColorStop(0, "rgba(0, 0, 0, 0.45)");
+        gradient.addColorStop(0, `rgba(0, 0, 0, ${strength})`);
         gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
 
         ctx.fillStyle = gradient;
@@ -1204,6 +1854,22 @@ function drawPillars() {
     if (Arena.theme === "throne") {
 
         Arena.pillars.forEach(p => drawThronePillar(p));
+
+        return;
+
+    }
+
+    if (Arena.theme === "garden") {
+
+        Arena.pillars.forEach(p => drawGardenTree(p));
+
+        return;
+
+    }
+
+    if (Arena.theme === "storm") {
+
+        Arena.pillars.forEach(p => drawStormStump(p));
 
         return;
 
@@ -1332,7 +1998,13 @@ function buildXRayTargets() {
 // Clips to (rectX, rectY, rectW, rectH) and redraws every
 // target overlapping it as a glowing silhouette - the shared
 // body both the per-pillar loop and the HUD call into.
-function drawXRayTargetsInRect(rectX, rectY, rectW, rectH, targets) {
+// buildClip, when given, receives the context and should add the
+// occluder's real silhouette to the current path - the clip then
+// follows the shape instead of its bounding box, so an outline
+// only shows where the thing genuinely covers it. The rect is
+// still used for the cheap overlap pre-test, which is valid
+// because the silhouette always sits inside its own bounds.
+function drawXRayTargetsInRect(rectX, rectY, rectW, rectH, targets, buildClip = null) {
 
     const rectRight = rectX + rectW;
     const rectBottom = rectY + rectH;
@@ -1382,7 +2054,12 @@ function drawXRayTargetsInRect(rectX, rectY, rectW, rectH, targets) {
     ctx.save();
 
     ctx.beginPath();
-    ctx.rect(rectX, rectY, rectW, rectH);
+
+    if (buildClip)
+        buildClip(ctx);
+    else
+        ctx.rect(rectX, rectY, rectW, rectH);
+
     ctx.clip();
 
     targets.forEach(t => {
@@ -1464,10 +2141,10 @@ function drawOccludedOutlines() {
 
     Arena.pillars.forEach(p => {
 
-        const left = p.x - p.width / 2;
-        const bottom = p.y + 40;
+        const r = getOccluderRect(p);
 
-        drawXRayTargetsInRect(left, 0, p.width, bottom, targets);
+        drawXRayTargetsInRect(r.x, r.y, r.width, r.height, targets,
+                              getOccluderClip(p));
 
     });
 
@@ -1554,6 +2231,438 @@ function drawThronePillar(p) {
 
 }
 
+// Garden tree: a pixel-art pine - a tall bare trunk under a
+// pointy canopy of stacked triangular tiers.
+//
+// Everything here is snapped to a texel grid and drawn as rects,
+// deliberately: the floor, the hedges and the petals are all
+// pixel work (see paintPixelStone / FLOOR_TEXEL), and the earlier
+// smooth-circle canopy sat on top of that looking like it came
+// from a different game.
+//
+// The proportions below are mirrored in generateRoseCourt's
+// occWidth/top so the x-ray pass matches the silhouette - change
+// them together.
+
+// Width of the rose court's planted border, as a fraction of the
+// arena width. The trees stand in it (see generateRoseCourt) and
+// the floor bake paints it (see ensureFloorTexture).
+const GARDEN_BORDER = 0.1;
+
+const TREE_TEXEL = 5;
+
+// Trunk and canopy extents as multiples of the tree's declared
+// width. Shared with the generator (occWidth/top) and with
+// traceGardenTreePath (the x-ray clip), so all three agree.
+const TREE_TRUNK_H = 0.72;
+const TREE_TRUNK_HALF = 0.075;
+const TREE_CANOPY_H = 1.7;
+const TREE_CANOPY_OVERLAP = 0.18;
+const TREE_CANOPY_HALF = 0.62;
+
+// Three overlapping triangles that widen downward - the conifer
+// silhouette. Fractions are of the total canopy height/half-width.
+const TREE_TIERS = [
+    { top: 0.0, h: 0.46, half: 0.56 },
+    { top: 0.3, h: 0.44, half: 0.8 },
+    { top: 0.58, h: 0.42, half: 1.0 }
+];
+
+function drawGardenTree(p) {
+
+    const U = TREE_TEXEL;
+    const snap = v => Math.round(v / U) * U;
+
+    const baseY = p.y + 40;
+
+    const trunkH = p.width * TREE_TRUNK_H;
+    const trunkTop = snap(baseY - trunkH);
+    const trunkHalf = Math.max(U, snap(p.width * TREE_TRUNK_HALF));
+
+    // Each tree is shaped a little differently, derived from its
+    // own x so it never changes between frames.
+    const seed = Math.abs(Math.round(p.x)) % 5;
+
+    ctx.save();
+
+    // ---- root flare ----
+    ctx.fillStyle = "#2b2016";
+
+    for (let i = 0; i < 3; i++) {
+
+        const w = trunkHalf * 2 + (3 - i) * U * 2;
+
+        ctx.fillRect(snap(p.x - w / 2), snap(baseY - i * U), snap(w), U);
+
+    }
+
+    // ---- trunk ----
+    // Three shaded columns rather than a gradient, so it reads as
+    // pixels: lit left, mid, shadowed right.
+    for (let y = trunkTop; y < baseY; y += U) {
+
+        const cols = [
+            { x: p.x - trunkHalf, w: trunkHalf * 0.8, c: "#6b5238" },
+            { x: p.x - trunkHalf * 0.2, w: trunkHalf * 0.8, c: "#4d3a26" },
+            { x: p.x + trunkHalf * 0.6, w: trunkHalf * 0.4, c: "#2e2216" }
+        ];
+
+        cols.forEach(c => {
+            ctx.fillStyle = c.c;
+            ctx.fillRect(snap(c.x), y, Math.max(U, snap(c.w)), U);
+        });
+
+        // Occasional bark notch.
+        if (((y / U) + seed) % 7 === 0) {
+            ctx.fillStyle = "#2e2216";
+            ctx.fillRect(snap(p.x - trunkHalf * 0.6), y, U, U);
+        }
+
+    }
+
+    // ---- canopy ----
+    const canopyBottom = snap(trunkTop + p.width * TREE_CANOPY_OVERLAP);
+    const canopyH = p.width * TREE_CANOPY_H;
+    const canopyTop = snap(canopyBottom - canopyH);
+    const halfMax = p.width * TREE_CANOPY_HALF;
+
+    const greens = ["#4a7340", "#3d6134", "#2f4d29", "#25401f"];
+
+    TREE_TIERS.forEach((tier, ti) => {
+
+        const tTop = snap(canopyTop + canopyH * tier.top);
+        const tH = canopyH * tier.h;
+        const rows = Math.max(2, Math.round(tH / U));
+
+        for (let r = 0; r < rows; r++) {
+
+            const y = snap(tTop + r * U);
+            const grow = (r + 1) / rows;
+
+            // Slight jitter on the edge so the triangle isn't
+            // mechanically straight.
+            const jitter = ((r + ti + seed) % 3 === 0) ? U : 0;
+            const half = Math.max(U, snap(halfMax * tier.half * grow + jitter));
+
+            // Banded shading: lighter toward the top of each tier.
+            const band = greens[Math.min(greens.length - 1,
+                                Math.floor(grow * 2) + (ti > 0 ? 1 : 0))];
+
+            ctx.fillStyle = band;
+            ctx.fillRect(snap(p.x - half), y, half * 2, U);
+
+            // Lit left edge.
+            ctx.fillStyle = "rgba(150, 195, 120, 0.3)";
+            ctx.fillRect(snap(p.x - half), y, U, U);
+
+            // Shadowed right edge.
+            ctx.fillStyle = "rgba(0, 0, 0, 0.22)";
+            ctx.fillRect(snap(p.x + half - U), y, U, U);
+
+        }
+
+        // Dark seam under each tier so the layers read separately.
+        const seamY = snap(tTop + tH);
+        const seamHalf = Math.max(U, snap(halfMax * tier.half));
+
+        ctx.fillStyle = "rgba(0, 0, 0, 0.28)";
+        ctx.fillRect(snap(p.x - seamHalf), seamY, seamHalf * 2, U);
+
+    });
+
+    // ---- roses caught in the needles ----
+    // Kept from the court's motif, as texel blocks rather than
+    // circles so they match the rest of the tree.
+    for (let i = 0; i < 6; i++) {
+
+        const a = (i + seed) * 1.7;
+        const depth = 0.35 + ((i + seed) % 3) * 0.22;
+
+        const rx = snap(p.x + Math.cos(a) * halfMax * depth);
+        const ry = snap(canopyTop + canopyH * (0.35 + ((i * 0.17 + seed * 0.11) % 0.6)));
+
+        ctx.fillStyle = "#8f1e33";
+        ctx.fillRect(rx, ry, U, U);
+        ctx.fillRect(rx + U, ry, U, U);
+
+        ctx.fillStyle = "#c8425c";
+        ctx.fillRect(rx, ry - U, U, U);
+
+    }
+
+    ctx.restore();
+
+}
+
+// The rose court's ground dressing - bushes, flower beds and
+// benches. Drawn flat onto the floor pass, so entities walk OVER
+// all of it and it never becomes accidental cover.
+
+function drawArenaProps() {
+
+    if (Arena.props.length === 0)
+        return;
+
+    ctx.save();
+
+    Arena.props.forEach(o => {
+
+        if (o.kind === "bush") {
+
+            // Soft contact shadow: a couple of stacked, very
+            // transparent ellipses rather than one hard dark
+            // blob, so the bush sits on the ground instead of
+            // having a black hole painted under it.
+            for (const s of [
+                { rx: 1.12, ry: 0.42, a: 0.1 },
+                { rx: 0.86, ry: 0.3, a: 0.13 },
+                { rx: 0.58, ry: 0.2, a: 0.14 }
+            ]) {
+
+                ctx.fillStyle = `rgba(18, 26, 16, ${s.a})`;
+                ctx.beginPath();
+                ctx.ellipse(o.x, o.y + o.r * 0.6, o.r * s.rx, o.r * s.ry,
+                            0, 0, Math.PI * 2);
+                ctx.fill();
+
+            }
+
+            // Body: a dark mass first, then leaf tufts layered
+            // over it in lighter greens. The tufts are placed off
+            // the prop's own x so each bush is shaped differently
+            // but never changes between frames.
+            const seed = Math.abs(Math.round(o.x + o.y)) % 6;
+
+            ctx.fillStyle = "#22391f";
+            ctx.beginPath();
+            ctx.ellipse(o.x, o.y + o.r * 0.12, o.r * 1.02, o.r * 0.8,
+                        0, 0, Math.PI * 2);
+            ctx.fill();
+
+            const tufts = 11;
+
+            for (let i = 0; i < tufts; i++) {
+
+                const a = (i / tufts) * Math.PI * 2 + seed * 0.4;
+                const spread = 0.42 + ((i + seed) % 3) * 0.2;
+
+                const tx = o.x + Math.cos(a) * o.r * spread;
+                const ty = o.y + Math.sin(a) * o.r * spread * 0.72;
+
+                // Higher tufts catch more light.
+                const lift = (o.y - ty) / (o.r * 0.8);
+
+                const greens = ["#2c4a26", "#375c2f", "#436d38"];
+                const shade = greens[Math.min(2, Math.max(0, Math.round(lift + 1)))];
+
+                ctx.fillStyle = shade;
+                ctx.beginPath();
+                ctx.ellipse(tx, ty, o.r * 0.38, o.r * 0.3,
+                            a * 0.3, 0, Math.PI * 2);
+                ctx.fill();
+
+            }
+
+            // Lit crown and a couple of berry specks.
+            ctx.fillStyle = "rgba(164, 205, 128, 0.26)";
+            ctx.beginPath();
+            ctx.ellipse(o.x - o.r * 0.22, o.y - o.r * 0.42,
+                        o.r * 0.42, o.r * 0.26, -0.3, 0, Math.PI * 2);
+            ctx.fill();
+
+            for (let i = 0; i < 3; i++) {
+
+                const a = (i + seed) * 2.1;
+
+                ctx.fillStyle = "#b8324b";
+                ctx.beginPath();
+                ctx.arc(o.x + Math.cos(a) * o.r * 0.5,
+                        o.y + Math.sin(a) * o.r * 0.36,
+                        2.1, 0, Math.PI * 2);
+                ctx.fill();
+
+            }
+
+            return;
+
+        }
+
+        if (o.kind === "bed") {
+
+            // Soil border.
+            ctx.fillStyle = "#4a3a2a";
+            ctx.fillRect(o.x - o.w / 2, o.y - o.h / 2, o.w, o.h);
+
+            ctx.fillStyle = "#3a2c20";
+            ctx.fillRect(o.x - o.w / 2 + 4, o.y - o.h / 2 + 4, o.w - 8, o.h - 8);
+
+            // Blooms in rows.
+            const colors = ["#c8425c", "#e0768c", "#d9a13a", "#b8324b"];
+
+            for (let i = 0; i < 10; i++) {
+
+                const bx = o.x - o.w / 2 + 10 + (i % 5) * ((o.w - 20) / 4);
+                const by = o.y - 4 + Math.floor(i / 5) * 9;
+
+                ctx.fillStyle = colors[(i + Math.round(o.x)) % colors.length];
+                ctx.beginPath();
+                ctx.arc(bx, by, 3.2, 0, Math.PI * 2);
+                ctx.fill();
+
+            }
+
+            return;
+
+        }
+
+        if (o.kind === "rubble") {
+
+            // Fallen masonry: a few angular texel chunks with a
+            // wet lit top, matching the storm ruin's stumps.
+            const U = 6;
+            const snap = v => Math.round(v / U) * U;
+            const s = o.seed ?? 0;
+
+            ctx.fillStyle = "rgba(10, 14, 22, 0.4)";
+            ctx.fillRect(snap(o.x - o.r), snap(o.y + o.r * 0.4),
+                         snap(o.r * 2), U);
+
+            for (let i = 0; i < 4; i++) {
+
+                const bw = snap(o.r * (0.5 + ((i + s) % 3) * 0.22));
+                const bh = snap(o.r * (0.3 + ((i + s) % 2) * 0.2));
+
+                const bx = snap(o.x - o.r * 0.8 + ((i * 5 + s) % 7) * (o.r * 0.26));
+                const by = snap(o.y - o.r * 0.2 + ((i * 3 + s) % 3) * (o.r * 0.22));
+
+                ctx.fillStyle = i % 2 ? "#39404f" : "#2c333f";
+                ctx.fillRect(bx, by, bw, bh);
+
+                ctx.fillStyle = "rgba(178, 200, 230, 0.32)";
+                ctx.fillRect(bx, by, bw, Math.max(2, U / 2));
+
+            }
+
+            return;
+
+        }
+
+        if (o.kind === "bench") {
+
+            ctx.fillStyle = "rgba(0, 0, 0, 0.26)";
+            ctx.fillRect(o.x - 30, o.y + 6, 60, 8);
+
+            ctx.fillStyle = "#7a6a52";
+            ctx.fillRect(o.x - 30, o.y - 6, 60, 10);
+
+            ctx.fillStyle = "#5d5040";
+            ctx.fillRect(o.x - 30, o.y + 2, 60, 4);
+
+            ctx.fillStyle = "#4a4034";
+            ctx.fillRect(o.x - 26, o.y + 4, 6, 10);
+            ctx.fillRect(o.x + 20, o.y + 4, 6, 10);
+
+        }
+
+    });
+
+    ctx.restore();
+
+}
+
+// Storm ruin stump: a snapped-off pillar remnant. The top is
+// deliberately ragged and the wet upper surface catches the cold
+// light from the open sky above.
+//
+// Each column of stone is drawn at its OWN height rather than
+// drawing a full block and biting notches out of it - the pillars
+// paint over the finished scene, so clearing pixels here would
+// punch a transparent hole straight through the floor and any
+// entity behind it.
+
+function drawStormStump(p) {
+
+    const baseY = p.y + 40;
+    const h = p.stumpH ?? p.width * 0.55;
+    const top = baseY - h;
+    const half = p.width / 2;
+
+    const U = 6;
+    const snap = v => Math.round(v / U) * U;
+
+    // Shape derived from the stump's own x, so each break is
+    // different but stable frame to frame.
+    const seed = Math.abs(Math.round(p.x)) % 7;
+
+    ctx.save();
+
+    const cols = Math.max(4, Math.round(p.width / U));
+    const colW = Math.max(U, snap(p.width / cols));
+
+    for (let i = 0; i < cols; i++) {
+
+        const x = snap(p.x - half + i * (p.width / cols));
+
+        // How far this column was broken down from the crown.
+        const bite = ((i * 7 + seed * 3) % 5) * U;
+        const colTop = snap(top + bite);
+
+        // Across-the-shaft shading: lit on the left, dark right.
+        const across = (x - p.x) / half;
+
+        const body =
+            across < -0.35 ? "#6a7180" :
+            across < 0.3 ? "#4a5261" :
+            "#2c333f";
+
+        ctx.fillStyle = body;
+        ctx.fillRect(x, colTop, colW, snap(baseY) - colTop);
+
+        // Wet lit lip on top of whatever is left standing.
+        ctx.fillStyle = "#9aa6ba";
+        ctx.fillRect(x, colTop, colW, U);
+
+        ctx.fillStyle = "rgba(196, 218, 248, 0.45)";
+        ctx.fillRect(x, colTop, colW, Math.max(2, U / 2));
+
+    }
+
+    // A crack or two running down the shaft.
+    ctx.fillStyle = "rgba(14, 18, 26, 0.55)";
+
+    for (let i = 0; i < 2; i++) {
+
+        let cx = snap(p.x - half * 0.4 + i * half * 0.7);
+
+        for (let y = snap(top + U * 4); y < baseY - U; y += U) {
+
+            ctx.fillRect(cx, y, U, U);
+
+            if (((y / U) + seed + i) % 3 === 0)
+                cx += (((y / U) + i) % 2 === 0 ? U : -U);
+
+        }
+
+    }
+
+    // Rubble collar where the pillar shattered into the floor.
+    ctx.fillStyle = "#232935";
+    ctx.fillRect(snap(p.x - half * 1.15), snap(baseY - U), snap(half * 2.3), U * 2);
+
+    ctx.fillStyle = "#333b49";
+
+    for (let i = 0; i < 5; i++) {
+
+        const rx = snap(p.x - half * 1.05 + ((i * 5 + seed) % 9) * (half * 0.22));
+
+        ctx.fillRect(rx, snap(baseY), U * 2, U);
+
+    }
+
+    ctx.restore();
+
+}
+
 // Night pillar: the exact throne pillar, then a night pass
 // clipped to the pillar's own footprint - a cold dark wash
 // over the marble, and a warm torchlight gradient rising from
@@ -1613,8 +2722,285 @@ function drawTorches() {
     // they render bigger: a heavier bracket, a taller flame
     // with a white-hot inner tongue, and a stronger halo.
     const night = Arena.theme === "night";
+    const garden = Arena.theme === "garden";
+    const storm = Arena.theme === "storm";
 
-    const flicker = Math.sin(Date.now() / 80) * (night ? 3 : 2);
+    const now = Date.now();
+    const flicker = Math.sin(now / 80) * (night ? 3 : 2);
+
+    // The rose court hangs lanterns rather than mounting torches:
+    // a bracket arm, a glass box, and a slow sway instead of a
+    // flicker, so evening in a garden doesn't read like a dungeon.
+    if (garden) {
+
+        const sway = Math.sin(Date.now() / 420) * 2.5;
+
+        Arena.torches.forEach(t => {
+
+            ctx.save();
+
+            // Standing post: these are free-standing lamps in a
+            // garden now, not brackets bolted to a column, so
+            // they need a pole and a base or they read as
+            // floating.
+            ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+            ctx.beginPath();
+            ctx.ellipse(t.x, t.y + 30, 13, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = "#2f2a24";
+            ctx.fillRect(t.x - 2.5, t.y - 14, 5, 44);
+
+            ctx.fillStyle = "#231f1a";
+            ctx.fillRect(t.x - 9, t.y + 26, 18, 5);
+
+            // Arm and hook over the glass.
+            ctx.fillStyle = "#2f2a24";
+            ctx.fillRect(t.x - 1.5, t.y - 26, 3, 12);
+            ctx.fillRect(t.x - 7, t.y - 27, 14, 3);
+
+            const gx = t.x + sway;
+
+            // Glass box.
+            ctx.fillStyle = "rgba(255, 226, 160, 0.28)";
+            ctx.fillRect(gx - 8, t.y - 14, 16, 20);
+
+            ctx.strokeStyle = "#2f2a24";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(gx - 8, t.y - 14, 16, 20);
+
+            // Flame inside.
+            ctx.shadowBlur = 22;
+            ctx.shadowColor = "#ffd27a";
+
+            ctx.fillStyle = "#ffcf7a";
+            ctx.beginPath();
+            ctx.ellipse(gx, t.y - 3, 4, 7, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = "#fff6d8";
+            ctx.beginPath();
+            ctx.ellipse(gx, t.y - 2, 2, 3.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+
+        });
+
+        // Fireflies drifting over the court. Purely ambient -
+        // positions are a function of time and index, so there is
+        // no state to update and nothing to clean up.
+        ctx.save();
+
+        for (let i = 0; i < 22; i++) {
+
+            const fx = ((i * 137.5) % 100) / 100 * canvas.width
+                       + Math.sin(now / 1900 + i) * 34;
+
+            const fy = ((i * 71.3) % 100) / 100 * canvas.height
+                       + Math.cos(now / 1500 + i * 1.7) * 26;
+
+            // Each blinks on its own slow cycle.
+            const blink = 0.35 + Math.sin(now / 600 + i * 2.1) * 0.35;
+
+            if (blink <= 0.05)
+                continue;
+
+            ctx.globalAlpha = blink;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = "#e8ff9a";
+            ctx.fillStyle = "#f2ffb0";
+
+            ctx.beginPath();
+            ctx.arc(fx, fy, 2.2, 0, Math.PI * 2);
+            ctx.fill();
+
+        }
+
+        ctx.globalAlpha = 1;
+        ctx.restore();
+
+        return;
+
+    }
+
+    // The storm ruin: low braziers thrashed by the wind, then
+    // the weather itself - rain and lightning drawn over the top
+    // of everything, so it reads as falling in front of the
+    // camera rather than being part of the floor.
+    if (storm) {
+
+        const gust = Math.sin(now / 61) * 4 + Math.sin(now / 143) * 3;
+
+        Arena.torches.forEach(t => {
+
+            ctx.save();
+
+            // Iron basket on stubby legs.
+            ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+            ctx.beginPath();
+            ctx.ellipse(t.x, t.y + 20, 22, 7, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = "#20242e";
+            ctx.fillRect(t.x - 16, t.y + 2, 32, 12);
+            ctx.fillRect(t.x - 13, t.y + 14, 5, 7);
+            ctx.fillRect(t.x + 8, t.y + 14, 5, 7);
+
+            ctx.fillStyle = "#39404f";
+            ctx.fillRect(t.x - 16, t.y, 32, 4);
+
+            // Flame, leaning with the gust rather than standing
+            // straight up.
+            ctx.shadowBlur = 30;
+            ctx.shadowColor = "#ff9a3c";
+
+            ctx.fillStyle = "#ff7a24";
+            ctx.beginPath();
+            ctx.ellipse(t.x + gust * 0.9, t.y - 14, 10, 18, gust * 0.05, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = "#ffb03e";
+            ctx.beginPath();
+            ctx.ellipse(t.x + gust * 1.2, t.y - 11, 6, 11, gust * 0.05, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = "#ffe9a8";
+            ctx.beginPath();
+            ctx.ellipse(t.x + gust * 1.4, t.y - 8, 2.5, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+
+        });
+
+        // Sparks torn off the fires and blown sideways.
+        ctx.save();
+
+        Arena.torches.forEach((t, ti) => {
+
+            for (let i = 0; i < 4; i++) {
+
+                const phase = ((now / 1500) + (i / 4) + ti * 0.23) % 1;
+
+                const sx = t.x + phase * 120 * (ti % 2 ? -1 : 1)
+                           + Math.sin(i + now / 300) * 8;
+                const sy = t.y - 12 - phase * 70;
+
+                ctx.globalAlpha = (1 - phase) * 0.7;
+                ctx.fillStyle = i % 2 ? "#ffd27a" : "#ff9a3c";
+
+                ctx.beginPath();
+                ctx.arc(sx, sy, 1.6, 0, Math.PI * 2);
+                ctx.fill();
+
+            }
+
+        });
+
+        ctx.globalAlpha = 1;
+        ctx.restore();
+
+        const flash = getStormFlash();
+
+        // ---- rain ----
+        //
+        // Drop lanes come from a hash of the drop index, NOT from
+        // an arithmetic step. The first version used (i * 137.5)
+        // % 100, which only yields EIGHT distinct values, so every
+        // drop stacked into the same few columns and the downpour
+        // read as a row of dashed vertical bars.
+        //
+        // Three depth layers - far/mid/near - each with its own
+        // length, thickness, opacity, speed and slant, so the
+        // rain has depth instead of being one flat sheet. Each
+        // layer is a single path stroked once.
+        const layers = [
+            { count: 110, len: 11, w: 1, a: 0.14, speed: 1000, slant: 0.24 },
+            { count: 85, len: 19, w: 1.5, a: 0.22, speed: 1550, slant: 0.28 },
+            { count: 55, len: 30, w: 2.3, a: 0.3, speed: 2250, slant: 0.32 }
+        ];
+
+        const span = canvas.height + 220;
+
+        layers.forEach((L, li) => {
+
+            ctx.save();
+
+            ctx.strokeStyle = `rgba(190, 214, 245, ${L.a + flash * 0.22})`;
+            ctx.lineWidth = L.w;
+            ctx.lineCap = "round";
+
+            ctx.beginPath();
+
+            for (let i = 0; i < L.count; i++) {
+
+                const lane = stormHash(i + li * 977);
+                const vary = stormHash(i + li * 977 + 31);
+
+                const x = lane * (canvas.width + 280) - 140;
+                const speed = L.speed * (0.82 + vary * 0.45);
+                const len = L.len * (0.7 + vary * 0.7);
+
+                // Offsetting by the hash rather than by i keeps
+                // drops in a lane from marching in lockstep.
+                const y = ((now / 1000) * speed + vary * span) % span - 110;
+
+                ctx.moveTo(x, y);
+                ctx.lineTo(x - len * L.slant, y + len);
+
+            }
+
+            ctx.stroke();
+            ctx.restore();
+
+        });
+
+        // Splashes: little expanding ticks where drops land, which
+        // is most of what sells rain as rain rather than as
+        // falling lines.
+        ctx.save();
+
+        ctx.strokeStyle = `rgba(205, 226, 250, ${0.26 + flash * 0.2})`;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+
+        for (let i = 0; i < 46; i++) {
+
+            const cyc = ((now / 560) + stormHash(i + 555)) % 1;
+
+            // Only alive for the first part of its cycle.
+            if (cyc > 0.34)
+                continue;
+
+            const r = 2 + cyc * 10;
+            const sx = stormHash(i + 700) * canvas.width;
+            const sy = stormHash(i + 900) * canvas.height;
+
+            ctx.moveTo(sx - r, sy);
+            ctx.lineTo(sx - r * 0.45, sy);
+            ctx.moveTo(sx + r * 0.45, sy);
+            ctx.lineTo(sx + r, sy);
+
+        }
+
+        ctx.stroke();
+        ctx.restore();
+
+        // Lightning over the entities too, so a strike lights the
+        // whole scene and not just the floor.
+        if (flash > 0) {
+
+            ctx.save();
+            ctx.fillStyle = `rgba(206, 226, 255, ${flash * 0.16})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.restore();
+
+        }
+
+        return;
+
+    }
 
     Arena.torches.forEach(t => {
 

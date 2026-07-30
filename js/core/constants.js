@@ -2471,6 +2471,21 @@ const WAVES = {
     // generateThroneRoom in arena.js).
     SET3_START: 11,
 
+    // Arena-look bands. Deliberately SEPARATE constants from the
+    // SET*_START values above: those drive which enemies spawn,
+    // and the arena changes on its own cadence - one look per
+    // boss, every five waves. Editing these changes only what the
+    // floor/pillars/lighting look like (see updateArenaForWave in
+    // arena.js), never what walks in.
+    //
+    //    1-5   castle   Castle Guard
+    //    6-10  night    Knight
+    //   11-15  throne   Royal Magus
+    //   16-20  garden   Prince & Princess
+    //   21+    storm    King
+    ARENA_SET4_START: 16,
+    ARENA_SET5_START: 21,
+
     // Set-1/set-2 units keep spawning during set-3 waves,
     // thinned by this multiplier so the arena isn't
     // overcrowded on top of the new roster.
