@@ -107,6 +107,16 @@ function generateArena() {
 // the floor, wall, lighting, and decoration can never drift
 // apart.
 
+// The castle arena's sunlight, as bare "r, g, b" so callers can
+// pick their own alpha.
+//
+// Single source of truth on purpose: the daylight wash on the
+// courtyard, the spill through the gate and the shaft on the
+// flagstones inside all read from this, so the light indoors is
+// unmistakably the SAME sun as the light outdoors rather than a
+// separately-tuned warm glow.
+const CASTLE_SUN = "255, 232, 176";
+
 function getCastleLayout() {
 
     const pathW = canvas.width * 0.2;
@@ -629,14 +639,20 @@ function paintPixelStone(fctx, rx, ry, rw, rh, baseRGB, rng, opts = {}) {
 // a fillRect per texel - keeps the one-time build cheap.
 function paintPixelGrass(fctx, rx, ry, rw, rh, rng) {
 
-    const base = [56, 71, 42];
+    // Brighter and more saturated than it was: this is a lawn in
+    // full sun, and at the old olive it read as overcast - which
+    // also made the sunlight coming through the gate look like it
+    // belonged to a different scene.
+    const base = [92, 122, 58];
 
     // Horizontal depth bands, snapped to the block grid.
     const band = FLOOR_TEXEL * 6;
 
     for (let y = ry; y < ry + rh; y += band) {
 
-        const depth = 0.86 + ((y - ry) / rh) * 0.12;
+        // Brightest nearest the sun (the bottom of the map),
+        // falling off toward the wall.
+        const depth = 0.94 + ((y - ry) / rh) * 0.16;
         const h = Math.min(band, ry + rh - y);
 
         fctx.fillStyle = shadeColor(base, depth);
@@ -653,7 +669,9 @@ function paintPixelGrass(fctx, rx, ry, rw, rh, rng) {
 
         const x = rx + Math.floor(rng() * cols) * FLOOR_TEXEL;
         const y = ry + Math.floor(rng() * rows) * FLOOR_TEXEL;
-        const depth = 0.86 + ((y - ry) / rh) * 0.12;
+
+        // Same falloff as the bands above - keep the two in step.
+        const depth = 0.94 + ((y - ry) / rh) * 0.16;
 
         fctx.fillStyle = shadeColor(base, depth * (rng() < 0.5 ? 1.14 : 0.82));
         fctx.fillRect(x, y, FLOOR_TEXEL, FLOOR_TEXEL);
@@ -898,7 +916,13 @@ function ensureFloorTexture() {
         const { wallY, cx, pathW } = getCastleLayout();
 
         // Keep flagstones above the wall, lawn below it.
-        paintPixelStone(fctx, 0, 0, canvas.width, wallY, [50, 54, 62], rng, { tile: 44 });
+        //
+        // The interior stone is deliberately darker and cooler
+        // than it used to be: inside and outside were reading as
+        // the same place in two shades, and the whole point of
+        // this arena is that you are fighting across a threshold.
+        // The lighting pass leans on the same split.
+        paintPixelStone(fctx, 0, 0, canvas.width, wallY, [34, 39, 50], rng, { tile: 44 });
         paintPixelGrass(fctx, 0, wallY, canvas.width, canvas.height - wallY, rng);
 
         // Cobblestone approach up the middle, clipped to path.
@@ -958,7 +982,10 @@ function drawArenaFloor() {
         // The rose court and the storm ruin have their own baked
         // floor treatments, so the carpet stays with the two
         // throne-approach arenas.
-        drawRedCarpet();
+        // The throne room's runner stops at the foot of the dais
+        // (see THRONE_DAIS_BOTTOM); the night hall has no throne
+        // in it, so its carpet runs the full length.
+        drawRedCarpet(Arena.theme === "throne" ? THRONE_DAIS_BOTTOM * canvas.height : 0);
 
     }
 
@@ -1048,17 +1075,34 @@ function drawCastleWall() {
 
         const w = x1 - x0;
 
+        // Contact shadow thrown down onto the courtyard, so the
+        // wall reads as a solid mass standing on the ground
+        // rather than a band painted across the screen.
+        ctx.fillStyle = "rgba(0, 0, 0, 0.32)";
+        ctx.fillRect(x0, wallY + 10, w, 14);
+
+        ctx.fillStyle = "rgba(0, 0, 0, 0.16)";
+        ctx.fillRect(x0, wallY + 24, w, 10);
+
+        // Higher contrast top-to-bottom than before - the wall was
+        // reading as half-transparent, and a flatter gradient was
+        // part of why.
         let stone = ctx.createLinearGradient(0, top, 0, wallY + 10);
-        stone.addColorStop(0, "#4c515a");
-        stone.addColorStop(0.55, "#3a3f47");
-        stone.addColorStop(1, "#22252b");
+        stone.addColorStop(0, "#5d636e");
+        stone.addColorStop(0.5, "#3a3f47");
+        stone.addColorStop(1, "#15171c");
 
         ctx.fillStyle = stone;
         ctx.fillRect(x0, top, w, wallH);
 
         // Inside face catches a sliver of light.
-        ctx.fillStyle = "rgba(255, 255, 255, 0.09)";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.16)";
         ctx.fillRect(x0, top, w, 3);
+
+        // Hard edges top and bottom to keep the silhouette crisp.
+        ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+        ctx.fillRect(x0, top - 2, w, 2);
+        ctx.fillRect(x0, wallY - 3, w, 3);
 
         // Block seams.
         ctx.strokeStyle = "rgba(0, 0, 0, 0.35)";
@@ -1129,15 +1173,23 @@ function drawCastleWall() {
 // decorative; it sits on the floor pass so shadows, lighting,
 // and every entity draw on top of it.
 
-function drawRedCarpet() {
+function drawRedCarpet(topY = 0) {
 
     // Snapped to the floor's block grid and drawn in stepped
     // bands rather than smooth gradients, so it reads as pixel
     // pile like the stone around it. It's a handful of
     // fillRects, so drawing it live each frame is cheap.
+    //
+    // topY lets the runner START below something. The throne room
+    // passes the foot of the dais: a carpet that ran under the
+    // throne would read as the throne standing on the rug, when
+    // the whole point of the runner is that it LEADS to the dais
+    // and stops there.
 
     const T = FLOOR_TEXEL;
     const q = v => Math.round(v / T) * T;
+    const top = q(topY);
+    const runLength = canvas.height - top;
 
     const cx = q(canvas.width / 2);
     const half = q(canvas.width * 0.13);
@@ -1150,7 +1202,7 @@ function drawRedCarpet() {
     // Soft contact shadow so the carpet reads as sitting on
     // the floor instead of painted onto it.
     ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
-    ctx.fillRect(left - T, 0, carpetWidth + T * 2, canvas.height);
+    ctx.fillRect(left - T, top, carpetWidth + T * 2, runLength);
 
     // Red body in vertical bands: a lit column down the middle
     // stepping to darker pile at the edges.
@@ -1166,7 +1218,7 @@ function drawRedCarpet() {
         const w = i === bodyBands.length - 1 ? left + carpetWidth - bx : bandW;
 
         ctx.fillStyle = color;
-        ctx.fillRect(bx, 0, w, canvas.height);
+        ctx.fillRect(bx, top, w, runLength);
 
     });
 
@@ -1179,7 +1231,7 @@ function drawRedCarpet() {
         ["#7a5c14", "#d4af37", "#7a5c14"].forEach((color, i) => {
 
             ctx.fillStyle = color;
-            ctx.fillRect(x + i * step, 0, i === 2 ? trimWidth - 2 * step : step, canvas.height);
+            ctx.fillRect(x + i * step, top, i === 2 ? trimWidth - 2 * step : step, runLength);
 
         });
 
@@ -1187,8 +1239,8 @@ function drawRedCarpet() {
 
     // Dark seam where the trim meets the red.
     ctx.fillStyle = "rgba(30, 5, 8, 0.6)";
-    ctx.fillRect(left + trimWidth, 0, T, canvas.height);
-    ctx.fillRect(left + carpetWidth - trimWidth - T, 0, T, canvas.height);
+    ctx.fillRect(left + trimWidth, top, T, runLength);
+    ctx.fillRect(left + carpetWidth - trimWidth - T, top, T, runLength);
 
     // Gold diamond motifs down the center, built from stacked
     // pixel rows so the edges stay stepped.
@@ -1197,7 +1249,7 @@ function drawRedCarpet() {
 
     ctx.fillStyle = "rgba(212, 175, 55, 0.55)";
 
-    for (let cyc = q(spacing / 2); cyc < canvas.height; cyc += spacing) {
+    for (let cyc = top + q(spacing / 2); cyc < canvas.height; cyc += spacing) {
 
         for (let dy = -size; dy < size; dy += T) {
 
@@ -1429,19 +1481,32 @@ function drawLightingSystem() {
         // pass here runs bottom-to-top instead of
         // right-to-left. ----
 
-        // 1. Shadow settling toward the top of the map, fully
-        // clear by ~55% down so the courtyard stays bright.
+        // Layout first - every pass below keys off the wall line,
+        // so it has to be in scope before step 1 rather than
+        // destructured halfway down.
+        const { wallY, wallH, cx, gateW } = getCastleLayout();
+        const wallTop = wallY - wallH;
 
-        let shade = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        shade.addColorStop(0, "rgba(15, 13, 12, 0.5)");
-        shade.addColorStop(0.55, "rgba(15, 13, 12, 0.15)");
+        // 1. Shadow settling toward the top of the map. It now
+        // clears completely by the wall line, so the courtyard
+        // takes NO general darkening at all - it was previously
+        // being dimmed right where the sunlit lawn starts.
+
+        let shade = ctx.createLinearGradient(0, 0, 0, wallY);
+        shade.addColorStop(0, "rgba(15, 13, 12, 0.4)");
         shade.addColorStop(1, "rgba(15, 13, 12, 0)");
 
         ctx.fillStyle = shade;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, canvas.width, wallY);
 
         // 2. Warm sunlight flooding up from below the map -
         // the actual light source.
+        //
+        // CASTLE_SUN is the one colour the sun has in this arena.
+        // The gate spill and the light shaft further down both
+        // reuse it, so the light indoors is the same light as
+        // outdoors instead of a separate warm glow that happened
+        // to be a different temperature.
 
         const sun = getLightSource();
         const reach = canvas.height * 1.6;
@@ -1451,9 +1516,9 @@ function drawLightingSystem() {
             sun.x, sun.y, reach
         );
 
-        dayGlow.addColorStop(0, "rgba(255, 225, 170, 0.55)");
-        dayGlow.addColorStop(0.4, "rgba(255, 210, 150, 0.28)");
-        dayGlow.addColorStop(1, "rgba(255, 200, 140, 0)");
+        dayGlow.addColorStop(0, `rgba(${CASTLE_SUN}, 0.72)`);
+        dayGlow.addColorStop(0.4, `rgba(${CASTLE_SUN}, 0.42)`);
+        dayGlow.addColorStop(1, `rgba(${CASTLE_SUN}, 0)`);
 
         ctx.fillStyle = dayGlow;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1461,43 +1526,119 @@ function drawLightingSystem() {
         // 3. Hot edge along the bottom where the light
         // enters, like sun blowing out right at the source.
 
-        let rim = ctx.createLinearGradient(0, canvas.height * 0.8, 0, canvas.height);
-        rim.addColorStop(0, "rgba(255, 240, 210, 0)");
-        rim.addColorStop(1, "rgba(255, 248, 225, 0.4)");
+        let rim = ctx.createLinearGradient(0, canvas.height * 0.72, 0, canvas.height);
+        rim.addColorStop(0, "rgba(255, 244, 214, 0)");
+        rim.addColorStop(1, "rgba(255, 250, 232, 0.5)");
 
         ctx.fillStyle = rim;
-        ctx.fillRect(0, canvas.height * 0.8, canvas.width, canvas.height * 0.2);
+        ctx.fillRect(0, canvas.height * 0.72, canvas.width, canvas.height * 0.28);
 
         // 4. Interior shade: the keep (top half) sits out of
         // the sun, so it reads noticeably dimmer and cooler,
         // fading out right at the castle wall.
 
-        const { wallY, cx, gateW } = getCastleLayout();
-
-        let indoor = ctx.createLinearGradient(0, 0, 0, wallY + 6);
-        indoor.addColorStop(0, "rgba(8, 10, 18, 0.42)");
-        indoor.addColorStop(0.8, "rgba(8, 10, 18, 0.3)");
-        indoor.addColorStop(1, "rgba(8, 10, 18, 0)");
+        // Every interior pass below stops at the TOP of the wall
+        // (wallTop, set above), not at wallY. Running them to
+        // wallY laid shadow over the masonry itself, which is what
+        // made the wall look half-transparent - it was being
+        // washed by the same gradients meant for the floor behind
+        // it.
+        //
+        // Pushed harder than it was: the keep now reads as a
+        // genuinely dim interior against a sunlit courtyard,
+        // rather than as slightly greyer grass.
+        let indoor = ctx.createLinearGradient(0, 0, 0, wallTop);
+        // Held short of a blackout: enemies spawn and walk in
+        // through this half, and they have to stay readable in
+        // the corners the sconces don't reach.
+        indoor.addColorStop(0, "rgba(6, 9, 20, 0.56)");
+        indoor.addColorStop(0.75, "rgba(8, 12, 24, 0.42)");
+        indoor.addColorStop(1, "rgba(10, 14, 26, 0.05)");
 
         ctx.fillStyle = indoor;
-        ctx.fillRect(0, 0, canvas.width, wallY + 6);
+        ctx.fillRect(0, 0, canvas.width, wallTop);
+
+        // Deep shadow at the very top - the far end of the hall,
+        // away from the doorway, with no light reaching it.
+        let ceiling = ctx.createLinearGradient(0, 0, 0, wallY * 0.42);
+        ceiling.addColorStop(0, "rgba(2, 4, 10, 0.4)");
+        ceiling.addColorStop(1, "rgba(2, 4, 10, 0)");
+
+        ctx.fillStyle = ceiling;
+        ctx.fillRect(0, 0, canvas.width, wallY * 0.42);
+
+        // Warm sconces burning down the inside walls - the only
+        // light in the keep that isn't coming through the gate,
+        // and the clearest signal that this half is indoors.
+        const sconceGlow = Math.sin(Date.now() / 140) * 6;
+
+        [0.12, 0.32, 0.68, 0.88].forEach(f => {
+
+            const sx = canvas.width * f;
+            const sy = wallY * 0.34;
+            const rad = 120 + sconceGlow;
+
+            let g = ctx.createRadialGradient(sx, sy, 0, sx, sy, rad);
+            g.addColorStop(0, "rgba(255, 176, 88, 0.4)");
+            g.addColorStop(0.5, "rgba(226, 132, 52, 0.15)");
+            g.addColorStop(1, "rgba(180, 90, 30, 0)");
+
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(sx, sy, rad, 0, Math.PI * 2);
+            ctx.fill();
+
+            // The sconce itself.
+            ctx.fillStyle = "#2a2016";
+            ctx.fillRect(sx - 3, sy - 4, 6, 16);
+
+            ctx.shadowBlur = 16;
+            ctx.shadowColor = "#ffae42";
+            ctx.fillStyle = "#ffc35e";
+
+            ctx.beginPath();
+            ctx.ellipse(sx, sy - 10 + sconceGlow * 0.3, 5, 9, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.shadowBlur = 0;
+
+        });
+
+        // Threshold shade: the doorway's own shadow thrown onto
+        // the flagstones just INSIDE the wall - so it sits above
+        // wallTop, never on the stonework.
+        let thresh = ctx.createLinearGradient(0, wallTop, 0, wallTop - 52);
+        thresh.addColorStop(0, "rgba(0, 0, 0, 0.45)");
+        thresh.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+        ctx.fillStyle = thresh;
+        ctx.fillRect(0, wallTop - 52, canvas.width, 52);
 
         // 5. Daylight spilling through the open gate onto the
         // flagstones just inside.
 
         ctx.save();
 
+        // Clipped to the interior AND to the gate's own opening.
+        // Previously this was clipped to wallY and centred there,
+        // so the glow washed straight over the masonry either side
+        // of the doorway - light was landing on the wall instead
+        // of passing through the gap in it.
         ctx.beginPath();
-        ctx.rect(0, 0, canvas.width, wallY);
+        ctx.rect(cx - gateW / 2, 0, gateW, wallTop);
         ctx.clip();
 
-        let spill = ctx.createRadialGradient(cx, wallY, gateW * 0.15, cx, wallY, canvas.height * 0.42);
-        spill.addColorStop(0, "rgba(255, 226, 170, 0.4)");
-        spill.addColorStop(0.5, "rgba(255, 210, 150, 0.16)");
-        spill.addColorStop(1, "rgba(255, 200, 140, 0)");
+        let spill = ctx.createRadialGradient(
+            cx, wallTop, gateW * 0.12,
+            cx, wallTop, canvas.height * 0.4
+        );
+
+        spill.addColorStop(0, `rgba(${CASTLE_SUN}, 0.5)`);
+        spill.addColorStop(0.5, `rgba(${CASTLE_SUN}, 0.2)`);
+        spill.addColorStop(1, `rgba(${CASTLE_SUN}, 0)`);
 
         ctx.fillStyle = spill;
-        ctx.fillRect(0, 0, canvas.width, wallY);
+        ctx.fillRect(cx - gateW / 2, 0, gateW, wallTop);
 
         ctx.restore();
 
@@ -3345,21 +3486,25 @@ function drawLightShafts() {
     } else if (Arena.theme === "castle") {
 
         // One broad shaft spilling in through the open gate.
-        const { wallY, cx, gateW } = getCastleLayout();
+        //
+        // Starts at the wall's INNER face, not at wallY - a shaft
+        // rooted at wallY was drawn across the masonry itself.
+        const { wallY, wallH, cx, gateW } = getCastleLayout();
+        const wallTop = wallY - wallH;
 
         ctx.globalCompositeOperation = "lighter";
 
-        let g = ctx.createLinearGradient(cx, wallY, cx, 0);
-        g.addColorStop(0, "rgba(255, 232, 180, 0.16)");
-        g.addColorStop(0.6, "rgba(255, 220, 160, 0.06)");
-        g.addColorStop(1, "rgba(255, 210, 150, 0)");
+        let g = ctx.createLinearGradient(cx, wallTop, cx, 0);
+        g.addColorStop(0, `rgba(${CASTLE_SUN}, 0.2)`);
+        g.addColorStop(0.6, `rgba(${CASTLE_SUN}, 0.07)`);
+        g.addColorStop(1, `rgba(${CASTLE_SUN}, 0)`);
 
         ctx.fillStyle = g;
 
         // Widens as it travels away from the gate.
         ctx.beginPath();
-        ctx.moveTo(cx - gateW * 0.45, wallY);
-        ctx.lineTo(cx + gateW * 0.45, wallY);
+        ctx.moveTo(cx - gateW * 0.45, wallTop);
+        ctx.lineTo(cx + gateW * 0.45, wallTop);
         ctx.lineTo(cx + gateW * 1.05, 0);
         ctx.lineTo(cx - gateW * 1.05, 0);
         ctx.closePath();
@@ -3425,6 +3570,14 @@ function drawHazardBounce() {
 // floor pass, they are not in Arena.pillars, and nothing collides
 // with or hides behind them - the arenas were tuned with their
 // existing cover and this shouldn't change how any of them play.
+
+// How far down the throne room the dais reaches, as a fraction of
+// arena height. Shared by the set piece that draws it and by the
+// carpet, which stops at its foot.
+// Deep enough that the chair sits centred on the platform with
+// the stair flight below it, and still clears the pause button at
+// the top of the screen.
+const THRONE_DAIS_BOTTOM = 0.4;
 
 function drawArenaSetPiece() {
 
@@ -3605,62 +3758,177 @@ function drawArenaSetPiece() {
 
     if (Arena.theme === "throne") {
 
-        // The throne itself, at the head of the hall where the
-        // carpet leads. Backdrop only.
+        // The throne at the head of the hall, seen from directly
+        // above like everything else in this game.
+        //
+        // The first pass drew it in side elevation - a seat with a
+        // tall back - which fought the camera and, worse, sat it
+        // ON the runner. A real throne room puts the throne on a
+        // raised dais at the head and runs the carpet UP to it, so
+        // the runner now stops at the dais foot (see drawRedCarpet)
+        // and from above you read: backrest slab at the top, seat
+        // cushion below it, armrests flanking, footstool in front.
         const cx2 = W / 2;
-        const baseY = H * 0.14;
+        const daisBottom = H * THRONE_DAIS_BOTTOM;
 
         ctx.save();
 
-        // Dais.
-        ctx.fillStyle = "#1b2530";
-        ctx.fillRect(cx2 - 96, baseY + 26, 192, 16);
-        ctx.fillStyle = "#2b3a48";
-        ctx.fillRect(cx2 - 78, baseY + 12, 156, 16);
+        // ---- platform, then the stair flight up to it ----
+        //
+        // The old version stacked three widening slabs, which from
+        // above read as a wedding cake rather than steps. A real
+        // flight is NARROWER than the dais and centred on the
+        // approach, so from directly overhead you see a run of
+        // parallel treads with a shadow line at each nosing.
+        const stairDepth = 72;
+        const platformBottom = daisBottom - stairDepth;
+        const platformHalf = W * 0.2;
+        const stairHalf = W * 0.115;
 
-        ctx.fillStyle = "#d4af37";
-        ctx.fillRect(cx2 - 96, baseY + 26, 192, 3);
-        ctx.fillRect(cx2 - 78, baseY + 12, 156, 3);
+        // Platform.
+        ctx.fillStyle = "#4a5866";
+        ctx.fillRect(cx2 - platformHalf, 0, platformHalf * 2, platformBottom);
 
-        // Seat and back.
-        ctx.fillStyle = "#3d4d5c";
-        ctx.fillRect(cx2 - 34, baseY - 8, 68, 24);
+        // Side edges, so it reads as a raised slab with thickness
+        // rather than a flat grey rectangle.
+        ctx.fillStyle = "#2b3541";
+        ctx.fillRect(cx2 - platformHalf, 0, 7, platformBottom);
+        ctx.fillRect(cx2 + platformHalf - 7, 0, 7, platformBottom);
 
-        let back = ctx.createLinearGradient(cx2 - 40, 0, cx2 + 40, 0);
-        back.addColorStop(0, "#54626e");
-        back.addColorStop(0.5, "#33414d");
-        back.addColorStop(1, "#1b2530");
+        // Its front edge, in shadow where it drops to the stairs.
+        ctx.fillStyle = "#222b34";
+        ctx.fillRect(cx2 - platformHalf, platformBottom - 6, platformHalf * 2, 6);
 
-        ctx.fillStyle = back;
-        ctx.fillRect(cx2 - 40, baseY - 78, 80, 72);
+        // Stairs: four treads, each lighter as it climbs.
+        const treads = 4;
+        const treadH = stairDepth / treads;
 
-        // Crest and finials.
-        ctx.fillStyle = "#d4af37";
-        ctx.fillRect(cx2 - 40, baseY - 82, 80, 7);
+        for (let i = 0; i < treads; i++) {
 
-        for (let i = 0; i < 5; i++) {
+            // i = 0 is the bottom step, nearest the room.
+            const yTop = daisBottom - (i + 1) * treadH;
+            const shade = 0.62 + (i / treads) * 0.38;
 
-            const fx = cx2 - 32 + i * 16;
+            ctx.fillStyle = shadeColor([65, 79, 93], shade);
+            ctx.fillRect(cx2 - stairHalf, yTop, stairHalf * 2, treadH);
 
-            ctx.beginPath();
-            ctx.moveTo(fx - 5, baseY - 82);
-            ctx.lineTo(fx, baseY - 96);
-            ctx.lineTo(fx + 5, baseY - 82);
-            ctx.closePath();
-            ctx.fill();
+            // Nosing shadow at the front lip of each tread.
+            ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+            ctx.fillRect(cx2 - stairHalf, yTop + treadH - 3, stairHalf * 2, 3);
 
         }
 
-        // Red cushion, matching the carpet.
-        ctx.fillStyle = "#8f1626";
-        ctx.fillRect(cx2 - 30, baseY - 12, 60, 12);
-        ctx.fillStyle = "#6e1220";
-        ctx.fillRect(cx2 - 30, baseY - 4, 60, 5);
+        // Cheek walls down either side of the flight.
+        ctx.fillStyle = "#2b3541";
+        ctx.fillRect(cx2 - stairHalf - 8, platformBottom, 8, stairDepth);
+        ctx.fillRect(cx2 + stairHalf, platformBottom, 8, stairDepth);
 
-        // Arms.
-        ctx.fillStyle = "#2b3a48";
-        ctx.fillRect(cx2 - 46, baseY - 20, 12, 30);
-        ctx.fillRect(cx2 + 34, baseY - 20, 12, 30);
+        // ---- the throne, centred on the platform ----
+        //
+        // Flatter than before: from directly overhead a chair is
+        // mostly its seat, with the backrest showing only as the
+        // thickness of its top edge. The tall upright slab the
+        // first pass drew was really a side elevation.
+        const backH = 18;
+        const seatH = 58;
+        const chairH = backH + 3 + seatH;
+
+        const chairTop = platformBottom / 2 - chairH / 2;
+
+        const backTop = chairTop;
+        const backBottom = backTop + backH;
+        const seatTop = backBottom + 3;
+        const seatBottom = seatTop + seatH;
+
+        // Contact shadow, so the chair sits ON the platform.
+        ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+        ctx.fillRect(cx2 - 62, backTop + 6, 124, chairH + 6);
+
+        // Backrest, seen as its top edge.
+        //
+        // Deliberately much darker than the platform stone: at a
+        // near-matching grey the whole chair disappeared into the
+        // dais and only the cushion read.
+        ctx.fillStyle = "#232c36";
+        ctx.fillRect(cx2 - 46, backTop, 92, backH);
+
+        ctx.fillStyle = "#39434f";
+        ctx.fillRect(cx2 - 46, backTop, 92, 5);
+
+        ctx.fillStyle = "#141a21";
+        ctx.fillRect(cx2 - 46, backBottom - 3, 92, 3);
+
+        // A single narrow gold band along the crest - the only
+        // ornament left on the chair itself.
+        ctx.fillStyle = "#a8873a";
+        ctx.fillRect(cx2 - 46, backTop, 92, 2);
+
+        // Seat cushion.
+        ctx.fillStyle = "#7d1421";
+        ctx.fillRect(cx2 - 38, seatTop, 76, seatH);
+
+        ctx.fillStyle = "#8f1626";
+        ctx.fillRect(cx2 - 38, seatTop, 76, 10);
+
+        // Shallow tufting so it doesn't read as a flat red block.
+        ctx.fillStyle = "rgba(48, 6, 12, 0.45)";
+
+        for (let r = 0; r < 2; r++)
+            for (let c = 0; c < 3; c++)
+                ctx.fillRect(cx2 - 22 + c * 22, seatTop + 18 + r * 18, 3, 3);
+
+        ctx.strokeStyle = "#a8873a";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(cx2 - 38, seatTop, 76, seatH);
+
+        // Armrests: thin bars either side of the seat.
+        [-1, 1].forEach(side => {
+
+            const ax = cx2 + side * 48;
+
+            ctx.fillStyle = "#232c36";
+            ctx.fillRect(ax - 10, seatTop - 4, 20, seatH + 8);
+
+            ctx.fillStyle = "#39434f";
+            ctx.fillRect(ax - 10, seatTop - 4, 20, 4);
+
+        });
+
+        // ---- banners hanging either side of the dais ----
+        [-1, 1].forEach(side => {
+
+            const bx2 = cx2 + side * (W * 0.235);
+            const sway = Math.sin(now / 1500 + side) * 3;
+
+            ctx.fillStyle = "#5c0f1b";
+            ctx.beginPath();
+            ctx.moveTo(bx2 - 26, 0);
+            ctx.lineTo(bx2 + 26, 0);
+            ctx.lineTo(bx2 + 26 + sway, 116);
+            ctx.lineTo(bx2 + sway, 132);
+            ctx.lineTo(bx2 - 26 + sway, 116);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = "#7d1421";
+            ctx.fillRect(bx2 - 26, 0, 20, 112);
+
+            ctx.fillStyle = "#a8873a";
+            ctx.fillRect(bx2 - 28, 0, 56, 5);
+
+            // Crown device on the banner.
+            ctx.beginPath();
+            ctx.moveTo(bx2 - 12 + sway * 0.4, 58);
+            ctx.lineTo(bx2 - 12 + sway * 0.4, 44);
+            ctx.lineTo(bx2 - 6 + sway * 0.4, 52);
+            ctx.lineTo(bx2 + sway * 0.4, 40);
+            ctx.lineTo(bx2 + 6 + sway * 0.4, 52);
+            ctx.lineTo(bx2 + 12 + sway * 0.4, 44);
+            ctx.lineTo(bx2 + 12 + sway * 0.4, 58);
+            ctx.closePath();
+            ctx.fill();
+
+        });
 
         ctx.restore();
 
