@@ -2377,8 +2377,8 @@ const SIBLINGS_PHASE2 = {
 // every boss in the game.
 const SIBLINGS_CLASS_DAMAGE_SCALE = {
     warrior: 1.0,
-    mage: 0.7,
-    ranger: 0.65,
+    mage: 1.0,
+    ranger: 1.0,
     thief: 0.45
 };
 
