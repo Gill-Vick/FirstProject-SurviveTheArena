@@ -442,6 +442,18 @@ function onEnemyKilled(enemy) {
     // whatever weapon landed the kill.
     Particle.createDeathBurst(enemy);
 
+    // Leave a mark where it fell, tinted to its own colour, so
+    // the floor ends up telling the story of the wave.
+    addArenaDecal(
+        "splat",
+        enemy.x + enemy.size / 2,
+        enemy.y + enemy.size / 2,
+        {
+            r: enemy.size * (enemy.isBoss ? 1.1 : 0.8),
+            color: enemy.color
+        }
+    );
+
     if (enemy.isBoss)
         applyHitStop(HITSTOP.BOSS_KILL_MS);
 
@@ -668,6 +680,8 @@ function update() {
 
     player.update();
 
+    trackPlayerFootsteps();
+
     Game.enemies.forEach(enemy => enemy.update());
 
     Game.projectiles.forEach(projectile => projectile.update());
@@ -713,10 +727,23 @@ function cleanupEntities() {
             number => !number.isDead()
         );
 
+    // An expiring hazard can leave a mark on the floor (scorch,
+    // frost). Noted here rather than inside each hazard class -
+    // they already know when they're finished, and one lookup
+    // beats editing every one of them (see noteHazardDecal).
+    Game.hazards.forEach(hazard => {
+
+        if (hazard.isDead())
+            noteHazardDecal(hazard);
+
+    });
+
     Game.hazards =
         Game.hazards.filter(
             hazard => !hazard.isDead()
         );
+
+    pruneArenaDecals();
 
     Game.spawnTelegraphs =
         Game.spawnTelegraphs.filter(
@@ -814,6 +841,12 @@ function drawPlayingScene() {
 
     drawLightingSystem();
 
+    // Shafts belong with the lighting; the hazard bounce has to
+    // land before the hazards themselves so the glow reads as
+    // coming off the floor underneath them.
+    drawLightShafts();
+    drawHazardBounce();
+
     // Hazards that opt into drawAbovePillars (see HeroSweepingLaser
     // in prince.js) are skipped here and drawn again after the
     // foreground pillar pass below, so they stay visible instead
@@ -824,6 +857,11 @@ function drawPlayingScene() {
     });
 
     Game.spawnTelegraphs.forEach(telegraph => telegraph.draw());
+
+    // Grounds the whole cast against the floor. One pass before
+    // any of them draw, so a shadow can never land on top of
+    // another entity.
+    drawEntityShadows();
 
     player.draw();
     Game.enemies.forEach(enemy => enemy.draw());
@@ -841,6 +879,16 @@ function drawPlayingScene() {
 
     drawPillars();
     drawTorches();
+
+    // Weather and drifting particles. After the foreground so it
+    // reads as being between the camera and the scene, and run
+    // for every theme (some have no torches at all).
+    drawArenaAmbient();
+
+    // Whole-screen beats last: a boss's arrival, and the wipe
+    // between arena looks.
+    drawArenaFlourish();
+    drawArenaTransition();
 
     // Hazards flagged drawAbovePillars (see above) get their
     // real draw here, on top of the foreground pillars/torches.

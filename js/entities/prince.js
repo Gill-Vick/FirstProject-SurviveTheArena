@@ -603,6 +603,9 @@ class Prince extends Enemy {
 
         Particle.createHitBurst(cx, cy);
 
+        // The landing cracks the floor where he came down.
+        addArenaDecal("crack", cx, cy, { r: radius * 0.8 });
+
     }
 
     // Same rotating-arc test the Knight's own sword uses -
@@ -681,6 +684,8 @@ class Prince extends Enemy {
 
         Game.screenShake = Math.max(Game.screenShake ?? 0, 16);
         Particle.createHitBurst(cx, cy);
+
+        addArenaDecal("crack", cx, cy, { r: radius * 0.75 });
 
         this.quakeTelegraph = null;
 

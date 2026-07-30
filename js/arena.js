@@ -19,6 +19,19 @@ const Arena = {
     // the floor pass (see drawArenaProps).
     props: [],
 
+    // Marks the fight leaves behind: scorch, cracks, splatter,
+    // frost, footprints. Each carries its own birth time and
+    // fades off the clock, so there is no per-frame update to
+    // run - see addArenaDecal / drawArenaDecals.
+    decals: [],
+
+    // Set by updateArenaForWave when the look changes, and by
+    // triggerArenaFlourish on a boss entrance. Both are read as
+    // "how long ago" against Date.now(), same idea as the decals.
+    transitionAt: 0,
+    flourishAt: 0,
+    flourishKind: null,
+
     // Static decoration for the castle-entrance arena (grass
     // tufts, path cobbles). Generated once per arena so the
     // layout doesn't reshuffle every frame.
@@ -53,8 +66,14 @@ function updateArenaForWave() {
     // Every generator below rebuilds its own occluders and
     // lights, but only the themes that HAVE ground dressing set
     // Arena.props - clearing it here stops a theme inheriting the
-    // previous one's bushes.
+    // previous one's bushes. Decals are scrubbed for the same
+    // reason: scorch marks from the last arena shouldn't survive
+    // into a completely different room.
     Arena.props = [];
+    Arena.decals = [];
+
+    // Drives the wipe between looks (see drawArenaTransition).
+    Arena.transitionAt = Date.now();
 
     if (desired === "storm")
         generateStormRuin();
@@ -326,9 +345,17 @@ function generateRoseCourt() {
 
     }
 
-    [0.20, 0.50, 0.80].forEach(f => {
+    // Top row skips the middle - the fountain sits there (see
+    // drawArenaSetPiece), and props draw after set pieces, so a
+    // bed placed there would be painted straight over its basin.
+    [0.24, 0.76].forEach(f => {
 
         Arena.props.push({ kind: "bed", x: W * f, y: hedge + 52, w: 96, h: 26 });
+
+    });
+
+    [0.22, 0.5, 0.78].forEach(f => {
+
         Arena.props.push({ kind: "bed", x: W * f, y: H - hedge - 52, w: 96, h: 26 });
 
     });
@@ -912,24 +939,35 @@ function drawArenaFloor() {
         ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
+    // Per-theme ground layers.
+    //
+    // NOTE: this deliberately does NOT return early per theme.
+    // The castle branch used to, which silently skipped the three
+    // shared layers below it - the courtyard ended up with no set
+    // piece, no props and no decals at all, so kills in waves 1-5
+    // left no mark. Theme-specific work goes in here; anything
+    // every arena needs goes after.
     if (Arena.theme === "castle") {
 
         // The wall, towers and gate are architecture, not
         // ground - still drawn live over the baked floor.
         drawCastleWall();
-        return;
+
+    } else if (Arena.theme === "throne" || Arena.theme === "night") {
+
+        // The rose court and the storm ruin have their own baked
+        // floor treatments, so the carpet stays with the two
+        // throne-approach arenas.
+        drawRedCarpet();
 
     }
 
-    // The rose court and the storm ruin have their own baked floor
-    // treatments, so the carpet stays with the two
-    // throne-approach arenas.
-    if (Arena.theme === "throne" || Arena.theme === "night")
-        drawRedCarpet();
-
-    // Ground dressing last, on top of the baked floor but under
-    // everything that moves.
+    // The room's focal object, then ground dressing, then the
+    // fight's own marks - all on top of the baked floor but under
+    // everything that moves. Every theme gets these.
+    drawArenaSetPiece();
     drawArenaProps();
+    drawArenaDecals();
 
 }
 
@@ -1723,6 +1761,409 @@ function traceStormStumpPath(c, p) {
 // to the left, exactly like a light source
 // actually being there.
 
+// =====================================
+// FLOOR DECALS
+// =====================================
+//
+// The marks a fight leaves on the ground: scorch where fire
+// burned, cracks where something heavy landed, splatter where an
+// enemy died, frost where a chill zone sat, and footprints.
+//
+// Each decal stores its own birth time and lifetime and fades off
+// Date.now(), so nothing has to tick them - the only bookkeeping
+// is dropping expired ones (see pruneArenaDecals, called from
+// cleanupEntities) and the hard cap below.
+//
+// Capped because a long Endless run would otherwise pile up
+// thousands of them and the floor pass would crawl.
+
+const DECAL_LIMIT = 90;
+
+const DECAL_TTL = {
+    scorch: 26000,
+    crack: 34000,
+    splat: 30000,
+    frost: 12000,
+    step: 5200
+};
+
+function addArenaDecal(kind, x, y, opts = {}) {
+
+    if (!DECAL_TTL[kind])
+        return;
+
+    if (canvas.width === 0)
+        return;
+
+    Arena.decals.push({
+        kind,
+        x,
+        y,
+        r: opts.r ?? 26,
+        color: opts.color ?? null,
+        angle: opts.angle ?? Math.random() * Math.PI * 2,
+        seed: Math.floor(Math.random() * 1000),
+        born: Date.now(),
+        ttl: opts.ttl ?? DECAL_TTL[kind]
+    });
+
+    // Oldest out first once we're over the cap.
+    if (Arena.decals.length > DECAL_LIMIT)
+        Arena.decals.splice(0, Arena.decals.length - DECAL_LIMIT);
+
+}
+
+// Footprints. Called every frame from update(); only actually
+// leaves a mark once the player has covered enough ground, so the
+// trail is spaced like steps rather than a solid smear.
+//
+// What a step looks like is per-arena: dust on dry stone, a
+// darker crush on grass, a wet print in the rain.
+
+let lastStepX = null;
+let lastStepY = null;
+
+function trackPlayerFootsteps() {
+
+    if (typeof player === "undefined" || !player)
+        return;
+
+    const cx = player.x + player.size / 2;
+    const cy = player.y + player.size * 0.92;
+
+    if (lastStepX === null) {
+
+        lastStepX = cx;
+        lastStepY = cy;
+
+        return;
+
+    }
+
+    if (Math.hypot(cx - lastStepX, cy - lastStepY) < 34)
+        return;
+
+    lastStepX = cx;
+    lastStepY = cy;
+
+    const look =
+        Arena.theme === "storm"
+            ? { color: "rgba(150, 180, 215, 0.9)", r: 7 }
+            : Arena.theme === "garden"
+                ? { color: "rgba(40, 56, 34, 0.9)", r: 6 }
+                : { color: "rgba(90, 82, 70, 0.9)", r: 6 };
+
+    addArenaDecal("step", cx, cy, {
+        r: look.r,
+        color: look.color,
+        angle: Math.random() * 0.6 - 0.3
+    });
+
+}
+
+function pruneArenaDecals() {
+
+    if (Arena.decals.length === 0)
+        return;
+
+    const now = Date.now();
+
+    Arena.decals = Arena.decals.filter(d => now - d.born < d.ttl);
+
+}
+
+// Which expiring hazards leave a mark, keyed by class name.
+//
+// Hooked once from cleanupEntities rather than from inside each
+// hazard class - the hazards already know when they're finished,
+// and one lookup here beats editing every one of them.
+
+const HAZARD_DECALS = {
+    FireCast: "scorch",
+    BurningGround: "scorch",
+    MagusFirestorm: "scorch",
+    MeteorStrike: "scorch",
+    RoyalJudgmentStrike: "scorch",
+    FireWall: "scorch",
+    KegKillZone: "scorch",
+    ClusterBomb: "scorch",
+    LightningStrike: "scorch",
+    FrostZone: "frost",
+    MageIceField: "frost"
+};
+
+function noteHazardDecal(hazard) {
+
+    const kind = HAZARD_DECALS[hazard?.constructor?.name];
+
+    if (!kind)
+        return;
+
+    const r = hazard.radius ?? hazard.r ?? 40;
+
+    // Hazards report a centre point directly (unlike entities,
+    // which are top-left + size).
+    addArenaDecal(kind, hazard.x, hazard.y, { r: r * 0.85 });
+
+}
+
+function drawArenaDecals() {
+
+    if (Arena.decals.length === 0)
+        return;
+
+    const now = Date.now();
+
+    ctx.save();
+
+    Arena.decals.forEach(d => {
+
+        const age = now - d.born;
+
+        if (age >= d.ttl)
+            return;
+
+        // Hold full strength for the first half of the life, then
+        // fade - a mark that starts fading immediately never reads
+        // as having been burned into the floor.
+        const t = age / d.ttl;
+        const fade = t < 0.5 ? 1 : 1 - (t - 0.5) / 0.5;
+
+        if (d.kind === "scorch") {
+
+            drawPixelDisc(d.x, d.y, d.r, {
+                color: "#140f0c",
+                alpha: 0.5 * fade,
+                unit: Math.max(3, Math.round(d.r * 0.1)),
+                dither: 0.45
+            });
+
+            drawPixelDisc(d.x, d.y, d.r * 0.55, {
+                color: "#0a0706",
+                alpha: 0.45 * fade,
+                unit: Math.max(3, Math.round(d.r * 0.09)),
+                dither: 0.3
+            });
+
+            return;
+
+        }
+
+        if (d.kind === "frost") {
+
+            drawPixelDisc(d.x, d.y, d.r, {
+                color: "#bfe8ff",
+                alpha: 0.3 * fade,
+                unit: Math.max(3, Math.round(d.r * 0.1)),
+                dither: 0.55
+            });
+
+            return;
+
+        }
+
+        if (d.kind === "splat") {
+
+            ctx.globalAlpha = 0.42 * fade;
+            ctx.fillStyle = d.color ?? "#5a1420";
+
+            // A few blobs around the centre rather than one disc,
+            // so kills read as splatter.
+            for (let i = 0; i < 5; i++) {
+
+                const a = d.angle + i * 1.31;
+                const dist = d.r * (0.15 + ((i + d.seed) % 3) * 0.26);
+                const rr = d.r * (0.3 - i * 0.035);
+
+                ctx.beginPath();
+                ctx.ellipse(d.x + Math.cos(a) * dist,
+                            d.y + Math.sin(a) * dist * 0.7,
+                            Math.max(2, rr), Math.max(1.5, rr * 0.7),
+                            a, 0, Math.PI * 2);
+                ctx.fill();
+
+            }
+
+            ctx.globalAlpha = 1;
+
+            return;
+
+        }
+
+        if (d.kind === "crack") {
+
+            ctx.globalAlpha = 0.4 * fade;
+            ctx.strokeStyle = "#100d0b";
+            ctx.lineWidth = 2.5;
+
+            ctx.beginPath();
+
+            // Radiating fissures, each stepping outward with a
+            // kink so they don't look like drawn spokes.
+            for (let i = 0; i < 7; i++) {
+
+                const a = d.angle + i * (Math.PI * 2 / 7);
+                const len = d.r * (0.55 + ((i + d.seed) % 4) * 0.16);
+
+                let px = d.x;
+                let py = d.y;
+
+                ctx.moveTo(px, py);
+
+                for (let s = 1; s <= 3; s++) {
+
+                    const wob = ((i + s + d.seed) % 3 - 1) * 0.34;
+
+                    px += Math.cos(a + wob) * (len / 3);
+                    py += Math.sin(a + wob) * (len / 3);
+
+                    ctx.lineTo(px, py);
+
+                }
+
+            }
+
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+
+            return;
+
+        }
+
+        if (d.kind === "step") {
+
+            ctx.globalAlpha = 0.3 * fade;
+            ctx.fillStyle = d.color ?? "rgba(0, 0, 0, 1)";
+
+            ctx.beginPath();
+            ctx.ellipse(d.x, d.y, d.r, d.r * 0.6, d.angle, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.globalAlpha = 1;
+
+        }
+
+    });
+
+    ctx.restore();
+
+}
+
+// Where shadows in this arena are cast FROM, and how dark they
+// land. Shared by the occluder shadows and the entity contact
+// shadows so the two can never disagree about the light.
+//
+// getLightSource() answers for the DIRECTIONAL arenas (an
+// off-screen sun), which is right for castle/throne/garden. The
+// storm ruin is lit from the broken span overhead rather than
+// from one side, so its shadows radiate outward from the middle
+// instead of all leaning the same way.
+
+function getArenaShadowLight() {
+
+    if (Arena.theme === "storm")
+        return { x: canvas.width / 2, y: canvas.height * 0.42, centre: true };
+
+    const l = getLightSource();
+
+    return { x: l.x, y: l.y, centre: false };
+
+}
+
+// Softer where the arena itself is dim - a hard black wedge under
+// broken stone in the rain looks pasted on.
+
+function getArenaShadowStrength() {
+
+    if (Arena.theme === "storm" || Arena.theme === "garden")
+        return 0.3;
+
+    return 0.45;
+
+}
+
+// Contact shadows for everything that moves.
+//
+// Only the scenery cast shadows before this, which left the
+// player, the enemies and the bosses visually floating over the
+// floor. Drawn as one pass before the entity draws (see
+// drawPlayingScene) rather than per-entity, so the whole cast is
+// grounded consistently and it costs one save/restore.
+
+function drawEntityShadows() {
+
+    if (typeof player === "undefined" || !player)
+        return;
+
+    const light = getArenaShadowLight();
+
+    // Night is lit only by its torches, so a directional offset
+    // would point the wrong way - drop the shadows straight down.
+    const directional = Arena.theme !== "night";
+
+    ctx.save();
+
+    const cast = ent => {
+
+        if (!ent)
+            return;
+
+        const size = ent.size ?? 32;
+
+        const cx = ent.x + size / 2;
+        const feet = ent.y + size * 0.92;
+
+        // Airborne things throw a smaller, fainter shadow - the
+        // Prince's leap is the obvious one, and it reads as real
+        // height rather than him sliding.
+        const airborne = ent.leaping === true;
+
+        let ox = 0;
+        let oy = 0;
+
+        if (directional) {
+
+            const dx = cx - light.x;
+            const dy = feet - light.y;
+            const d = Math.hypot(dx, dy) || 1;
+
+            ox = (dx / d) * size * 0.16;
+            oy = (dy / d) * size * 0.1;
+
+        }
+
+        const rx = size * (airborne ? 0.34 : 0.5);
+        const ry = rx * 0.44;
+
+        // Two stacked ellipses - a wide soft one plus a tighter,
+        // darker core. A single flat ellipse measured only ~16
+        // levels of darkening and read as nothing on a busy floor;
+        // the core is what actually plants the feet.
+        const base = (airborne ? 0.18 : 0.34) * (Arena.theme === "night" ? 0.75 : 1);
+
+        ctx.fillStyle = `rgba(0, 0, 0, ${base * 0.6})`;
+        ctx.beginPath();
+        ctx.ellipse(cx + ox, feet + oy, rx, ry, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = `rgba(0, 0, 0, ${base})`;
+        ctx.beginPath();
+        ctx.ellipse(cx + ox, feet + oy, rx * 0.62, ry * 0.62, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+    };
+
+    cast(player);
+    Game.enemies.forEach(cast);
+
+    // The Thief's decoy is a body on the floor too.
+    if (Game.tauntDecoy && !Game.tauntDecoy.isDead?.())
+        cast(Game.tauntDecoy);
+
+    ctx.restore();
+
+}
+
 function drawPillarShadows() {
 
     // No off-screen sun at night - the base torches are the
@@ -1731,27 +2172,9 @@ function drawPillarShadows() {
     if (Arena.theme === "night")
         return;
 
-    // Shadows have to agree with where each arena's light
-    // actually is, or they read as dark smears painted on the
-    // floor that never change.
-    //
-    // getLightSource() answers for the DIRECTIONAL arenas (an
-    // off-screen sun), which is right for castle/throne/garden.
-    // The storm ruin is lit from the broken span overhead rather
-    // than from one side, so its shadows radiate outward from
-    // the middle instead of all leaning the same way.
-    const centreLit = Arena.theme === "storm";
-
-    const light = centreLit
-        ? { x: canvas.width / 2, y: canvas.height * 0.42 }
-        : getLightSource();
-
-    // Softer where the arena itself is dim - a hard black wedge
-    // under broken stone in the rain looks pasted on.
-    const strength =
-        Arena.theme === "storm" ? 0.3 :
-        Arena.theme === "garden" ? 0.3 :
-        0.45;
+    const light = getArenaShadowLight();
+    const centreLit = light.centre;
+    const strength = getArenaShadowStrength();
 
     ctx.save();
 
@@ -2713,6 +3136,1087 @@ function drawNightPillar(p) {
 }
 
 // =====================================
+// FLOURISH + TRANSITION
+// =====================================
+//
+// Two brief, whole-screen beats. Both are stamped with a start
+// time and read as "how long ago" against the clock, so neither
+// needs a timer ticked anywhere - same approach as the decals.
+
+const FLOURISH_MS = 900;
+const TRANSITION_MS = 620;
+
+function triggerArenaFlourish() {
+
+    Arena.flourishAt = Date.now();
+    Arena.flourishKind = Arena.theme;
+
+}
+
+function drawArenaFlourish() {
+
+    if (!Arena.flourishAt)
+        return;
+
+    const age = Date.now() - Arena.flourishAt;
+
+    if (age < 0 || age > FLOURISH_MS)
+        return;
+
+    const t = age / FLOURISH_MS;
+    const fade = 1 - t;
+
+    const W = canvas.width;
+    const H = canvas.height;
+
+    ctx.save();
+
+    if (Arena.flourishKind === "storm") {
+
+        // A strike lands as the boss arrives.
+        ctx.fillStyle = `rgba(206, 226, 255, ${fade * 0.34})`;
+        ctx.fillRect(0, 0, W, H);
+
+        // The bolt itself, forking down the sky for the first
+        // moment only.
+        if (t < 0.3) {
+
+            ctx.strokeStyle = `rgba(232, 244, 255, ${(1 - t / 0.3) * 0.85})`;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+
+            let bx = W * 0.5;
+
+            ctx.moveTo(bx, 0);
+
+            for (let y = 0; y < H * 0.6; y += 34) {
+
+                bx += (stormHash(Math.floor(y) + 7) - 0.5) * 60;
+                ctx.lineTo(bx, y);
+
+            }
+
+            ctx.stroke();
+
+        }
+
+    } else if (Arena.flourishKind === "garden") {
+
+        // A gust tears petals off the trees.
+        for (let i = 0; i < 60; i++) {
+
+            const spread = t * 1.2;
+
+            const px = stormHash(i + 11) * W + Math.sin(i + t * 6) * 40 * spread;
+            const py = stormHash(i + 33) * H - 60 + spread * H * 0.5;
+
+            ctx.globalAlpha = fade * 0.8;
+            ctx.fillStyle = i % 3 === 0 ? "#e0768c" : "#8f1e33";
+
+            ctx.fillRect(px, py, 5, 3);
+
+        }
+
+        ctx.globalAlpha = 1;
+
+    } else if (Arena.flourishKind === "night") {
+
+        // The torches flare up as it enters.
+        Arena.torches.forEach(tt => {
+
+            let g = ctx.createRadialGradient(tt.x, tt.y, 0, tt.x, tt.y, 300 * (0.5 + t));
+
+            g.addColorStop(0, `rgba(255, 210, 130, ${fade * 0.4})`);
+            g.addColorStop(1, "rgba(255, 170, 70, 0)");
+
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(tt.x, tt.y, 300 * (0.5 + t), 0, Math.PI * 2);
+            ctx.fill();
+
+        });
+
+    } else {
+
+        // Castle and throne: a shockwave ring out from the middle
+        // plus a short warm flash.
+        const r = t * Math.hypot(W, H) * 0.6;
+
+        ctx.strokeStyle = `rgba(255, 226, 168, ${fade * 0.5})`;
+        ctx.lineWidth = 8 * fade + 2;
+        ctx.beginPath();
+        ctx.arc(W / 2, H / 2, r, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = `rgba(255, 226, 168, ${fade * 0.12})`;
+        ctx.fillRect(0, 0, W, H);
+
+    }
+
+    ctx.restore();
+
+}
+
+// A quick wipe when the arena's look changes at waves 6/11/16/21,
+// so the room doesn't just pop from one theme to the next.
+
+function drawArenaTransition() {
+
+    if (!Arena.transitionAt)
+        return;
+
+    const age = Date.now() - Arena.transitionAt;
+
+    if (age < 0 || age > TRANSITION_MS)
+        return;
+
+    const t = age / TRANSITION_MS;
+
+    ctx.save();
+
+    // A dark band sweeps across and off, brightest at its leading
+    // edge - reads as a curtain passing rather than a plain fade.
+    const x = t * canvas.width * 2 - canvas.width;
+
+    let g = ctx.createLinearGradient(x, 0, x + canvas.width, 0);
+
+    g.addColorStop(0, "rgba(0, 0, 0, 0)");
+    g.addColorStop(0.42, "rgba(0, 0, 0, 0.8)");
+    g.addColorStop(0.5, "rgba(255, 255, 255, 0.12)");
+    g.addColorStop(0.58, "rgba(0, 0, 0, 0.8)");
+    g.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.restore();
+
+}
+
+// =====================================
+// LIGHT SHAFTS + HAZARD BOUNCE
+// =====================================
+//
+// Two lighting touches that both sit on the floor, under the
+// entities: shafts of light where the arena has an actual opening
+// for light to come through, and a tint under fire/ice hazards so
+// they look like they're sitting ON the ground rather than
+// floating over it.
+
+function drawLightShafts() {
+
+    if (canvas.width === 0)
+        return;
+
+    const W = canvas.width;
+    const H = canvas.height;
+
+    ctx.save();
+
+    if (Arena.theme === "throne") {
+
+        // Angled shafts from the windows down the right wall,
+        // matching the off-screen sun the rest of this arena's
+        // lighting already uses.
+        ctx.globalCompositeOperation = "lighter";
+
+        for (let i = 0; i < 3; i++) {
+
+            const y = H * (0.1 + i * 0.32);
+            const len = W * 0.62;
+
+            let g = ctx.createLinearGradient(W, y, W - len, y + len * 0.5);
+            g.addColorStop(0, "rgba(255, 226, 168, 0.15)");
+            g.addColorStop(0.55, "rgba(255, 214, 150, 0.06)");
+            g.addColorStop(1, "rgba(255, 200, 140, 0)");
+
+            ctx.fillStyle = g;
+
+            ctx.beginPath();
+            ctx.moveTo(W, y);
+            ctx.lineTo(W, y + H * 0.14);
+            ctx.lineTo(W - len, y + len * 0.5 + H * 0.3);
+            ctx.lineTo(W - len, y + len * 0.5);
+            ctx.closePath();
+            ctx.fill();
+
+        }
+
+    } else if (Arena.theme === "castle") {
+
+        // One broad shaft spilling in through the open gate.
+        const { wallY, cx, gateW } = getCastleLayout();
+
+        ctx.globalCompositeOperation = "lighter";
+
+        let g = ctx.createLinearGradient(cx, wallY, cx, 0);
+        g.addColorStop(0, "rgba(255, 232, 180, 0.16)");
+        g.addColorStop(0.6, "rgba(255, 220, 160, 0.06)");
+        g.addColorStop(1, "rgba(255, 210, 150, 0)");
+
+        ctx.fillStyle = g;
+
+        // Widens as it travels away from the gate.
+        ctx.beginPath();
+        ctx.moveTo(cx - gateW * 0.45, wallY);
+        ctx.lineTo(cx + gateW * 0.45, wallY);
+        ctx.lineTo(cx + gateW * 1.05, 0);
+        ctx.lineTo(cx - gateW * 1.05, 0);
+        ctx.closePath();
+        ctx.fill();
+
+    }
+
+    ctx.restore();
+
+}
+
+// Warm/cold light spilling onto the floor from active hazards.
+//
+// Reuses the class-to-colour map the x-ray pass already maintains
+// (HAZARD_XRAY_COLORS) rather than keeping a second list in step -
+// if a hazard is worth tinting an outline, it's worth bouncing
+// light too.
+
+function drawHazardBounce() {
+
+    if (!Game.hazards || Game.hazards.length === 0)
+        return;
+
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+
+    Game.hazards.forEach(h => {
+
+        const color = HAZARD_XRAY_COLORS[h?.constructor?.name];
+
+        if (!color)
+            return;
+
+        const r = (h.radius ?? h.r ?? 0) * 1.5;
+
+        if (!r || !isFinite(h.x) || !isFinite(h.y))
+            return;
+
+        let g = ctx.createRadialGradient(h.x, h.y, 0, h.x, h.y, r);
+
+        g.addColorStop(0, color + "44");
+        g.addColorStop(0.5, color + "1c");
+        g.addColorStop(1, color + "00");
+
+        ctx.fillStyle = g;
+
+        ctx.beginPath();
+        ctx.arc(h.x, h.y, r, 0, Math.PI * 2);
+        ctx.fill();
+
+    });
+
+    ctx.restore();
+
+}
+
+// =====================================
+// SET PIECES
+// =====================================
+//
+// One focal object per arena, so each room has something in it
+// besides cover. All of these are BACKDROP: they draw on the
+// floor pass, they are not in Arena.pillars, and nothing collides
+// with or hides behind them - the arenas were tuned with their
+// existing cover and this shouldn't change how any of them play.
+
+function drawArenaSetPiece() {
+
+    if (canvas.width === 0)
+        return;
+
+    const W = canvas.width;
+    const H = canvas.height;
+    const now = Date.now();
+
+    if (Arena.theme === "castle") {
+
+        // Hay bales and a hand cart parked off to one side of the
+        // courtyard.
+        const { wallY } = getCastleLayout();
+        const baseY = wallY + (H - wallY) * 0.42;
+
+        ctx.save();
+
+        // --- hay bales ---
+        [
+            { x: W * 0.13, y: baseY, s: 1 },
+            { x: W * 0.19, y: baseY + 26, s: 0.85 }
+        ].forEach(b => {
+
+            const w = 58 * b.s;
+            const h = 38 * b.s;
+
+            ctx.fillStyle = "rgba(0, 0, 0, 0.26)";
+            ctx.beginPath();
+            ctx.ellipse(b.x, b.y + h * 0.55, w * 0.6, h * 0.22, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = "#b99a4a";
+            ctx.fillRect(b.x - w / 2, b.y - h / 2, w, h);
+
+            ctx.fillStyle = "#cdb060";
+            ctx.fillRect(b.x - w / 2, b.y - h / 2, w, h * 0.25);
+
+            // Binding twine.
+            ctx.fillStyle = "#7a6428";
+            ctx.fillRect(b.x - w * 0.2, b.y - h / 2, 4, h);
+            ctx.fillRect(b.x + w * 0.12, b.y - h / 2, 4, h);
+
+            // Loose straw.
+            ctx.fillStyle = "#d8c078";
+            for (let i = 0; i < 5; i++)
+                ctx.fillRect(b.x - w * 0.5 + i * (w * 0.24),
+                             b.y + h * 0.5, 6, 2);
+
+        });
+
+        // --- cart ---
+        const cx2 = W * 0.85;
+        const cy2 = baseY + 8;
+
+        ctx.fillStyle = "rgba(0, 0, 0, 0.28)";
+        ctx.fillRect(cx2 - 52, cy2 + 20, 104, 8);
+
+        ctx.fillStyle = "#6b5233";
+        ctx.fillRect(cx2 - 50, cy2 - 16, 100, 32);
+
+        ctx.fillStyle = "#54402736";
+        ctx.fillRect(cx2 - 50, cy2 - 16, 100, 6);
+
+        // Plank lines.
+        ctx.fillStyle = "rgba(40, 30, 18, 0.55)";
+        for (let i = 1; i < 4; i++)
+            ctx.fillRect(cx2 - 50, cy2 - 16 + i * 8, 100, 2);
+
+        // Wheels.
+        [-30, 30].forEach(dx => {
+
+            ctx.fillStyle = "#3d2f1c";
+            ctx.beginPath();
+            ctx.arc(cx2 + dx, cy2 + 20, 13, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = "#6b5233";
+            ctx.beginPath();
+            ctx.arc(cx2 + dx, cy2 + 20, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+        });
+
+        // Shaft.
+        ctx.fillStyle = "#54402a";
+        ctx.fillRect(cx2 + 48, cy2 - 4, 34, 5);
+
+        ctx.restore();
+
+        return;
+
+    }
+
+    if (Arena.theme === "night") {
+
+        // A chandelier hanging over the hall. In this view it is
+        // overhead, so what actually lands on the floor is its
+        // shadow plus the warm pool it throws - and pools of
+        // colour from the stained glass down each side.
+        const cx2 = W / 2;
+        const cy2 = H * 0.34;
+
+        ctx.save();
+
+        // Warm pool underneath it.
+        let pool = ctx.createRadialGradient(cx2, cy2, 0, cx2, cy2, 190);
+        pool.addColorStop(0, "rgba(255, 196, 108, 0.2)");
+        pool.addColorStop(1, "rgba(255, 170, 70, 0)");
+
+        ctx.fillStyle = pool;
+        ctx.fillRect(cx2 - 200, cy2 - 200, 400, 400);
+
+        // Shadow of the frame: two rings plus the spokes.
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
+        ctx.lineWidth = 5;
+
+        [58, 92].forEach(r => {
+            ctx.beginPath();
+            ctx.arc(cx2, cy2, r, 0, Math.PI * 2);
+            ctx.stroke();
+        });
+
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+
+        for (let i = 0; i < 8; i++) {
+
+            const a = i * Math.PI / 4;
+
+            ctx.moveTo(cx2 + Math.cos(a) * 20, cy2 + Math.sin(a) * 20);
+            ctx.lineTo(cx2 + Math.cos(a) * 92, cy2 + Math.sin(a) * 92);
+
+        }
+
+        ctx.stroke();
+
+        // Candle flames around the rim, gently guttering.
+        for (let i = 0; i < 8; i++) {
+
+            const a = i * Math.PI / 4;
+            const fx = cx2 + Math.cos(a) * 92;
+            const fy = cy2 + Math.sin(a) * 92;
+            const flick = Math.sin(now / 150 + i) * 1.5;
+
+            ctx.shadowBlur = 14;
+            ctx.shadowColor = "#ffb347";
+            ctx.fillStyle = "#ffd27a";
+
+            ctx.beginPath();
+            ctx.ellipse(fx, fy + flick, 3, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+        }
+
+        ctx.shadowBlur = 0;
+
+        // Stained-glass colour cast on the floor down both walls.
+        const glass = ["rgba(190, 60, 70, 0.12)", "rgba(70, 110, 200, 0.12)",
+                       "rgba(220, 180, 60, 0.11)"];
+
+        glass.forEach((c, i) => {
+
+            const y = H * (0.2 + i * 0.28);
+
+            ctx.fillStyle = c;
+            ctx.fillRect(0, y, W * 0.1, H * 0.16);
+            ctx.fillRect(W - W * 0.1, y, W * 0.1, H * 0.16);
+
+        });
+
+        ctx.restore();
+
+        return;
+
+    }
+
+    if (Arena.theme === "throne") {
+
+        // The throne itself, at the head of the hall where the
+        // carpet leads. Backdrop only.
+        const cx2 = W / 2;
+        const baseY = H * 0.14;
+
+        ctx.save();
+
+        // Dais.
+        ctx.fillStyle = "#1b2530";
+        ctx.fillRect(cx2 - 96, baseY + 26, 192, 16);
+        ctx.fillStyle = "#2b3a48";
+        ctx.fillRect(cx2 - 78, baseY + 12, 156, 16);
+
+        ctx.fillStyle = "#d4af37";
+        ctx.fillRect(cx2 - 96, baseY + 26, 192, 3);
+        ctx.fillRect(cx2 - 78, baseY + 12, 156, 3);
+
+        // Seat and back.
+        ctx.fillStyle = "#3d4d5c";
+        ctx.fillRect(cx2 - 34, baseY - 8, 68, 24);
+
+        let back = ctx.createLinearGradient(cx2 - 40, 0, cx2 + 40, 0);
+        back.addColorStop(0, "#54626e");
+        back.addColorStop(0.5, "#33414d");
+        back.addColorStop(1, "#1b2530");
+
+        ctx.fillStyle = back;
+        ctx.fillRect(cx2 - 40, baseY - 78, 80, 72);
+
+        // Crest and finials.
+        ctx.fillStyle = "#d4af37";
+        ctx.fillRect(cx2 - 40, baseY - 82, 80, 7);
+
+        for (let i = 0; i < 5; i++) {
+
+            const fx = cx2 - 32 + i * 16;
+
+            ctx.beginPath();
+            ctx.moveTo(fx - 5, baseY - 82);
+            ctx.lineTo(fx, baseY - 96);
+            ctx.lineTo(fx + 5, baseY - 82);
+            ctx.closePath();
+            ctx.fill();
+
+        }
+
+        // Red cushion, matching the carpet.
+        ctx.fillStyle = "#8f1626";
+        ctx.fillRect(cx2 - 30, baseY - 12, 60, 12);
+        ctx.fillStyle = "#6e1220";
+        ctx.fillRect(cx2 - 30, baseY - 4, 60, 5);
+
+        // Arms.
+        ctx.fillStyle = "#2b3a48";
+        ctx.fillRect(cx2 - 46, baseY - 20, 12, 30);
+        ctx.fillRect(cx2 + 34, baseY - 20, 12, 30);
+
+        ctx.restore();
+
+        return;
+
+    }
+
+    if (Arena.theme === "garden") {
+
+        // A fountain at the head of the court, water running.
+        const cx2 = W / 2;
+        const cy2 = H * 0.155;
+
+        ctx.save();
+
+        // Basin.
+        ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
+        ctx.beginPath();
+        ctx.ellipse(cx2, cy2 + 30, 84, 26, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#cfc5b2";
+        ctx.beginPath();
+        ctx.ellipse(cx2, cy2 + 24, 80, 24, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#8a8172";
+        ctx.beginPath();
+        ctx.ellipse(cx2, cy2 + 24, 68, 18, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Water, with a slow shimmer.
+        const shimmer = 0.5 + Math.sin(now / 700) * 0.1;
+
+        ctx.fillStyle = `rgba(96, 152, 178, ${shimmer})`;
+        ctx.beginPath();
+        ctx.ellipse(cx2, cy2 + 24, 62, 15, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Expanding ripple rings in the basin.
+        ctx.strokeStyle = "rgba(220, 240, 250, 0.32)";
+        ctx.lineWidth = 1.5;
+
+        for (let i = 0; i < 3; i++) {
+
+            const cyc = ((now / 1600) + i / 3) % 1;
+            const rr = 8 + cyc * 48;
+
+            ctx.globalAlpha = (1 - cyc) * 0.5;
+            ctx.beginPath();
+            ctx.ellipse(cx2, cy2 + 24, rr, rr * 0.26, 0, 0, Math.PI * 2);
+            ctx.stroke();
+
+        }
+
+        ctx.globalAlpha = 1;
+
+        // Central pedestal and upper bowl.
+        ctx.fillStyle = "#cfc5b2";
+        ctx.fillRect(cx2 - 9, cy2 - 20, 18, 44);
+
+        ctx.beginPath();
+        ctx.ellipse(cx2, cy2 - 22, 30, 10, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#8a8172";
+        ctx.beginPath();
+        ctx.ellipse(cx2, cy2 - 22, 22, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Falling water from the upper bowl into the basin.
+        ctx.strokeStyle = "rgba(198, 230, 244, 0.5)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+
+        for (let i = 0; i < 8; i++) {
+
+            const a = (i / 8) * Math.PI * 2;
+            const ox = Math.cos(a) * 24;
+            const drop = ((now / 460) + i / 8) % 1;
+
+            const sy = cy2 - 18 + drop * 38;
+
+            ctx.moveTo(cx2 + ox, sy);
+            ctx.lineTo(cx2 + ox * 0.94, sy + 8);
+
+        }
+
+        ctx.stroke();
+        ctx.restore();
+
+        return;
+
+    }
+
+    if (Arena.theme === "storm") {
+
+        // Fallen roof timbers across the floor, and chains still
+        // hanging from what's left of the span, swinging in the
+        // wind.
+        ctx.save();
+
+        const beams = [
+            { x: W * 0.34, y: H * 0.30, len: 250, a: 0.42, w: 17 },
+            { x: W * 0.68, y: H * 0.52, len: 300, a: -0.3, w: 20 },
+            { x: W * 0.46, y: H * 0.80, len: 210, a: 0.16, w: 15 }
+        ];
+
+        beams.forEach(b => {
+
+            ctx.save();
+            ctx.translate(b.x, b.y);
+            ctx.rotate(b.a);
+
+            ctx.fillStyle = "rgba(0, 0, 0, 0.34)";
+            ctx.fillRect(-b.len / 2, b.w * 0.5, b.len, b.w * 0.5);
+
+            ctx.fillStyle = "#4a3a26";
+            ctx.fillRect(-b.len / 2, -b.w / 2, b.len, b.w);
+
+            ctx.fillStyle = "#6b5238";
+            ctx.fillRect(-b.len / 2, -b.w / 2, b.len, b.w * 0.34);
+
+            // Wet sheen along the top of the timber.
+            ctx.fillStyle = "rgba(178, 200, 230, 0.16)";
+            ctx.fillRect(-b.len / 2, -b.w / 2, b.len, 2);
+
+            // Split ends and iron bands.
+            ctx.fillStyle = "#2e2216";
+            ctx.fillRect(-b.len / 2, -b.w / 2, 5, b.w);
+            ctx.fillRect(b.len / 2 - 5, -b.w / 2, 5, b.w);
+
+            ctx.fillStyle = "#3a4050";
+            ctx.fillRect(-b.len * 0.14, -b.w / 2, 6, b.w);
+            ctx.fillRect(b.len * 0.22, -b.w / 2, 6, b.w);
+
+            ctx.restore();
+
+        });
+
+        // Hanging chains, swaying out of sync with each other.
+        [W * 0.24, W * 0.55, W * 0.79].forEach((x, i) => {
+
+            const sway = Math.sin(now / (1100 + i * 260) + i) * 12;
+            const len = 120 + i * 34;
+
+            ctx.strokeStyle = "#39404f";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+
+            for (let y = 0; y < len; y += 9) {
+
+                const t = y / len;
+                const cxx = x + sway * t;
+
+                if (y === 0)
+                    ctx.moveTo(cxx, y);
+                else
+                    ctx.lineTo(cxx, y);
+
+            }
+
+            ctx.stroke();
+
+            // Link highlights.
+            ctx.fillStyle = "#5a6272";
+
+            for (let y = 6; y < len; y += 18) {
+
+                const t = y / len;
+                ctx.fillRect(x + sway * t - 2, y, 4, 4);
+
+            }
+
+            // Hook on the end.
+            ctx.fillStyle = "#2a303c";
+            ctx.fillRect(x + sway - 4, len, 8, 7);
+
+        });
+
+        ctx.restore();
+
+        return;
+
+    }
+
+}
+
+// =====================================
+// ARENA AMBIENT
+// =====================================
+//
+// Weather and drifting particles, per theme. Split out of
+// drawTorches so that function only draws light HARDWARE - the
+// ambient layer has to run for arenas with no torches at all
+// (the castle courtyard has none), which an early return inside
+// the torch loop could never do.
+//
+// Everything here is a pure function of the clock and an index.
+// No particle arrays, no update pass, nothing to clean up - the
+// same trick the fireflies and the rain were already using.
+
+function drawArenaAmbient() {
+
+    if (canvas.width === 0)
+        return;
+
+    const now = Date.now();
+
+    if (Arena.theme === "castle") {
+
+        // Dust hanging in the daylight coming through the gate,
+        // plus grass seed blowing across the courtyard.
+        const { wallY, cx, gateW } = getCastleLayout();
+
+        ctx.save();
+
+        for (let i = 0; i < 26; i++) {
+
+            const drift = ((now / 9000) + stormHash(i)) % 1;
+
+            // Motes rise slowly inside the gate's light spill.
+            const mx = cx + (stormHash(i + 40) - 0.5) * gateW * 1.1;
+            const my = wallY - drift * canvas.height * 0.36;
+
+            ctx.globalAlpha = Math.sin(drift * Math.PI) * 0.35;
+            ctx.fillStyle = "#ffe9c2";
+
+            ctx.beginPath();
+            ctx.arc(mx, my, 1.6, 0, Math.PI * 2);
+            ctx.fill();
+
+        }
+
+        // Seed heads blowing left to right, low over the lawn.
+        for (let i = 0; i < 18; i++) {
+
+            const t = ((now / 5200) + stormHash(i + 300)) % 1;
+
+            const sx = t * (canvas.width + 80) - 40;
+            const sy = wallY + 40 + stormHash(i + 500) * (canvas.height - wallY - 60)
+                       + Math.sin(now / 700 + i) * 6;
+
+            ctx.globalAlpha = 0.4;
+            ctx.fillStyle = "#d8e4a8";
+
+            ctx.fillRect(sx, sy, 3, 2);
+
+        }
+
+        ctx.globalAlpha = 1;
+        ctx.restore();
+
+        return;
+
+    }
+
+    if (Arena.theme === "night") {
+
+        // Moths circling the torches, and ash turning over in the
+        // warm air above them.
+        ctx.save();
+
+        Arena.torches.forEach((t, ti) => {
+
+            for (let i = 0; i < 3; i++) {
+
+                // Each moth keeps its own orbit radius and rate.
+                const rate = 900 + stormHash(i + ti * 13) * 900;
+                const orbit = 26 + stormHash(i + ti * 29) * 30;
+                const a = now / rate + i * 2.1 + ti;
+
+                const mx = t.x + Math.cos(a) * orbit;
+                const my = t.y - 16 + Math.sin(a * 1.4) * orbit * 0.45;
+
+                ctx.globalAlpha = 0.5 + Math.sin(a * 3) * 0.2;
+                ctx.fillStyle = "#e8d9b0";
+
+                ctx.fillRect(mx, my, 3, 2);
+
+            }
+
+            // Ash lifting off the flame.
+            for (let i = 0; i < 4; i++) {
+
+                const rise = ((now / 3400) + i / 4 + ti * 0.2) % 1;
+
+                const ax = t.x + Math.sin(i * 2.7 + now / 1200) * 14;
+                const ay = t.y - 10 - rise * 90;
+
+                ctx.globalAlpha = (1 - rise) * 0.3;
+                ctx.fillStyle = "#8c8478";
+
+                ctx.fillRect(ax, ay, 2, 2);
+
+            }
+
+        });
+
+        ctx.globalAlpha = 1;
+        ctx.restore();
+
+        return;
+
+    }
+
+    if (Arena.theme === "throne") {
+
+        // Dust turning slowly in the light from the right - the
+        // only thing moving in an otherwise still hall.
+        ctx.save();
+
+        for (let i = 0; i < 34; i++) {
+
+            const t = ((now / 11000) + stormHash(i + 77)) % 1;
+
+            const dx = canvas.width - t * canvas.width * 1.05;
+            const dy = stormHash(i + 133) * canvas.height
+                       + Math.sin(now / 1800 + i) * 12;
+
+            ctx.globalAlpha = Math.sin(t * Math.PI) * 0.3;
+            ctx.fillStyle = "#ffeccd";
+
+            ctx.beginPath();
+            ctx.arc(dx, dy, 1.7, 0, Math.PI * 2);
+            ctx.fill();
+
+        }
+
+        ctx.globalAlpha = 1;
+        ctx.restore();
+
+        return;
+
+    }
+
+    if (Arena.theme === "garden") {
+
+        // Petals coming down off the trees, on top of the static
+        // ones already baked into the floor.
+        ctx.save();
+
+        const petalColors = ["#c8425c", "#8f1e33", "#e0768c"];
+
+        for (let i = 0; i < 30; i++) {
+
+            const fall = ((now / 7000) + stormHash(i + 900)) % 1;
+
+            // Sway as they drop, so they flutter rather than
+            // dropping like stones.
+            const px = stormHash(i + 21) * canvas.width
+                       + Math.sin(now / 900 + i * 1.7) * 22;
+            const py = fall * (canvas.height + 40) - 20;
+
+            ctx.globalAlpha = 0.65 * Math.min(1, (1 - fall) * 3);
+            ctx.fillStyle = petalColors[i % petalColors.length];
+
+            // Tilt flips as it falls - reads as a tumbling petal.
+            const tilt = Math.sin(now / 500 + i) > 0;
+
+            ctx.fillRect(px, py, tilt ? 4 : 2, tilt ? 2 : 4);
+
+        }
+
+        ctx.globalAlpha = 1;
+        ctx.restore();
+
+    // Fireflies drifting over the court. Purely ambient -
+    // positions are a function of time and index, so there is
+    // no state to update and nothing to clean up.
+    ctx.save();
+
+    for (let i = 0; i < 22; i++) {
+
+        const fx = ((i * 137.5) % 100) / 100 * canvas.width
+                   + Math.sin(now / 1900 + i) * 34;
+
+        const fy = ((i * 71.3) % 100) / 100 * canvas.height
+                   + Math.cos(now / 1500 + i * 1.7) * 26;
+
+        // Each blinks on its own slow cycle.
+        const blink = 0.35 + Math.sin(now / 600 + i * 2.1) * 0.35;
+
+        if (blink <= 0.05)
+            continue;
+
+        ctx.globalAlpha = blink;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = "#e8ff9a";
+        ctx.fillStyle = "#f2ffb0";
+
+        ctx.beginPath();
+        ctx.arc(fx, fy, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+
+    }
+
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+
+        return;
+
+    }
+
+    if (Arena.theme === "storm") {
+
+    const flash = getStormFlash();
+
+    // ---- rain ----
+    //
+    // Drop lanes come from a hash of the drop index, NOT from
+    // an arithmetic step. The first version used (i * 137.5)
+    // % 100, which only yields EIGHT distinct values, so every
+    // drop stacked into the same few columns and the downpour
+    // read as a row of dashed vertical bars.
+    //
+    // Three depth layers - far/mid/near - each with its own
+    // length, thickness, opacity, speed and slant, so the
+    // rain has depth instead of being one flat sheet. Each
+    // layer is a single path stroked once.
+    const layers = [
+        { count: 110, len: 11, w: 1, a: 0.14, speed: 1000, slant: 0.24 },
+        { count: 85, len: 19, w: 1.5, a: 0.22, speed: 1550, slant: 0.28 },
+        { count: 55, len: 30, w: 2.3, a: 0.3, speed: 2250, slant: 0.32 }
+    ];
+
+    const span = canvas.height + 220;
+
+    layers.forEach((L, li) => {
+
+        ctx.save();
+
+        ctx.strokeStyle = `rgba(190, 214, 245, ${L.a + flash * 0.22})`;
+        ctx.lineWidth = L.w;
+        ctx.lineCap = "round";
+
+        ctx.beginPath();
+
+        for (let i = 0; i < L.count; i++) {
+
+            const lane = stormHash(i + li * 977);
+            const vary = stormHash(i + li * 977 + 31);
+
+            const x = lane * (canvas.width + 280) - 140;
+            const speed = L.speed * (0.82 + vary * 0.45);
+            const len = L.len * (0.7 + vary * 0.7);
+
+            // Offsetting by the hash rather than by i keeps
+            // drops in a lane from marching in lockstep.
+            const y = ((now / 1000) * speed + vary * span) % span - 110;
+
+            ctx.moveTo(x, y);
+            ctx.lineTo(x - len * L.slant, y + len);
+
+        }
+
+        ctx.stroke();
+        ctx.restore();
+
+    });
+
+    // Splashes: little expanding ticks where drops land, which
+    // is most of what sells rain as rain rather than as
+    // falling lines.
+    ctx.save();
+
+    ctx.strokeStyle = `rgba(205, 226, 250, ${0.26 + flash * 0.2})`;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+
+    for (let i = 0; i < 46; i++) {
+
+        const cyc = ((now / 560) + stormHash(i + 555)) % 1;
+
+        // Only alive for the first part of its cycle.
+        if (cyc > 0.34)
+            continue;
+
+        const r = 2 + cyc * 10;
+        const sx = stormHash(i + 700) * canvas.width;
+        const sy = stormHash(i + 900) * canvas.height;
+
+        ctx.moveTo(sx - r, sy);
+        ctx.lineTo(sx - r * 0.45, sy);
+        ctx.moveTo(sx + r * 0.45, sy);
+        ctx.lineTo(sx + r, sy);
+
+    }
+
+    ctx.stroke();
+    ctx.restore();
+
+    // Lightning over the entities too, so a strike lights the
+    // whole scene and not just the floor.
+    if (flash > 0) {
+
+        ctx.save();
+        ctx.fillStyle = `rgba(206, 226, 255, ${flash * 0.16})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+
+    }
+
+
+        // Ripples where the rain lands in standing water.
+        ctx.save();
+
+        ctx.strokeStyle = "rgba(178, 204, 236, 0.22)";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+
+        for (let i = 0; i < 26; i++) {
+
+            const cyc = ((now / 900) + stormHash(i + 2100)) % 1;
+            const r = 3 + cyc * 16;
+
+            const rx = stormHash(i + 2300) * canvas.width;
+            const ry = stormHash(i + 2500) * canvas.height;
+
+            ctx.moveTo(rx + r, ry);
+            ctx.ellipse(rx, ry, r, r * 0.4, 0, 0, Math.PI * 2);
+
+        }
+
+        ctx.stroke();
+        ctx.restore();
+
+        // Wind-torn debris skidding across the floor.
+        ctx.save();
+
+        for (let i = 0; i < 14; i++) {
+
+            const t = ((now / 2100) + stormHash(i + 3100)) % 1;
+
+            const dx = t * (canvas.width + 120) - 60;
+            const dy = stormHash(i + 3300) * canvas.height
+                       + Math.sin(now / 400 + i) * 10;
+
+            ctx.globalAlpha = 0.3;
+            ctx.fillStyle = "#6a7180";
+
+            ctx.fillRect(dx, dy, 5, 2);
+
+        }
+
+        ctx.globalAlpha = 1;
+        ctx.restore();
+
+        return;
+
+    }
+
+}
+
+// =====================================
 // TORCHES
 // =====================================
 
@@ -2786,39 +4290,6 @@ function drawTorches() {
             ctx.restore();
 
         });
-
-        // Fireflies drifting over the court. Purely ambient -
-        // positions are a function of time and index, so there is
-        // no state to update and nothing to clean up.
-        ctx.save();
-
-        for (let i = 0; i < 22; i++) {
-
-            const fx = ((i * 137.5) % 100) / 100 * canvas.width
-                       + Math.sin(now / 1900 + i) * 34;
-
-            const fy = ((i * 71.3) % 100) / 100 * canvas.height
-                       + Math.cos(now / 1500 + i * 1.7) * 26;
-
-            // Each blinks on its own slow cycle.
-            const blink = 0.35 + Math.sin(now / 600 + i * 2.1) * 0.35;
-
-            if (blink <= 0.05)
-                continue;
-
-            ctx.globalAlpha = blink;
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = "#e8ff9a";
-            ctx.fillStyle = "#f2ffb0";
-
-            ctx.beginPath();
-            ctx.arc(fx, fy, 2.2, 0, Math.PI * 2);
-            ctx.fill();
-
-        }
-
-        ctx.globalAlpha = 1;
-        ctx.restore();
 
         return;
 
@@ -2900,103 +4371,6 @@ function drawTorches() {
 
         ctx.globalAlpha = 1;
         ctx.restore();
-
-        const flash = getStormFlash();
-
-        // ---- rain ----
-        //
-        // Drop lanes come from a hash of the drop index, NOT from
-        // an arithmetic step. The first version used (i * 137.5)
-        // % 100, which only yields EIGHT distinct values, so every
-        // drop stacked into the same few columns and the downpour
-        // read as a row of dashed vertical bars.
-        //
-        // Three depth layers - far/mid/near - each with its own
-        // length, thickness, opacity, speed and slant, so the
-        // rain has depth instead of being one flat sheet. Each
-        // layer is a single path stroked once.
-        const layers = [
-            { count: 110, len: 11, w: 1, a: 0.14, speed: 1000, slant: 0.24 },
-            { count: 85, len: 19, w: 1.5, a: 0.22, speed: 1550, slant: 0.28 },
-            { count: 55, len: 30, w: 2.3, a: 0.3, speed: 2250, slant: 0.32 }
-        ];
-
-        const span = canvas.height + 220;
-
-        layers.forEach((L, li) => {
-
-            ctx.save();
-
-            ctx.strokeStyle = `rgba(190, 214, 245, ${L.a + flash * 0.22})`;
-            ctx.lineWidth = L.w;
-            ctx.lineCap = "round";
-
-            ctx.beginPath();
-
-            for (let i = 0; i < L.count; i++) {
-
-                const lane = stormHash(i + li * 977);
-                const vary = stormHash(i + li * 977 + 31);
-
-                const x = lane * (canvas.width + 280) - 140;
-                const speed = L.speed * (0.82 + vary * 0.45);
-                const len = L.len * (0.7 + vary * 0.7);
-
-                // Offsetting by the hash rather than by i keeps
-                // drops in a lane from marching in lockstep.
-                const y = ((now / 1000) * speed + vary * span) % span - 110;
-
-                ctx.moveTo(x, y);
-                ctx.lineTo(x - len * L.slant, y + len);
-
-            }
-
-            ctx.stroke();
-            ctx.restore();
-
-        });
-
-        // Splashes: little expanding ticks where drops land, which
-        // is most of what sells rain as rain rather than as
-        // falling lines.
-        ctx.save();
-
-        ctx.strokeStyle = `rgba(205, 226, 250, ${0.26 + flash * 0.2})`;
-        ctx.lineWidth = 1.4;
-        ctx.beginPath();
-
-        for (let i = 0; i < 46; i++) {
-
-            const cyc = ((now / 560) + stormHash(i + 555)) % 1;
-
-            // Only alive for the first part of its cycle.
-            if (cyc > 0.34)
-                continue;
-
-            const r = 2 + cyc * 10;
-            const sx = stormHash(i + 700) * canvas.width;
-            const sy = stormHash(i + 900) * canvas.height;
-
-            ctx.moveTo(sx - r, sy);
-            ctx.lineTo(sx - r * 0.45, sy);
-            ctx.moveTo(sx + r * 0.45, sy);
-            ctx.lineTo(sx + r, sy);
-
-        }
-
-        ctx.stroke();
-        ctx.restore();
-
-        // Lightning over the entities too, so a strike lights the
-        // whole scene and not just the floor.
-        if (flash > 0) {
-
-            ctx.save();
-            ctx.fillStyle = `rgba(206, 226, 255, ${flash * 0.16})`;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.restore();
-
-        }
 
         return;
 

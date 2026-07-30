@@ -818,6 +818,15 @@ function spawnEnemy(type = "grunt") {
     if (!NO_ELITE.has(type))
         Game.eliteEligibleLeft--;
 
+    // A boss arriving gets an arena-appropriate flourish - a
+    // lightning strike in the storm ruin, a burst of petals in the
+    // rose court, and so on (see triggerArenaFlourish in
+    // arena.js). Hooked here rather than in each start*Wave()
+    // because every boss, in every mode, comes through this one
+    // function.
+    if (enemy.isBoss)
+        triggerArenaFlourish();
+
     Game.enemies.push(enemy);
 
 }
