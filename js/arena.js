@@ -256,13 +256,18 @@ function drawCastleGateLight(cx, gateW, wallTop, wallY) {
             // tight keeps the light warm all the way to its edge.
             const half = inArch
                 ? gateHalf
-                : gateHalf + gateW * (0.02 + 0.22 * f);
+                : gateHalf + gateW * (0.05 + 0.30 * f);
 
             // The solid core of the beam, eaten into by the soft
-            // edges as it travels.
+            // edges as it travels. Gives up ground faster than it
+            // used to: with a nearly flat top and a hairline
+            // feather the beam had two hard diagonal boundaries,
+            // which against a dark hall read as a pair of rays
+            // fired from the gateposts rather than as one opening
+            // letting light through.
             const core = inArch
                 ? gateHalf
-                : gateHalf * (1 - 0.22 * f);
+                : gateHalf * (1 - 0.34 * f);
 
             // Falls off gently rather than sharply. A steep
             // falloff killed the beam within a third of the hall,
@@ -270,7 +275,10 @@ function drawCastleGateLight(cx, gateW, wallTop, wallY) {
             // it read as a stub rather than as a shaft of light
             // reaching into the room, and none of the spread the
             // slices exist for was ever visible.
-            const a = pass.mult * 0.68 * Math.pow(1 - f, 1.35);
+            // Eased down along with the rest of the arena: the
+            // hall is no longer nearly black, so the beam doesn't
+            // have to shout over it.
+            const a = pass.mult * 0.54 * Math.pow(1 - f, 1.35);
 
             // Where the flat core gives way to the feather, as a
             // fraction of the slice's width. Clamped at the top so
@@ -819,30 +827,33 @@ function paintPixelStone(fctx, rx, ry, rw, rh, baseRGB, rng, opts = {}) {
 // a fillRect per texel - keeps the one-time build cheap.
 function paintPixelGrass(fctx, rx, ry, rw, rh, rng) {
 
-    // Bright, strongly saturated green: this is a lawn in full
-    // sun, and at the old olive it read as overcast - which also
-    // made the sunlight coming through the gate look like it
-    // belonged to a different scene.
+    // A lawn in ordinary daylight. Deliberately a muted, slightly
+    // grey-leaning green rather than a vivid one: at full
+    // saturation it stopped reading as grass and started reading
+    // as a colour, and it was loud enough to pull the eye off the
+    // fight happening on top of it.
     //
-    // Saturation is set HERE, in the paint, rather than being
+    // The saturation lives HERE, in the paint, rather than being
     // dialled in with a coloured overlay in the lighting pass.
     // Overlays can only ever wash a colour toward themselves, so
-    // pushing them to compensate for a dull base is what flattens
-    // a scene out - the lighting adds light, the palette carries
-    // the colour.
-    const base = [96, 142, 46];
+    // pushing one to compensate for a dull base is what flattens a
+    // scene - the lighting adds light, the palette carries colour.
+    const base = [82, 112, 58];
 
-    // Horizontal depth bands, snapped to the block grid.
+    // Horizontal bands, snapped to the block grid. Only enough
+    // variation to break up a flat fill.
     const band = FLOOR_TEXEL * 6;
 
     for (let y = ry; y < ry + rh; y += band) {
 
-        // Brightest nearest the sun (the bottom of the map),
-        // falling off toward the wall.
-        const depth = 0.94 + ((y - ry) / rh) * 0.16;
+        // Even across the whole lawn. There used to be a ramp
+        // brightening it toward the bottom of the map, baked in to
+        // match a sun that sat down there - the same sun the
+        // lighting pass no longer has. Overhead light on flat
+        // ground doesn't fall off toward the camera.
         const h = Math.min(band, ry + rh - y);
 
-        fctx.fillStyle = shadeColor(base, depth);
+        fctx.fillStyle = shadeColor(base, 1);
         fctx.fillRect(rx, y, rw, h);
 
     }
@@ -857,10 +868,8 @@ function paintPixelGrass(fctx, rx, ry, rw, rh, rng) {
         const x = rx + Math.floor(rng() * cols) * FLOOR_TEXEL;
         const y = ry + Math.floor(rng() * rows) * FLOOR_TEXEL;
 
-        // Same falloff as the bands above - keep the two in step.
-        const depth = 0.94 + ((y - ry) / rh) * 0.16;
-
-        fctx.fillStyle = shadeColor(base, depth * (rng() < 0.5 ? 1.14 : 0.82));
+        // Flat, matching the bands above - keep the two in step.
+        fctx.fillStyle = shadeColor(base, rng() < 0.5 ? 1.12 : 0.86);
         fctx.fillRect(x, y, FLOOR_TEXEL, FLOOR_TEXEL);
 
     }
@@ -1110,11 +1119,12 @@ function ensureFloorTexture() {
         // this arena is that you are fighting across a threshold.
         // The lighting pass leans on the same split.
         // Both stones carry their own colour rather than relying
-        // on the lighting to tint them: the interior a saturated
-        // cold blue-grey, the approach a saturated warm sandstone.
-        // Read against each other they say "shade" and "sun"
-        // before a single light has been drawn.
-        paintPixelStone(fctx, 0, 0, canvas.width, wallY, [30, 40, 60], rng, { tile: 44 });
+        // on the lighting to tint them: the interior a cool
+        // blue-grey, the approach a warm sandstone. Read against
+        // each other they say "shade" and "sun" before a single
+        // light has been drawn - which is why neither needs to be
+        // pushed far to do it.
+        paintPixelStone(fctx, 0, 0, canvas.width, wallY, [34, 41, 53], rng, { tile: 44 });
         paintPixelGrass(fctx, 0, wallY, canvas.width, canvas.height - wallY, rng);
 
         // Cobblestone approach up the middle, clipped to path.
@@ -1126,7 +1136,11 @@ function ensureFloorTexture() {
             fctx,
             snapTexel(cx - pathW / 2), wallY,
             snapTexel(pathW), canvas.height - wallY,
-            [86, 68, 46], rng, { tile: 24 }
+            // Lighter than the lawn it runs through. Pale stone in
+            // open daylight reflects more than grass does, and at
+            // a darker value the approach read as a trench of mud
+            // rather than as a paved path.
+            [104, 94, 76], rng, { tile: 24 }
         );
         fctx.restore();
 
@@ -1468,15 +1482,14 @@ function drawRedCarpet(topY = 0) {
 
 function getLightSource() {
 
-    // Castle entrance: daylight pours in from the open
-    // courtyard below the map. Everywhere else the sun sits
-    // off-screen to the right.
-    if (Arena.theme === "castle")
-        return {
-            x: canvas.width / 2,
-            y: canvas.height * 1.15
-        };
-
+    // The sun, off-screen to the right, for the arenas that have
+    // one in frame.
+    //
+    // The castle used to answer here too, with a sun parked below
+    // the bottom of the map. It doesn't any more: that courtyard
+    // is lit from overhead, which has no direction to point at
+    // from a bird's-eye view. See the castle branch of
+    // drawLightingSystem.
     return {
         x: canvas.width * 1.15,
         y: canvas.height * 0.5
@@ -1668,93 +1681,59 @@ function drawLightingSystem() {
 
     if (Arena.theme === "castle") {
 
-        // ---- castle-entrance lighting: daylight comes from
-        // the courtyard BELOW the map, so every directional
-        // pass here runs bottom-to-top instead of
-        // right-to-left. ----
+        // ---- castle-entrance lighting ----
+        //
+        // The fiction, stated once because every pass below
+        // follows from it: it is the middle of the day, the
+        // courtyard is open to the sky, and the hall behind the
+        // wall is not. Sun from overhead lights open ground
+        // EVENLY. The hall gets only what comes through the gate
+        // and what its own sconces give it. That contrast - flat
+        // daylight against a dim interior - is the whole idea, and
+        // it does not need either side pushed to an extreme to
+        // read.
+        //
+        // What used to be here was a sun parked off the bottom of
+        // the map throwing a radial wash up the screen, an
+        // "overlay" pass on top of it to force the colour back,
+        // and a hot rim along the bottom edge. Seen from directly
+        // above, none of that made sense: the grass nearest the
+        // camera was lit like a floodlit stage while the grass by
+        // the wall went dull, on ground that is all one flat lawn.
+        // Stacked, they also blew the whole arena out.
 
-        // Layout first - every pass below keys off the wall line,
-        // so it has to be in scope before step 1 rather than
-        // destructured halfway down.
+        // Layout first - every pass below keys off the wall line.
         const { wallY, wallH, cx, gateW } = getCastleLayout();
         const wallTop = wallY - wallH;
 
-        // 1. Shadow settling toward the top of the map. It now
-        // clears completely by the wall line, so the courtyard
-        // takes NO general darkening at all - it was previously
-        // being dimmed right where the sunlit lawn starts.
-
-        let shade = ctx.createLinearGradient(0, 0, 0, wallY);
-        shade.addColorStop(0, "rgba(15, 13, 12, 0.4)");
-        shade.addColorStop(1, "rgba(15, 13, 12, 0)");
-
-        ctx.fillStyle = shade;
-        ctx.fillRect(0, 0, canvas.width, wallY);
-
-        // 2. Warm sunlight flooding up from below the map -
-        // the actual light source.
+        // 1. Daylight on the courtyard: flat, and only just warm.
         //
-        // Two passes rather than one, and this is the whole reason
-        // the arena used to look washed out. A single source-over
-        // wash bright enough to read as sunlight also lays its own
-        // colour over everything beneath it, dragging the lawn and
-        // the flagstones toward the same flat cream. So the bulk
-        // of the work is done in "overlay", which lifts what is
-        // already light and deepens what is already dark WITHOUT
-        // replacing the hue underneath - it intensifies the
-        // palette instead of covering it - and only a thin
-        // source-over glow is left on top for the bloom near the
-        // source.
+        // No gradient, because overhead light on level ground
+        // hasn't got one. The colour of a lawn belongs to the
+        // lawn - the light's job here is to say "outdoors, midday"
+        // and then get out of the way.
+        ctx.fillStyle = `rgba(${CASTLE_SUN}, 0.07)`;
+        ctx.fillRect(0, wallY, canvas.width, canvas.height - wallY);
+
+        // 2. A soft darkening into the corners of the frame.
         //
-        // CASTLE_SUN is the one colour the sun has in this arena.
-        // The gate light and the shaft further down both reuse it,
-        // so the light indoors is the same light as outdoors
-        // instead of a separate warm glow that happened to be a
-        // different temperature.
+        // This is the camera, not a light: it has no source and no
+        // direction, so it can sit over a scene lit from overhead
+        // without contradicting it, and it keeps the eye in the
+        // middle of the arena where the fight is.
+        let vignette = ctx.createRadialGradient(
+            canvas.width / 2, canvas.height / 2, canvas.height * 0.45,
+            canvas.width / 2, canvas.height / 2, canvas.height * 0.95
+        );
 
-        const sun = getLightSource();
-        const reach = canvas.height * 1.6;
+        vignette.addColorStop(0, "rgba(12, 14, 18, 0)");
+        vignette.addColorStop(1, "rgba(12, 14, 18, 0.3)");
 
-        const sunWash = (near, mid) => {
-
-            const g = ctx.createRadialGradient(
-                sun.x, sun.y, 0,
-                sun.x, sun.y, reach
-            );
-
-            g.addColorStop(0, `rgba(${CASTLE_SUN}, ${near})`);
-            g.addColorStop(0.4, `rgba(${CASTLE_SUN}, ${mid})`);
-            g.addColorStop(1, `rgba(${CASTLE_SUN}, 0)`);
-
-            return g;
-
-        };
-
-        ctx.globalCompositeOperation = "overlay";
-        ctx.fillStyle = sunWash(0.88, 0.52);
+        ctx.fillStyle = vignette;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        ctx.globalCompositeOperation = "source-over";
-        ctx.fillStyle = sunWash(0.28, 0.16);
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // 3. Hot edge along the bottom where the light
-        // enters, like sun blowing out right at the source.
-        //
-        // Tinted with CASTLE_SUN rather than near-white: at white
-        // this was bleaching the colour straight back out of the
-        // grass it was supposed to be lighting.
-
-        let rim = ctx.createLinearGradient(0, canvas.height * 0.72, 0, canvas.height);
-        rim.addColorStop(0, `rgba(${CASTLE_SUN}, 0)`);
-        rim.addColorStop(1, `rgba(${CASTLE_SUN}, 0.34)`);
-
-        ctx.fillStyle = rim;
-        ctx.fillRect(0, canvas.height * 0.72, canvas.width, canvas.height * 0.28);
-
-        // 4. Interior shade: the keep (top half) sits out of
-        // the sun, so it reads noticeably dimmer and cooler,
-        // fading out right at the castle wall.
+        // 3. Interior shade: the keep sits out of the sun, so it
+        // reads dimmer and cooler, fading out right at the wall.
 
         // Every interior pass below stops at the TOP of the wall
         // (wallTop, set above), not at wallY. Running them to
@@ -1763,16 +1742,18 @@ function drawLightingSystem() {
         // washed by the same gradients meant for the floor behind
         // it.
         //
-        // Pushed harder than it was: the keep now reads as a
-        // genuinely dim interior against a sunlit courtyard,
-        // rather than as slightly greyer grass.
+        // Eased back now the courtyard isn't being floodlit: the
+        // inside/outside split is carried by the difference
+        // between the two, so with the glare gone from the lawn
+        // the hall no longer has to be nearly black to read as
+        // indoors.
         let indoor = ctx.createLinearGradient(0, 0, 0, wallTop);
         // Held short of a blackout: enemies spawn and walk in
         // through this half, and they have to stay readable in
         // the corners the sconces don't reach.
-        indoor.addColorStop(0, "rgba(6, 9, 20, 0.56)");
-        indoor.addColorStop(0.75, "rgba(8, 12, 24, 0.42)");
-        indoor.addColorStop(1, "rgba(10, 14, 26, 0.05)");
+        indoor.addColorStop(0, "rgba(8, 11, 20, 0.44)");
+        indoor.addColorStop(0.75, "rgba(10, 14, 24, 0.32)");
+        indoor.addColorStop(1, "rgba(12, 16, 26, 0.04)");
 
         ctx.fillStyle = indoor;
         ctx.fillRect(0, 0, canvas.width, wallTop);
@@ -1780,7 +1761,7 @@ function drawLightingSystem() {
         // Deep shadow at the very top - the far end of the hall,
         // away from the doorway, with no light reaching it.
         let ceiling = ctx.createLinearGradient(0, 0, 0, wallY * 0.42);
-        ceiling.addColorStop(0, "rgba(2, 4, 10, 0.4)");
+        ceiling.addColorStop(0, "rgba(2, 4, 10, 0.3)");
         ceiling.addColorStop(1, "rgba(2, 4, 10, 0)");
 
         ctx.fillStyle = ceiling;
@@ -2433,9 +2414,12 @@ function drawEntityShadows() {
 
     const light = getArenaShadowLight();
 
-    // Night is lit only by its torches, so a directional offset
-    // would point the wrong way - drop the shadows straight down.
-    const directional = Arena.theme !== "night";
+    // Two arenas have no usable light direction, so their shadows
+    // drop straight down instead of leaning: night is lit only by
+    // its own torches, and the castle courtyard is lit from
+    // overhead, which from a bird's-eye view points nowhere.
+    const directional =
+        Arena.theme !== "night" && Arena.theme !== "castle";
 
     ctx.save();
 
