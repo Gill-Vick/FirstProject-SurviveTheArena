@@ -61,27 +61,45 @@ function updateArenaForWave() {
     if (Arena.theme === desired)
         return;
 
-    Arena.theme = desired;
+    applyArenaTheme(desired, true);
 
-    // Every generator below rebuilds its own occluders and
-    // lights, but only the themes that HAVE ground dressing set
-    // Arena.props - clearing it here stops a theme inheriting the
-    // previous one's bushes. Decals are scrubbed for the same
-    // reason: scorch marks from the last arena shouldn't survive
-    // into a completely different room.
+}
+
+// Swap the arena over to a theme, rebuilding everything that
+// belongs to a look.
+//
+// Every generator below rebuilds its own occluders and lights,
+// but only the themes that HAVE ground dressing set Arena.props -
+// clearing it here stops a theme inheriting the previous one's
+// bushes. Decals are scrubbed for the same reason: scorch marks
+// from the last arena shouldn't survive into a different room.
+//
+// This is the ONLY place a theme is allowed to change. It used to
+// be duplicated, with generateArena() assigning Arena.theme by
+// hand and skipping the two lines above - so a run that ended in
+// the rose court left its bushes and blood standing in the castle
+// courtyard of the NEXT run, until wave 6 finally swapped themes
+// for real and cleared them.
+function applyArenaTheme(theme, wipe) {
+
+    Arena.theme = theme;
+
     Arena.props = [];
     Arena.decals = [];
 
     // Drives the wipe between looks (see drawArenaTransition).
-    Arena.transitionAt = Date.now();
+    // Skipped when the arena is being built rather than changed,
+    // so a fresh run doesn't open on a curtain sweep.
+    if (wipe)
+        Arena.transitionAt = Date.now();
 
-    if (desired === "storm")
+    if (theme === "storm")
         generateStormRuin();
-    else if (desired === "garden")
+    else if (theme === "garden")
         generateRoseCourt();
-    else if (desired === "throne")
+    else if (theme === "throne")
         generateThroneRoom();
-    else if (desired === "night")
+    else if (theme === "night")
         generateNightThrone();
     else
         generateCastleEntrance();
@@ -90,8 +108,18 @@ function updateArenaForWave() {
 
 function generateArena() {
 
-    Arena.theme = "castle";
-    generateCastleEntrance();
+    applyArenaTheme("castle", false);
+
+}
+
+// Put the background back to the opening arena and sweep the
+// curtain across it. Called when a run ENDS - death or quit -
+// rather than when the next one starts, so the menu and the
+// game-over screen sit over the castle courtyard instead of over
+// whatever room the player happened to die in.
+function resetArenaToStart() {
+
+    applyArenaTheme("castle", true);
 
 }
 
@@ -116,6 +144,158 @@ function generateArena() {
 // unmistakably the SAME sun as the light outdoors rather than a
 // separately-tuned warm glow.
 const CASTLE_SUN = "255, 232, 176";
+
+// Daylight coming through the open gate and landing on the
+// flagstones inside.
+//
+// Drawn as a widening wedge of horizontal slices rather than as
+// one gradient clipped to the gate's rectangle. Two reasons, both
+// about looking real:
+//
+//  - light through an opening SPREADS. The sun is a broad source,
+//    so the beam leaves the doorway at about the gate's width and
+//    fans out as it travels into the hall. Clipped to a rectangle
+//    it had dead-straight vertical sides for the whole depth of
+//    the room, which is the one thing daylight never does, and is
+//    what made it read as a decal rather than as light.
+//
+//  - the soft edge - the penumbra - GROWS with distance. Each
+//    slice runs its own horizontal gradient: a near-flat core with
+//    a feathered margin either side, the core narrowing and the
+//    feather widening the deeper in it goes. So it lands crisp on
+//    the flagstones at the threshold and dissolves into the dark
+//    at the far end, the way a real doorway's light does.
+//
+// Additive, because this is light arriving in a dim room -
+// source-over would tint the floor rather than light it.
+// Sunlight is warm; the flagstones it lands on are cold blue-grey
+// stone. Lighting that floor purely additively sums the two into
+// grey - which is what a beam of "warm" light reading as a bank of
+// white fog actually is. So the beam is drawn in two passes:
+//
+//  - LIT STONE, source-over. The colour the flagstones turn where
+//    the sun reaches them. This is what carries the warmth and the
+//    saturation, because it replaces the cold stone rather than
+//    adding to it.
+//  - BLOOM, additive, at a fraction of the strength. Only the
+//    glow in the air over the top.
+//
+// Two entries, applied in this order.
+const CASTLE_GATE_PASSES = [
+    { color: "216, 174, 106", mult: 0.80, blend: "source-over" },
+    { color: CASTLE_SUN,      mult: 0.22, blend: "lighter" }
+];
+
+function drawCastleGateLight(cx, gateW, wallTop, wallY) {
+
+    const SLICES = 48;
+    const gateHalf = gateW / 2;
+
+    // Slice boundaries, snapped to whole pixels up front.
+    //
+    // They MUST tile exactly - abutting, never overlapping. An
+    // earlier version padded each slice a pixel taller "so there
+    // are no seams", which under an additive blend meant every
+    // shared row got drawn twice and the beam came out banded with
+    // bright horizontal stripes. Sharing exact integer edges gives
+    // no gaps and no double-draw.
+    //
+    // The run starts at the wall's OUTER face, not its inner one,
+    // so the archway between the two gateposts is lit as well. Cut
+    // off at the inner face, the sun stopped dead at the courtyard
+    // and picked up again on the far side of the wall, with the
+    // passage itself left dark - the light looked like it had
+    // skipped over the doorway rather than come through it.
+    const edges = [];
+
+    for (let i = 0; i <= SLICES; i++)
+        edges.push(Math.round(wallY * (1 - i / SLICES)));
+
+    ctx.save();
+
+    CASTLE_GATE_PASSES.forEach(pass => {
+
+        ctx.globalCompositeOperation = pass.blend;
+
+        for (let i = 0; i < SLICES; i++) {
+
+            const yTop = edges[i + 1];
+            const h = edges[i] - yTop;
+
+            if (h <= 0)
+                continue;
+
+            // Depth into the hall, sampled at the slice's midpoint
+            // so the wedge widens evenly rather than stepping off
+            // one edge: 0 at the wall's inner face, 1 at the far
+            // end of the room. Slices still inside the archway
+            // come out negative and clamp to 0 - they are at the
+            // aperture, so they get full brightness and cannot
+            // have spread yet.
+            const yMid = yTop + h / 2;
+            const inArch = yMid >= wallTop;
+            const f = Math.max(0, (wallTop - yMid) / wallTop);
+
+            // Full extent: the gate's own width, plus a penumbra
+            // that starts narrow and opens out with depth. Inside
+            // the archway it is pinned to the opening exactly, so
+            // no light lands on the masonry either side.
+            //
+            // The spread is deliberately small - about a quarter
+            // again over the whole depth of the hall, and almost
+            // nothing at the threshold itself.
+            //
+            // Both numbers were much larger to begin with and both
+            // had to come down. A wide penumbra sounds more
+            // realistic but it is a large, soft, LOW-alpha wash,
+            // and a low-alpha warm wash over cold blue flagstone
+            // just averages out to grey - so the beam ended up
+            // flanked by two smears of what looked like fog. A
+            // doorway edge is close to sharp where the light lands
+            // and only softens with distance; keeping the feather
+            // tight keeps the light warm all the way to its edge.
+            const half = inArch
+                ? gateHalf
+                : gateHalf + gateW * (0.02 + 0.22 * f);
+
+            // The solid core of the beam, eaten into by the soft
+            // edges as it travels.
+            const core = inArch
+                ? gateHalf
+                : gateHalf * (1 - 0.22 * f);
+
+            // Falls off gently rather than sharply. A steep
+            // falloff killed the beam within a third of the hall,
+            // where it was still barely wider than the gate - so
+            // it read as a stub rather than as a shaft of light
+            // reaching into the room, and none of the spread the
+            // slices exist for was ever visible.
+            const a = pass.mult * 0.68 * Math.pow(1 - f, 1.35);
+
+            // Where the flat core gives way to the feather, as a
+            // fraction of the slice's width. Clamped at the top so
+            // the two inner stops can never cross over each other,
+            // and at the bottom so the archway's hard edge against
+            // the masonry still gets a hairline of antialiasing.
+            const edge = Math.min(0.49, Math.max(0.015, 0.5 - core / (2 * half)));
+
+            const g = ctx.createLinearGradient(cx - half, 0, cx + half, 0);
+
+            g.addColorStop(0, `rgba(${pass.color}, 0)`);
+            g.addColorStop(edge, `rgba(${pass.color}, ${a})`);
+            g.addColorStop(1 - edge, `rgba(${pass.color}, ${a})`);
+            g.addColorStop(1, `rgba(${pass.color}, 0)`);
+
+            ctx.fillStyle = g;
+            ctx.fillRect(cx - half, yTop, half * 2, h);
+
+        }
+
+    });
+
+    ctx.restore();
+
+}
 
 function getCastleLayout() {
 
@@ -639,11 +819,18 @@ function paintPixelStone(fctx, rx, ry, rw, rh, baseRGB, rng, opts = {}) {
 // a fillRect per texel - keeps the one-time build cheap.
 function paintPixelGrass(fctx, rx, ry, rw, rh, rng) {
 
-    // Brighter and more saturated than it was: this is a lawn in
-    // full sun, and at the old olive it read as overcast - which
-    // also made the sunlight coming through the gate look like it
+    // Bright, strongly saturated green: this is a lawn in full
+    // sun, and at the old olive it read as overcast - which also
+    // made the sunlight coming through the gate look like it
     // belonged to a different scene.
-    const base = [92, 122, 58];
+    //
+    // Saturation is set HERE, in the paint, rather than being
+    // dialled in with a coloured overlay in the lighting pass.
+    // Overlays can only ever wash a colour toward themselves, so
+    // pushing them to compensate for a dull base is what flattens
+    // a scene out - the lighting adds light, the palette carries
+    // the colour.
+    const base = [96, 142, 46];
 
     // Horizontal depth bands, snapped to the block grid.
     const band = FLOOR_TEXEL * 6;
@@ -922,7 +1109,12 @@ function ensureFloorTexture() {
         // the same place in two shades, and the whole point of
         // this arena is that you are fighting across a threshold.
         // The lighting pass leans on the same split.
-        paintPixelStone(fctx, 0, 0, canvas.width, wallY, [34, 39, 50], rng, { tile: 44 });
+        // Both stones carry their own colour rather than relying
+        // on the lighting to tint them: the interior a saturated
+        // cold blue-grey, the approach a saturated warm sandstone.
+        // Read against each other they say "shade" and "sun"
+        // before a single light has been drawn.
+        paintPixelStone(fctx, 0, 0, canvas.width, wallY, [30, 40, 60], rng, { tile: 44 });
         paintPixelGrass(fctx, 0, wallY, canvas.width, canvas.height - wallY, rng);
 
         // Cobblestone approach up the middle, clipped to path.
@@ -934,7 +1126,7 @@ function ensureFloorTexture() {
             fctx,
             snapTexel(cx - pathW / 2), wallY,
             snapTexel(pathW), canvas.height - wallY,
-            [70, 64, 55], rng, { tile: 24 }
+            [86, 68, 46], rng, { tile: 24 }
         );
         fctx.restore();
 
@@ -1502,33 +1694,60 @@ function drawLightingSystem() {
         // 2. Warm sunlight flooding up from below the map -
         // the actual light source.
         //
+        // Two passes rather than one, and this is the whole reason
+        // the arena used to look washed out. A single source-over
+        // wash bright enough to read as sunlight also lays its own
+        // colour over everything beneath it, dragging the lawn and
+        // the flagstones toward the same flat cream. So the bulk
+        // of the work is done in "overlay", which lifts what is
+        // already light and deepens what is already dark WITHOUT
+        // replacing the hue underneath - it intensifies the
+        // palette instead of covering it - and only a thin
+        // source-over glow is left on top for the bloom near the
+        // source.
+        //
         // CASTLE_SUN is the one colour the sun has in this arena.
-        // The gate spill and the light shaft further down both
-        // reuse it, so the light indoors is the same light as
-        // outdoors instead of a separate warm glow that happened
-        // to be a different temperature.
+        // The gate light and the shaft further down both reuse it,
+        // so the light indoors is the same light as outdoors
+        // instead of a separate warm glow that happened to be a
+        // different temperature.
 
         const sun = getLightSource();
         const reach = canvas.height * 1.6;
 
-        let dayGlow = ctx.createRadialGradient(
-            sun.x, sun.y, 0,
-            sun.x, sun.y, reach
-        );
+        const sunWash = (near, mid) => {
 
-        dayGlow.addColorStop(0, `rgba(${CASTLE_SUN}, 0.72)`);
-        dayGlow.addColorStop(0.4, `rgba(${CASTLE_SUN}, 0.42)`);
-        dayGlow.addColorStop(1, `rgba(${CASTLE_SUN}, 0)`);
+            const g = ctx.createRadialGradient(
+                sun.x, sun.y, 0,
+                sun.x, sun.y, reach
+            );
 
-        ctx.fillStyle = dayGlow;
+            g.addColorStop(0, `rgba(${CASTLE_SUN}, ${near})`);
+            g.addColorStop(0.4, `rgba(${CASTLE_SUN}, ${mid})`);
+            g.addColorStop(1, `rgba(${CASTLE_SUN}, 0)`);
+
+            return g;
+
+        };
+
+        ctx.globalCompositeOperation = "overlay";
+        ctx.fillStyle = sunWash(0.88, 0.52);
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.globalCompositeOperation = "source-over";
+        ctx.fillStyle = sunWash(0.28, 0.16);
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         // 3. Hot edge along the bottom where the light
         // enters, like sun blowing out right at the source.
+        //
+        // Tinted with CASTLE_SUN rather than near-white: at white
+        // this was bleaching the colour straight back out of the
+        // grass it was supposed to be lighting.
 
         let rim = ctx.createLinearGradient(0, canvas.height * 0.72, 0, canvas.height);
-        rim.addColorStop(0, "rgba(255, 244, 214, 0)");
-        rim.addColorStop(1, "rgba(255, 250, 232, 0.5)");
+        rim.addColorStop(0, `rgba(${CASTLE_SUN}, 0)`);
+        rim.addColorStop(1, `rgba(${CASTLE_SUN}, 0.34)`);
 
         ctx.fillStyle = rim;
         ctx.fillRect(0, canvas.height * 0.72, canvas.width, canvas.height * 0.28);
@@ -1614,33 +1833,9 @@ function drawLightingSystem() {
         ctx.fillStyle = thresh;
         ctx.fillRect(0, wallTop - 52, canvas.width, 52);
 
-        // 5. Daylight spilling through the open gate onto the
-        // flagstones just inside.
+        // 5. Daylight coming through the open gate.
 
-        ctx.save();
-
-        // Clipped to the interior AND to the gate's own opening.
-        // Previously this was clipped to wallY and centred there,
-        // so the glow washed straight over the masonry either side
-        // of the doorway - light was landing on the wall instead
-        // of passing through the gap in it.
-        ctx.beginPath();
-        ctx.rect(cx - gateW / 2, 0, gateW, wallTop);
-        ctx.clip();
-
-        let spill = ctx.createRadialGradient(
-            cx, wallTop, gateW * 0.12,
-            cx, wallTop, canvas.height * 0.4
-        );
-
-        spill.addColorStop(0, `rgba(${CASTLE_SUN}, 0.5)`);
-        spill.addColorStop(0.5, `rgba(${CASTLE_SUN}, 0.2)`);
-        spill.addColorStop(1, `rgba(${CASTLE_SUN}, 0)`);
-
-        ctx.fillStyle = spill;
-        ctx.fillRect(cx - gateW / 2, 0, gateW, wallTop);
-
-        ctx.restore();
+        drawCastleGateLight(cx, gateW, wallTop, wallY);
 
         ctx.restore();
         return;
@@ -3483,34 +3678,14 @@ function drawLightShafts() {
 
         }
 
-    } else if (Arena.theme === "castle") {
-
-        // One broad shaft spilling in through the open gate.
-        //
-        // Starts at the wall's INNER face, not at wallY - a shaft
-        // rooted at wallY was drawn across the masonry itself.
-        const { wallY, wallH, cx, gateW } = getCastleLayout();
-        const wallTop = wallY - wallH;
-
-        ctx.globalCompositeOperation = "lighter";
-
-        let g = ctx.createLinearGradient(cx, wallTop, cx, 0);
-        g.addColorStop(0, `rgba(${CASTLE_SUN}, 0.2)`);
-        g.addColorStop(0.6, `rgba(${CASTLE_SUN}, 0.07)`);
-        g.addColorStop(1, `rgba(${CASTLE_SUN}, 0)`);
-
-        ctx.fillStyle = g;
-
-        // Widens as it travels away from the gate.
-        ctx.beginPath();
-        ctx.moveTo(cx - gateW * 0.45, wallTop);
-        ctx.lineTo(cx + gateW * 0.45, wallTop);
-        ctx.lineTo(cx + gateW * 1.05, 0);
-        ctx.lineTo(cx - gateW * 1.05, 0);
-        ctx.closePath();
-        ctx.fill();
-
     }
+
+    // NOTE: no castle branch here, deliberately. The gate light
+    // used to be drawn twice - a hard-edged trapezoid in this pass
+    // and a separately-tuned gradient in the lighting pass - two
+    // different shapes for one beam, which is a good part of why
+    // it never quite read as light. It now lives in exactly one
+    // place: drawCastleGateLight, called from the lighting pass.
 
     ctx.restore();
 

@@ -84,6 +84,11 @@ const Game = {
     dt: 1000 / 60,
     timeScale: 1,
 
+    // timeScale with the hit-stop and slow-mo taken back out, for
+    // the handful of effects that have to keep running while the
+    // sim is frozen. See the note in main.js.
+    rawTimeScale: 1,
+
     // Remaining hit-stop freeze, in REAL ms - ticked down by
     // the raw frame delta in main.js (it must not scale
     // itself to zero). While positive, dt/timeScale are 0.
@@ -407,6 +412,12 @@ function finishPlayerDeath() {
 
     Game.state = "gameover";
 
+    // The scene behind the game-over panel is still whatever room
+    // the run ended in. Put it back to the opening arena and let
+    // the curtain sweep across the swap, the same way it does
+    // between waves.
+    resetArenaToStart();
+
     // Log the run's distance for the score modes (no-op in
     // Campaign/Custom); remember if it was a new record.
     Game.newBest = Save.recordRunWave(Game.mode, Game.wave);
@@ -592,6 +603,10 @@ function resetGame() {
 
     Game.state = "menu";
 
+    // Same as dying: abandoning a run puts the background back to
+    // the opening arena, with the curtain sweeping over the swap.
+    resetArenaToStart();
+
     // Quitting straight out of a paused run would otherwise
     // leave the menu music ducked.
     Sound.setPaused(false);
@@ -770,6 +785,42 @@ function cleanupEntities() {
 // entities so they keep occluding characters
 // that walk behind them.
 
+// This frame's screen-shake offset, in whole pixels, decaying as
+// it goes.
+//
+// Called exactly once per frame, by draw(), because everything
+// that shakes has to shake by the SAME amount - rolling it twice
+// would give the floor a different jolt from the scene standing
+// on it.
+//
+// Rounded to whole pixels deliberately: a fractional translate
+// resamples every bitmap in the frame, so the entire arena went
+// soft for the length of each shake. On pixel art that reads as
+// the picture going out of focus when you hit something.
+function takeScreenShakeOffset() {
+
+    if (!(Game.screenShake > 0))
+        return { x: 0, y: 0 };
+
+    const x = Math.round((Math.random() - 0.5) * Game.screenShake);
+    const y = Math.round((Math.random() - 0.5) * Game.screenShake);
+
+    // Exponential decay via Math.pow so the shake dies out at the
+    // same real-world rate regardless of fps.
+    //
+    // Raw frame time, not timeScale: the shake is something the
+    // camera does, so it has to keep settling even when the sim
+    // it's watching is frozen. See main.js.
+    Game.screenShake *= Math.pow(0.93, Game.rawTimeScale);
+
+    // Below half a pixel it can no longer move anything, so let it
+    // stop rather than tick away at a permanent tiny value.
+    if (Game.screenShake < 0.5)
+        Game.screenShake = 0;
+
+    return { x, y };
+}
+
 function draw() {
 
     // The bestiary's notes field is an HTML overlay, so it has
@@ -778,6 +829,44 @@ function draw() {
     // the end of the frame - whatever the state does in
     // between.
     clearBestiaryNotesArea();
+
+    const shake = takeScreenShakeOffset();
+    const shaking = shake.x !== 0 || shake.y !== 0;
+
+    // ---- THE WORLD ----
+    //
+    // Floor, ground shadows and the scene above them all take the
+    // same offset, because they are all one place.
+    //
+    // The shake used to start below the floor: the ground, the
+    // grid and the cast shadows were drawn before the translate
+    // and stayed nailed down while everything standing on them
+    // jolted around. So a hit slid the pillars off their own
+    // shadows, dragged the castle wall away from its torches, and
+    // slewed the whole lighting pass across the floor it was
+    // supposed to be lighting.
+
+    ctx.save();
+
+    if (shaking) {
+
+        // Moving the world leaves a strip of last frame's pixels
+        // along one edge. An unshifted pass of the bare floor
+        // texture backs it: a few pixels of ground at the very
+        // edge of the screen that don't move with the rest are
+        // invisible, where a smear of stale frame buffer is not.
+        //
+        // The cached texture rather than drawArenaFloor(), so the
+        // props and set pieces on top of it aren't drawn twice and
+        // ghosted into the strip. Only paid for while shaking.
+        const tex = ensureFloorTexture();
+
+        if (tex)
+            ctx.drawImage(tex, 0, 0);
+
+        ctx.translate(shake.x, shake.y);
+
+    }
 
     // 1. FLOOR
 
@@ -791,18 +880,36 @@ function draw() {
 
     drawPillarShadows();
 
-    ctx.save();
+    switch (Game.state) {
 
-    // Screen shake matrix calculation
+        case "playing":
+        case "paused":
 
-    if (Game.screenShake > 0) {
-        const shakeX = (Math.random() - 0.5) * Game.screenShake;
-        const shakeY = (Math.random() - 0.5) * Game.screenShake;
-        ctx.translate(shakeX, shakeY);
-        // Exponential decay via Math.pow so the shake dies
-        // out at the same real-world rate regardless of fps.
-        Game.screenShake *= Math.pow(0.93, Game.timeScale);
+            // Paused keeps the frozen scene visible under the menu.
+            drawPlayingScene();
+            break;
+
+        case "menu":
+        case "gameover":
+        case "victory":
+
+            // Out of a run the arena is only a backdrop, but it
+            // still gets the curtain, so the swap back to the
+            // castle on death/quit reads as a deliberate wipe
+            // rather than the scene popping.
+            drawArenaTransition();
+            break;
+
     }
+
+    ctx.restore();
+
+    // ---- THE INTERFACE ----
+    //
+    // Screen space, outside the shake. A HUD that jumps around is
+    // harder to read exactly when it matters most, and the pause
+    // button moving out from under the cursor on impact is worse
+    // than that.
 
     switch (Game.state) {
         case "menu":
@@ -810,13 +917,11 @@ function draw() {
             break;
 
         case "playing":
-            drawPlayingScene();
+            drawPlayingUI();
             break;
 
         case "paused":
-
-            // The frozen scene stays visible under the menu.
-            drawPlayingScene();
+            drawPlayingUI();
             drawPauseMenu();
             break;
 
@@ -828,8 +933,6 @@ function draw() {
             drawVictory();
             break;
     }
-
-    ctx.restore();
 
     syncBestiaryNotesField();
 }
@@ -903,9 +1006,19 @@ function drawPlayingScene() {
 
     drawOccludedOutlines();
 
-    // 7. UI PASS: always on top, always readable
-
+    // Damage numbers belong to the world, not to the interface -
+    // each one is pinned over the thing it came off, so it has to
+    // travel with it when the screen shakes.
     Game.damageNumbers.forEach(number => number.draw());
+
+}
+
+// 7. UI PASS: always on top, always readable.
+//
+// Split out of the scene so draw() can keep it outside the screen
+// shake - see the note there.
+function drawPlayingUI() {
+
     drawHUD();
     drawWaveMessages();
 

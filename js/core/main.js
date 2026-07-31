@@ -101,6 +101,19 @@ function gameLoop(currentTime) {
     Game.dt = delta * flow;
     Game.timeScale = Game.dt / (1000 / 60);
 
+    // The same figure with `flow` left out - unbent frame time,
+    // for effects that have to keep moving while the sim is held
+    // still. The screen shake decays on this.
+    //
+    // Decaying it on timeScale meant that during a freeze - where
+    // timeScale is 0 - the decay multiplier was pow(0.93, 0) = 1,
+    // so the shake never faded, while draw() went on rolling it a
+    // fresh random offset every frame. The picture juddered at
+    // full amplitude for the whole of every freeze: 220ms on a
+    // boss kill, and the entire 1.9s of the Hero transformation,
+    // which is supposed to be dead still.
+    Game.rawTimeScale = delta / (1000 / 60);
+
     update();
 
     // Audio runs outside update() on purpose: update() returns
