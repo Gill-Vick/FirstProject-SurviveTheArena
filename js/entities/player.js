@@ -176,10 +176,23 @@ class Player {
 
         // Class-specific defenses (e.g. the Warrior's
         // shield) get first refusal on the hit.
-        if (this.absorbHit())
+        if (this.absorbHit()) {
+
+            // Cold and brief, against the red of the fatal flash
+            // below. Since the player dies in one hit, a defence
+            // firing IS the run continuing - it deserves to be
+            // legible, and it used to happen silently.
+            triggerScreenFlash("150, 225, 255", 320, 0.5);
+
             return false;
 
+        }
+
         Game.screenShake = EFFECTS.SHAKE_ON_DEATH;
+
+        // Held across the whole slow-mo window, so the killing
+        // blow is framed in red for as long as it's on screen.
+        triggerScreenFlash("190, 30, 30", DEATH_SLOWMO.DURATION_MS, 0.85);
 
         // Don't cut straight to the game over screen - run the
         // sim in slow motion for a beat so the killing blow is

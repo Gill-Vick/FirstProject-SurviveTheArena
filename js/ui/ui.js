@@ -3120,6 +3120,155 @@ function handleMenuMouseUp() {
 // HUD
 // =====================================
 
+// =====================================
+// Boss Health Bar
+// =====================================
+//
+// Bosses used to be presented exactly like a Grunt - the same
+// small bar floating over their head. Six of them have a name,
+// their own composed theme and a bestiary page, and none of that
+// reached the screen during the fight itself.
+//
+// Bottom-centre, and in screen space: drawPlayingUI calls this
+// outside the screen shake, because a name the player is trying
+// to read should not be jittering while they read it. Bottom
+// rather than top because the top row is already carrying the
+// status plate and the pause button, and because the two mobile
+// joysticks sit in the bottom CORNERS, leaving the middle free.
+
+// ENEMY_LABELS is written for the death message ("the King", "a
+// Grunt"), so the article comes off for a nameplate.
+function bossDisplayName(boss) {
+
+    // The Prince keeps his type after transforming - his Hero
+    // form is a flag, not a separate enemy.
+    const key = boss.type === "prince" && boss.isHero ? "hero" : boss.type;
+
+    return (ENEMY_LABELS[key] ?? boss.type)
+        .replace(/^(the|an|a)\s+/i, "")
+        .toUpperCase();
+
+}
+
+function drawBossBars() {
+
+    if (typeof player === "undefined" || !player)
+        return;
+
+    const bosses = Game.enemies.filter(b => b.isBoss && !b.isDead());
+
+    if (bosses.length === 0)
+        return;
+
+    // The Siblings put two bosses on screen at once and the wave
+    // only clears when both are down, so they get a bar each
+    // rather than a combined one - which is exactly the target
+    // priority question that fight is built around.
+    const barW = Math.min(pw(0.46), ph(0.95));
+    const rowH = ph(0.05);
+    const x = Math.round((canvas.width - barW) / 2);
+
+    let y = Math.round(canvas.height - ph(0.05) - bosses.length * rowH);
+
+    bosses.forEach((boss, i) => {
+
+        // Only the first row carries the phase tag - it describes
+        // the fight, not the individual boss, so printing it on
+        // both of the Siblings' bars just said the same thing
+        // twice.
+        drawBossBar(boss, x, y, barW, rowH, i === 0);
+        y += rowH;
+
+    });
+
+}
+
+function drawBossBar(boss, x, y, w, rowH, showPhase) {
+
+    const h = Math.round(rowH * 0.6);
+
+    // Lagging "chip" value behind the real one, so a big hit
+    // reads as a chunk being taken off rather than the bar simply
+    // being shorter than it was last frame.
+    //
+    // Heals snap instead of easing: the Princess tops the Prince
+    // up mid-fight, and a chip bar draining DOWNWARD toward a
+    // higher value would show the opposite of what just happened.
+    if (boss.barHp === undefined || boss.hp > boss.barHp)
+        boss.barHp = boss.hp;
+    else
+        boss.barHp += (boss.hp - boss.barHp) * Math.min(1, 0.09 * Game.timeScale);
+
+    const frac = Math.max(0, Math.min(1, boss.hp / boss.maxHp));
+    const chipFrac = Math.max(frac, Math.min(1, boss.barHp / boss.maxHp));
+
+    drawPixelFrame(x, y, w, h, { unit: 3 });
+
+    const inner = 6;
+    const ix = x + inner;
+    const iy = y + inner;
+    const iw = w - inner * 2;
+    const ih = h - inner * 2;
+
+    // Empty track.
+    ctx.fillStyle = "#241b14";
+    ctx.fillRect(ix, iy, iw, ih);
+
+    // Chip, then the live bar over it.
+    ctx.fillStyle = "#7d2f2f";
+    ctx.fillRect(ix, iy, Math.round(iw * chipFrac), ih);
+
+    ctx.fillStyle = boss.color ?? "#c0392b";
+    ctx.fillRect(ix, iy, Math.round(iw * frac), ih);
+
+    // A lighter band along the top of the fill, so the bar reads
+    // as a solid object rather than a flat block of colour.
+    ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
+    ctx.fillRect(ix, iy, Math.round(iw * frac), Math.max(1, Math.round(ih * 0.28)));
+
+    // Absorb shield (the Prince's Guard Princess, and anything
+    // else that sets shieldHp) rides on the front of the bar in
+    // its own colour - it has to be visibly a different pool,
+    // since damage into it does nothing to the red.
+    if (boss.shieldHp > 0) {
+
+        const sw = Math.round(iw * Math.min(1, boss.shieldHp / boss.maxHp));
+        const sx = Math.min(ix + Math.round(iw * frac), ix + iw - sw);
+
+        ctx.fillStyle = "rgba(140, 220, 255, 0.85)";
+        ctx.fillRect(Math.max(ix, sx), iy, sw, ih);
+
+    }
+
+    // Nameplate, sitting on the bar's top edge.
+    const name = bossDisplayName(boss);
+    const scale = fitPixelScale(name, iw * 0.8, rowH * 0.3);
+
+    drawPixelText(
+        name,
+        x + w / 2,
+        y - rowH * 0.19,
+        scale,
+        { color: "#f4e6c4", shadow: "#1a1209" }
+    );
+
+    // The Siblings' one-way sacrifice phase is a real change in
+    // how the fight behaves, so it gets said out loud.
+    if (showPhase && Game.siblingsPhase === 2 &&
+        (boss.type === "prince" || boss.type === "princess")) {
+
+        drawPixelText(
+            "PHASE 2",
+            x + w - rowH * 0.7,
+            y - rowH * 0.19,
+            Math.max(1, scale - 1),
+            { color: "#ffb347", shadow: "#1a1209" }
+        );
+
+    }
+
+}
+
 function drawHUD() {
 
     // Pause control, top-center - a pixel plate with two

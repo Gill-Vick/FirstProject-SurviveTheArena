@@ -2,6 +2,38 @@
 // Particle Class
 // =====================================
 
+// Particles are drawn as chunky blocks on their own grid, not as
+// smooth circles.
+//
+// Everything else in this game is pixel art - the floors are laid
+// out in 4px texels, imageSmoothingEnabled is off, the fonts are
+// pixel fonts, the trees and butterflies are placed block by
+// block. Particles were the one system still drawing perfect
+// antialiased circles with ctx.arc, which meant every hit, kill,
+// dash and explosion in the game was rendered in a different
+// visual language from the scene it happened in.
+//
+// A little finer than FLOOR_TEXEL on purpose: particles are only
+// a few pixels across to begin with, and on the floor's 4px grid
+// the small ones would collapse to a single block.
+const PARTICLE_TEXEL = 3;
+
+function snapParticle(v) {
+
+    return Math.round(v / PARTICLE_TEXEL) * PARTICLE_TEXEL;
+
+}
+
+// Alpha in fixed steps. A perfectly smooth fade is the other
+// giveaway that something was drawn with vectors, and stepping it
+// costs nothing - at six levels it reads as a deliberate die-off
+// rather than as banding.
+function quantAlpha(a) {
+
+    return Math.max(0, Math.round(a * 6) / 6);
+
+}
+
 class Particle {
 
     constructor(x, y, options = {}) {
@@ -46,22 +78,25 @@ class Particle {
 
     draw() {
 
-        ctx.fillStyle = this.color;
+        const fade = this.life / this.maxLife;
 
-        ctx.globalAlpha =
-            this.life / this.maxLife;
-
-        ctx.beginPath();
-
-        ctx.arc(
-            this.x,
-            this.y,
-            this.size,
-            0,
-            Math.PI * 2
+        // Blocks shrink as they burn out, in whole texels, so a
+        // particle dies in a few visible steps instead of melting
+        // away continuously.
+        const px = Math.max(
+            PARTICLE_TEXEL,
+            Math.round((this.size * 1.5 * fade) / PARTICLE_TEXEL) * PARTICLE_TEXEL
         );
 
-        ctx.fill();
+        ctx.globalAlpha = quantAlpha(fade);
+        ctx.fillStyle = this.color;
+
+        ctx.fillRect(
+            snapParticle(this.x - px / 2),
+            snapParticle(this.y - px / 2),
+            px,
+            px
+        );
 
         ctx.globalAlpha = 1;
 
@@ -202,17 +237,39 @@ class DeathRing {
 
         const fade = this.life / this.maxLife;
 
-        ctx.save();
+        // Stepped around the circumference in blocks rather than
+        // stroked as a smooth circle, to match the particles it
+        // ships alongside.
+        //
+        // Enough steps to close the ring at this radius - the
+        // spacing is one texel of arc - and the positions are
+        // de-duplicated afterwards. Snapping pulls neighbouring
+        // steps onto the same block, and a translucent block
+        // painted twice comes out denser than its neighbours, so
+        // without the dedupe the ring beads up into bright clumps.
+        const steps = Math.max(10, Math.round((Math.PI * 2 * this.radius) / PARTICLE_TEXEL));
+        const seen = new Set();
 
-        ctx.globalAlpha = fade * 0.8;
-        ctx.strokeStyle = this.color;
-        ctx.lineWidth = 3 * fade + 1;
+        ctx.globalAlpha = quantAlpha(fade * 0.8);
+        ctx.fillStyle = this.color;
 
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.stroke();
+        for (let i = 0; i < steps; i++) {
 
-        ctx.restore();
+            const a = (i / steps) * Math.PI * 2;
+
+            const bx = snapParticle(this.x + Math.cos(a) * this.radius);
+            const by = snapParticle(this.y + Math.sin(a) * this.radius);
+
+            const key = bx + "," + by;
+
+            if (seen.has(key))
+                continue;
+
+            seen.add(key);
+
+            ctx.fillRect(bx, by, PARTICLE_TEXEL, PARTICLE_TEXEL);
+
+        }
 
         ctx.globalAlpha = 1;
 

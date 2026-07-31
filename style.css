@@ -7,6 +7,17 @@ html, body {
 
 canvas {
     display: block;
+
+    /* The canvas renders at a fixed logical height and is
+       stretched to the window (see syncCanvasResolution in
+       game.js). Without this the browser does that stretch with
+       smooth interpolation, which softens every edge in the game
+       - the whole point of drawing chunky texels and turning
+       imageSmoothingEnabled off is lost on the way to the screen.
+       This was already happening on phones, which have taken the
+       stretched path all along. */
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
 }
 
 /* Field-notes page (bestiary detail). Positioned and sized

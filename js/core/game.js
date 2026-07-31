@@ -15,53 +15,64 @@ playerSprite.src = "Player_Knight.png";
 // Canvas Resolution
 // =====================================
 //
-// Desktop: the canvas's logical resolution simply matches the
-// window, 1:1.
+// One fixed logical resolution for every device: render at a
+// fixed HEIGHT (width derived from the screen's real aspect
+// ratio, so nothing distorts) and stretch the canvas to the
+// window with CSS.
 //
-// Touch devices: every entity (player, enemies, projectiles,
-// hazards) is sized/moved in absolute logical pixels, so if
-// the canvas resolution matched a phone's small viewport the
-// entities would tower over the screen (a 40px player is ~4%
-// of a desktop window's height but ~10% of a phone's). Fix:
-// render at a fixed logical HEIGHT (with the width derived
-// from the screen's real aspect ratio so nothing distorts)
-// and stretch the canvas to the screen with CSS. Entities
-// then occupy the same fraction of the screen as on a 720px
-// desktop window, and getCanvasCoords() in input.js already
-// maps clicks/taps between CSS size and logical resolution.
-// The UI never notices - all of ui.js is laid out in
-// percentages of canvas.width/height.
+// Two problems, one answer.
+//
+// Every entity (player, enemies, projectiles, hazards) is sized
+// and moved in absolute logical pixels, so a canvas matching a
+// phone's small viewport would have entities towering over the
+// screen - a 40px player is ~4% of a desktop window's height but
+// ~10% of a phone's. And the art is authored in fixed texels, so
+// a canvas matching a large desktop window renders those texels
+// too small to read as pixel art at all.
+//
+// A fixed logical height solves both: entities occupy the same
+// fraction of the screen and a texel is the same visible size,
+// on any display. getCanvasCoords() in input.js already maps
+// clicks/taps between CSS size and logical resolution, and the UI
+// never notices - all of ui.js is laid out in percentages of
+// canvas.width/height.
 
-const MOBILE_LOGICAL_HEIGHT = 720;
+const LOGICAL_HEIGHT = 720;
 
 function syncCanvasResolution() {
 
-    const touch =
-        ("ontouchstart" in window) || navigator.maxTouchPoints > 0;
+    // Every device now renders at the same logical height and is
+    // stretched to fit, touch or not.
+    //
+    // Desktop used to render 1:1 at window.innerWidth/Height,
+    // which quietly broke the pixel art: the art is authored in
+    // fixed texels (FLOOR_TEXEL is 4, PARTICLE_TEXEL 3), so at
+    // native resolution a "chunky" 4px block is four PHYSICAL
+    // pixels - fine and detailed on a large or hi-DPI monitor,
+    // coarse on a small window. The apparent size of a pixel
+    // changed as you resized, and never matched what the same
+    // build looked like on a phone.
+    //
+    // Fixing the render size fixes the pixel scale everywhere,
+    // and renders far fewer pixels on a big monitor into the
+    // bargain. The width still comes from the real aspect ratio,
+    // so nothing distorts and nothing is cropped.
+    const aspect = window.innerWidth / window.innerHeight;
 
-    if (touch) {
+    canvas.height = LOGICAL_HEIGHT;
+    canvas.width = Math.round(LOGICAL_HEIGHT * aspect);
 
-        const aspect = window.innerWidth / window.innerHeight;
-
-        canvas.height = MOBILE_LOGICAL_HEIGHT;
-        canvas.width = Math.round(MOBILE_LOGICAL_HEIGHT * aspect);
-
-        canvas.style.width = window.innerWidth + "px";
-        canvas.style.height = window.innerHeight + "px";
-
-    } else {
-
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-
-        canvas.style.width = "";
-        canvas.style.height = "";
-
-    }
+    canvas.style.width = window.innerWidth + "px";
+    canvas.style.height = window.innerHeight + "px";
 
     // Assigning canvas.width/height resets the 2d context's
     // state, including imageSmoothingEnabled - re-disable it
     // here (after sizing) so the pixel-art sprites stay crisp.
+    //
+    // NOTE this only governs drawing INTO the canvas. The stretch
+    // from logical size up to CSS size is the browser's, and is
+    // smooth unless the stylesheet says otherwise - see
+    // image-rendering in style.css.
     ctx.imageSmoothingEnabled = false;
 
 }
@@ -234,7 +245,14 @@ const Game = {
     // appears - see SpawnWarning below.
     spawnTelegraphs: [],
 
-    screenShake: 0
+    screenShake: 0,
+
+    // Full-screen colour flash for the two moments that decide a
+    // run: the hit that kills you, and the hit that something
+    // saved you from. Clock-driven (see triggerScreenFlash), so
+    // it plays out in real time through the death slow-mo rather
+    // than crawling along with it.
+    screenFlash: null
 
 };
 
@@ -340,6 +358,9 @@ function startGame(mode = "campaign") {
 
     Game.hitStopTimer = 0;
 
+    // The death flash must not survive into the next run.
+    Game.screenFlash = null;
+
     Game.dying = false;
 
     Game.dyingTimer = 0;
@@ -398,6 +419,68 @@ function applyHitStop(ms) {
     // Max, not sum - a multi-target swing lands one beat, not
     // a stutter per enemy hit.
     Game.hitStopTimer = Math.max(Game.hitStopTimer, ms);
+
+}
+
+// =====================================
+// Screen Flash
+// =====================================
+//
+// A wash of colour around the edges of the screen, for the two
+// moments in a run that matter most and had no screen-space
+// feedback at all: the hit that kills you, and the hit that
+// something absorbed for you.
+//
+// The absorb is the bigger gap of the two. The player dies in ONE
+// hit - there is no health pool - so a Warrior's shield or a
+// Mage's ward eating a blow is the difference between a run
+// continuing and ending, and until now it happened in complete
+// silence. Nothing on screen said you had just been saved.
+//
+// Timed off the wall clock rather than the sim, so it runs at
+// normal speed through the death slow-mo instead of stretching
+// out with it.
+
+function triggerScreenFlash(color, ms, strength) {
+
+    Game.screenFlash = { at: Date.now(), ms, color, strength };
+
+}
+
+function drawScreenFlash() {
+
+    const f = Game.screenFlash;
+
+    if (!f || canvas.width === 0)
+        return;
+
+    const age = Date.now() - f.at;
+
+    if (age < 0 || age > f.ms) {
+        Game.screenFlash = null;
+        return;
+    }
+
+    // Fast attack, slower release - a flash that ramps up reads
+    // as a light being switched on rather than as an impact.
+    const t = 1 - age / f.ms;
+    const a = f.strength * t * t;
+
+    // Weighted to the edges, clear through the middle. A flat
+    // wash over the whole screen would hide the very thing the
+    // player needs to see at exactly the moment they need to see
+    // it - where the enemy that just hit them is standing.
+    const g = ctx.createRadialGradient(
+        canvas.width / 2, canvas.height / 2, canvas.height * 0.2,
+        canvas.width / 2, canvas.height / 2, canvas.height * 0.78
+    );
+
+    g.addColorStop(0, `rgba(${f.color}, 0)`);
+    g.addColorStop(0.55, `rgba(${f.color}, ${a * 0.35})`);
+    g.addColorStop(1, `rgba(${f.color}, ${a})`);
+
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
 }
 
@@ -620,6 +703,9 @@ function resetGame() {
     Game.runToken++;
 
     Game.hitStopTimer = 0;
+
+    // The death flash must not survive into the next run.
+    Game.screenFlash = null;
 
     Game.dying = false;
 
@@ -1019,7 +1105,13 @@ function drawPlayingScene() {
 // shake - see the note there.
 function drawPlayingUI() {
 
+    // Under the HUD, over the world: it's a screen effect, so it
+    // doesn't take the shake, but it must never wash out the
+    // readouts the player is checking while it plays.
+    drawScreenFlash();
+
     drawHUD();
+    drawBossBars();
     drawWaveMessages();
 
 }
