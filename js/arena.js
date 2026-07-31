@@ -138,172 +138,18 @@ function resetArenaToStart() {
 // The castle arena's sunlight, as bare "r, g, b" so callers can
 // pick their own alpha.
 //
-// Single source of truth on purpose: the daylight wash on the
-// courtyard, the spill through the gate and the shaft on the
-// flagstones inside all read from this, so the light indoors is
-// unmistakably the SAME sun as the light outdoors rather than a
-// separately-tuned warm glow.
-const CASTLE_SUN = "255, 232, 176";
-
-// Daylight coming through the open gate and landing on the
-// flagstones inside.
+// ONE sun, and everything it touches reads from this: the wash on
+// the courtyard, the archway, and the light on the flagstones
+// inside. That is the whole point of the constant, and it had
+// quietly stopped being true - the courtyard was being washed with
+// a near-white at 0.07 alpha, which is invisible, so outside read
+// as unlit; meanwhile the doorway had its own separate deep amber.
+// Two different lights in one scene, which is exactly why the
+// inside and the outside felt like different places.
 //
-// Drawn as a widening wedge of horizontal slices rather than as
-// one gradient clipped to the gate's rectangle. Two reasons, both
-// about looking real:
-//
-//  - light through an opening SPREADS. The sun is a broad source,
-//    so the beam leaves the doorway at about the gate's width and
-//    fans out as it travels into the hall. Clipped to a rectangle
-//    it had dead-straight vertical sides for the whole depth of
-//    the room, which is the one thing daylight never does, and is
-//    what made it read as a decal rather than as light.
-//
-//  - the soft edge - the penumbra - GROWS with distance. Each
-//    slice runs its own horizontal gradient: a near-flat core with
-//    a feathered margin either side, the core narrowing and the
-//    feather widening the deeper in it goes. So it lands crisp on
-//    the flagstones at the threshold and dissolves into the dark
-//    at the far end, the way a real doorway's light does.
-//
-// Additive, because this is light arriving in a dim room -
-// source-over would tint the floor rather than light it.
-// Sunlight is warm; the flagstones it lands on are cold blue-grey
-// stone. Lighting that floor purely additively sums the two into
-// grey - which is what a beam of "warm" light reading as a bank of
-// white fog actually is. So the beam is drawn in two passes:
-//
-//  - LIT STONE, source-over. The colour the flagstones turn where
-//    the sun reaches them. This is what carries the warmth and the
-//    saturation, because it replaces the cold stone rather than
-//    adding to it.
-//  - BLOOM, additive, at a fraction of the strength. Only the
-//    glow in the air over the top.
-//
-// Two entries, applied in this order.
-const CASTLE_GATE_PASSES = [
-    { color: "216, 174, 106", mult: 0.80, blend: "source-over" },
-    { color: CASTLE_SUN,      mult: 0.22, blend: "lighter" }
-];
-
-function drawCastleGateLight(cx, gateW, wallTop, wallY) {
-
-    const SLICES = 48;
-    const gateHalf = gateW / 2;
-
-    // Slice boundaries, snapped to whole pixels up front.
-    //
-    // They MUST tile exactly - abutting, never overlapping. An
-    // earlier version padded each slice a pixel taller "so there
-    // are no seams", which under an additive blend meant every
-    // shared row got drawn twice and the beam came out banded with
-    // bright horizontal stripes. Sharing exact integer edges gives
-    // no gaps and no double-draw.
-    //
-    // The run starts at the wall's OUTER face, not its inner one,
-    // so the archway between the two gateposts is lit as well. Cut
-    // off at the inner face, the sun stopped dead at the courtyard
-    // and picked up again on the far side of the wall, with the
-    // passage itself left dark - the light looked like it had
-    // skipped over the doorway rather than come through it.
-    const edges = [];
-
-    for (let i = 0; i <= SLICES; i++)
-        edges.push(Math.round(wallY * (1 - i / SLICES)));
-
-    ctx.save();
-
-    CASTLE_GATE_PASSES.forEach(pass => {
-
-        ctx.globalCompositeOperation = pass.blend;
-
-        for (let i = 0; i < SLICES; i++) {
-
-            const yTop = edges[i + 1];
-            const h = edges[i] - yTop;
-
-            if (h <= 0)
-                continue;
-
-            // Depth into the hall, sampled at the slice's midpoint
-            // so the wedge widens evenly rather than stepping off
-            // one edge: 0 at the wall's inner face, 1 at the far
-            // end of the room. Slices still inside the archway
-            // come out negative and clamp to 0 - they are at the
-            // aperture, so they get full brightness and cannot
-            // have spread yet.
-            const yMid = yTop + h / 2;
-            const inArch = yMid >= wallTop;
-            const f = Math.max(0, (wallTop - yMid) / wallTop);
-
-            // Full extent: the gate's own width, plus a penumbra
-            // that starts narrow and opens out with depth. Inside
-            // the archway it is pinned to the opening exactly, so
-            // no light lands on the masonry either side.
-            //
-            // The spread is deliberately small - about a quarter
-            // again over the whole depth of the hall, and almost
-            // nothing at the threshold itself.
-            //
-            // Both numbers were much larger to begin with and both
-            // had to come down. A wide penumbra sounds more
-            // realistic but it is a large, soft, LOW-alpha wash,
-            // and a low-alpha warm wash over cold blue flagstone
-            // just averages out to grey - so the beam ended up
-            // flanked by two smears of what looked like fog. A
-            // doorway edge is close to sharp where the light lands
-            // and only softens with distance; keeping the feather
-            // tight keeps the light warm all the way to its edge.
-            const half = inArch
-                ? gateHalf
-                : gateHalf + gateW * (0.05 + 0.30 * f);
-
-            // The solid core of the beam, eaten into by the soft
-            // edges as it travels. Gives up ground faster than it
-            // used to: with a nearly flat top and a hairline
-            // feather the beam had two hard diagonal boundaries,
-            // which against a dark hall read as a pair of rays
-            // fired from the gateposts rather than as one opening
-            // letting light through.
-            const core = inArch
-                ? gateHalf
-                : gateHalf * (1 - 0.34 * f);
-
-            // Falls off gently rather than sharply. A steep
-            // falloff killed the beam within a third of the hall,
-            // where it was still barely wider than the gate - so
-            // it read as a stub rather than as a shaft of light
-            // reaching into the room, and none of the spread the
-            // slices exist for was ever visible.
-            // Eased down along with the rest of the arena: the
-            // hall is no longer nearly black, so the beam doesn't
-            // have to shout over it.
-            const a = pass.mult * 0.54 * Math.pow(1 - f, 1.35);
-
-            // Where the flat core gives way to the feather, as a
-            // fraction of the slice's width. Clamped at the top so
-            // the two inner stops can never cross over each other,
-            // and at the bottom so the archway's hard edge against
-            // the masonry still gets a hairline of antialiasing.
-            const edge = Math.min(0.49, Math.max(0.015, 0.5 - core / (2 * half)));
-
-            const g = ctx.createLinearGradient(cx - half, 0, cx + half, 0);
-
-            g.addColorStop(0, `rgba(${pass.color}, 0)`);
-            g.addColorStop(edge, `rgba(${pass.color}, ${a})`);
-            g.addColorStop(1 - edge, `rgba(${pass.color}, ${a})`);
-            g.addColorStop(1, `rgba(${pass.color}, 0)`);
-
-            ctx.fillStyle = g;
-            ctx.fillRect(cx - half, yTop, half * 2, h);
-
-        }
-
-    });
-
-    ctx.restore();
-
-}
+// So this is a real warm daylight rather than an almost-white,
+// strong enough to be visible on the grass at a low alpha.
+const CASTLE_SUN = "255, 206, 132";
 
 function getCastleLayout() {
 
@@ -1703,16 +1549,21 @@ function drawLightingSystem() {
         // Stacked, they also blew the whole arena out.
 
         // Layout first - every pass below keys off the wall line.
-        const { wallY, wallH, cx, gateW } = getCastleLayout();
+        // Only the wall line, now: nothing in here needs the gate
+        // any more.
+        const { wallY, wallH } = getCastleLayout();
         const wallTop = wallY - wallH;
 
-        // 1. Daylight on the courtyard: flat, and only just warm.
+        // 1. Daylight on the courtyard: flat, and visibly warm.
         //
         // No gradient, because overhead light on level ground
-        // hasn't got one. The colour of a lawn belongs to the
-        // lawn - the light's job here is to say "outdoors, midday"
-        // and then get out of the way.
-        ctx.fillStyle = `rgba(${CASTLE_SUN}, 0.07)`;
+        // hasn't got one - but it does have a COLOUR, and it needs
+        // to be strong enough to see. At 0.07 of a near-white this
+        // was doing nothing at all: the lawn was just its own
+        // green, so the courtyard read as unlit ground rather than
+        // as ground in sunshine, and there was nothing out here
+        // for the light coming through the gate to match.
+        ctx.fillStyle = `rgba(${CASTLE_SUN}, 0.16)`;
         ctx.fillRect(0, wallY, canvas.width, canvas.height - wallY);
 
         // 2. A soft darkening into the corners of the frame.
@@ -1814,9 +1665,12 @@ function drawLightingSystem() {
         ctx.fillStyle = thresh;
         ctx.fillRect(0, wallTop - 52, canvas.width, 52);
 
-        // 5. Daylight coming through the open gate.
-
-        drawCastleGateLight(cx, gateW, wallTop, wallY);
+        // NOTE: nothing here for light coming through the gate,
+        // deliberately. The hall is dark, and the doorway is a
+        // hole in a wall rather than a lamp. Several goes at
+        // painting sun on the flagstones inside all read as
+        // something glowing in its own right rather than as
+        // daylight, so the arena is better off without it.
 
         ctx.restore();
         return;
@@ -3664,12 +3518,9 @@ function drawLightShafts() {
 
     }
 
-    // NOTE: no castle branch here, deliberately. The gate light
-    // used to be drawn twice - a hard-edged trapezoid in this pass
-    // and a separately-tuned gradient in the lighting pass - two
-    // different shapes for one beam, which is a good part of why
-    // it never quite read as light. It now lives in exactly one
-    // place: drawCastleGateLight, called from the lighting pass.
+    // NOTE: no castle branch here, deliberately. The courtyard is
+    // open to the sky - there is no opening for a shaft to come
+    // through - and the hall behind the wall is simply dark.
 
     ctx.restore();
 
@@ -4290,6 +4141,12 @@ function drawArenaSetPiece() {
 // No particle arrays, no update pass, nothing to clean up - the
 // same trick the fireflies and the rain were already using.
 
+// Wing colours for the courtyard butterflies. Picked to sit on a
+// green lawn without competing with anything the player needs to
+// track - pale and muted rather than the saturated blues and reds
+// a real garden would have.
+const BUTTERFLY_COLORS = ["#f2d16b", "#e8e3d0", "#e0975a", "#cfd8f0"];
+
 function drawArenaAmbient() {
 
     if (canvas.width === 0)
@@ -4299,26 +4156,83 @@ function drawArenaAmbient() {
 
     if (Arena.theme === "castle") {
 
-        // Dust hanging in the daylight coming through the gate,
-        // plus grass seed blowing across the courtyard.
-        const { wallY, cx, gateW } = getCastleLayout();
+        // Butterflies over the lawn, and grass seed blowing across
+        // the courtyard.
+        //
+        // The dust motes that used to be here are gone with the
+        // light they hung in - they only made sense as specks
+        // caught in the shaft through the gate, and there is no
+        // shaft any more.
+        const { wallY } = getCastleLayout();
 
         ctx.save();
 
-        for (let i = 0; i < 26; i++) {
+        // Butterflies.
+        //
+        // Zero state, like everything else in this pass: the whole
+        // flight path is a function of the clock and the index, so
+        // there is nothing to allocate, nothing to update, and
+        // they carry on correctly across a pause, a wave change or
+        // a run ending without any bookkeeping.
+        const t = now / 1000;
 
-            const drift = ((now / 9000) + stormHash(i)) % 1;
+        for (let i = 0; i < 7; i++) {
 
-            // Motes rise slowly inside the gate's light spill.
-            const mx = cx + (stormHash(i + 40) - 0.5) * gateW * 1.1;
-            const my = wallY - drift * canvas.height * 0.36;
+            const a = stormHash(i + 700);
+            const b = stormHash(i + 900);
+            const c = stormHash(i + 1100);
 
-            ctx.globalAlpha = Math.sin(drift * Math.PI) * 0.35;
-            ctx.fillStyle = "#ffe9c2";
+            const phase = c * Math.PI * 2;
+            const rate = 0.26 + b * 0.2;
 
-            ctx.beginPath();
-            ctx.arc(mx, my, 1.6, 0, Math.PI * 2);
-            ctx.fill();
+            // Home patch of lawn, kept clear of the wall at the
+            // top and the screen edge at the bottom.
+            const homeX = canvas.width * (0.08 + a * 0.84);
+            const homeY = wallY + 44 + b * (canvas.height - wallY - 78);
+
+            // A slow loop around that patch, with a faster, smaller
+            // wobble laid over it. The wobble is the whole trick -
+            // a butterfly's path dithers constantly, and without it
+            // this reads as a bee cruising in a neat ellipse.
+            const bx = homeX
+                + Math.sin(t * rate + phase) * (60 + c * 80)
+                + Math.sin(t * rate * 2.7 + phase) * 11;
+
+            const by = homeY
+                + Math.cos(t * rate * 0.8 + phase) * (22 + a * 34)
+                + Math.sin(t * 3.1 + phase) * 6;
+
+            // Wings beat far faster than the body travels, and the
+            // beat is what sells it at this size.
+            const flap = Math.abs(Math.sin(t * 8.5 + phase));
+
+            const PX = 2;
+
+            // Forewing and hindwing, not one slab. A single
+            // rectangle per side just read as a coloured dash at
+            // this scale - it is the big-over-small silhouette
+            // that says butterfly, and it costs one extra rect.
+            const fore = Math.round(1 + flap * 2.4) * PX;
+            const hind = Math.max(PX, Math.round(fore * 0.55 / PX) * PX);
+
+            const px = Math.round(bx / PX) * PX;
+            const py = Math.round(by / PX) * PX;
+
+            ctx.globalAlpha = 0.9;
+            ctx.fillStyle = BUTTERFLY_COLORS[i % BUTTERFLY_COLORS.length];
+
+            // Left pair, then right pair, mirrored about a body
+            // one pixel-unit wide.
+            ctx.fillRect(px - fore, py - PX, fore, PX * 2);
+            ctx.fillRect(px - hind, py + PX, hind, PX);
+            ctx.fillRect(px + PX, py - PX, fore, PX * 2);
+            ctx.fillRect(px + PX, py + PX, hind, PX);
+
+            // Body last, over the wing roots, so the two halves
+            // read as one creature rather than as two flakes
+            // drifting alongside each other.
+            ctx.fillStyle = "#3a2f26";
+            ctx.fillRect(px, py - PX, PX, PX * 3);
 
         }
 
