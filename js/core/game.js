@@ -389,7 +389,7 @@ function startGame(mode = "campaign") {
 
     Game.damageNumbers = [];
 
-    Game.hazards = [];
+    clearHazards();
 
     Game.spawnTelegraphs = [];
 
@@ -403,6 +403,29 @@ function startGame(mode = "campaign") {
     generateArena();
 
     startWave();
+
+}
+
+// Drop every live hazard, and anything holding a reference to
+// one.
+//
+// Game.tauntDecoy is the reason this is a function rather than
+// three copies of `Game.hazards = []`. The Thief's Mirror Cloak
+// decoy clears that pointer from its OWN update(), when its timer
+// runs out and it detonates - so emptying the hazard list without
+// clearing the pointer left a decoy that could never detonate,
+// because the object was no longer being updated. It stayed
+// "alive" forever (isDead() just reports whether it detonated),
+// and getAggroSource() went on handing it to every non-boss enemy
+// - so a run abandoned as a Thief left the NEXT run's enemies all
+// walking toward a decoy that wasn't there, whatever class you
+// picked.
+//
+// Anything else that ends up holding a hazard belongs here too.
+function clearHazards() {
+
+    Game.hazards = [];
+    Game.tauntDecoy = null;
 
 }
 
@@ -500,6 +523,14 @@ function finishPlayerDeath() {
     // the curtain sweep across the swap, the same way it does
     // between waves.
     resetArenaToStart();
+
+    // The run is over, so nothing it left burning, frozen or
+    // taunting outlives it. startGame/resetGame both do this
+    // anyway, which is why the stale-decoy bug never actually
+    // reached gameplay from the death path - but leaving a dead
+    // run's decoy hanging off Game until the player happens to
+    // press a button is how that bug existed in the first place.
+    clearHazards();
 
     // Log the run's distance for the score modes (no-op in
     // Campaign/Custom); remember if it was a new record.
@@ -669,7 +700,7 @@ function jumpToWave(targetWave) {
 
     Game.enemies = [];
     Game.projectiles = [];
-    Game.hazards = [];
+    clearHazards();
     Game.spawnTelegraphs = [];
     Game.damageNumbers = [];
 
@@ -737,7 +768,7 @@ function resetGame() {
 
     Game.damageNumbers = [];
 
-    Game.hazards = [];
+    clearHazards();
 
     Game.spawnTelegraphs = [];
 
