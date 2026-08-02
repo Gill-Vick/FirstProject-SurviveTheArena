@@ -52,6 +52,28 @@ function auraGradient(rgb, radius, innerFrac, peakAlpha) {
 
 }
 
+// Is (px, py) within `pad` of the line segment (ax,ay)-(bx,by)?
+//
+// Standard point-to-segment projection, clamped to the segment so
+// a point beyond either end measures to that end rather than to
+// the infinite line. Used for the elite Vine Weaver's web, which
+// is a set of segments rather than a shape with an area.
+function pointNearSegment(px, py, ax, ay, bx, by, pad) {
+
+    const dx = bx - ax;
+    const dy = by - ay;
+
+    const lenSq = dx * dx + dy * dy;
+
+    if (lenSq === 0)
+        return Math.hypot(px - ax, py - ay) < pad;
+
+    const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq));
+
+    return Math.hypot(px - (ax + dx * t), py - (ay + dy * t)) < pad;
+
+}
+
 // Distance between two entities' centres.
 function gardenDist(a, b) {
 
@@ -1083,6 +1105,7 @@ class VineWeaver extends Enemy {
         this.type = "vineWeaver";
 
         this.tethered = [];
+        this.vineHitCooldown = 0;
 
     }
 
@@ -1111,6 +1134,59 @@ class VineWeaver extends Enemy {
         // Enemy.takeDamage can mirror a share of the hit onto
         // the others without knowing anything about weavers.
         this.tethered.forEach(a => { a.tetherSource = this; });
+
+        this.burnPlayerOnVines();
+
+    }
+
+    // An elite's vines hurt to cross.
+    //
+    // This was declared in GARDEN_ELITE and then never actually
+    // implemented - the constant was read nowhere, so the elite's
+    // whole signature did nothing. The web was drawn and that was
+    // all it did.
+    burnPlayerOnVines() {
+
+        if (!this.isElite || !GARDEN_ELITE.WEAVER_VINE_DAMAGE)
+            return;
+
+        if (this.vineHitCooldown > 0) {
+
+            this.vineHitCooldown -= Game.dt;
+
+            return;
+
+        }
+
+        const px = player.x + player.size / 2;
+        const py = player.y + player.size / 2;
+
+        const ax = this.x + this.size / 2;
+        const ay = this.y + this.size / 2;
+
+        const touching = this.tethered.some(t => {
+
+            if (t.isDead())
+                return false;
+
+            return pointNearSegment(
+                px, py,
+                ax, ay,
+                t.x + t.size / 2, t.y + t.size / 2,
+                GARDEN_ELITE.WEAVER_VINE_THICKNESS
+            );
+
+        });
+
+        if (!touching)
+            return;
+
+        // A cooldown rather than a hit per frame per vine: the web
+        // spans the whole arena, so without one a single step into
+        // it would land several hits at once.
+        this.vineHitCooldown = GARDEN_ELITE.WEAVER_VINE_HIT_COOLDOWN;
+
+        player.takeHit(ENEMY_LABELS.vineWeaver);
 
     }
 
@@ -1199,67 +1275,9 @@ class VineWeaver extends Enemy {
 // keeps growing, putting a soft clock on the wave. Ignore it and
 // the room gets smaller.
 
-class CreeperVine extends Enemy {
-
-    constructor(x, y) {
-
-        const cfg = GARDEN.creeperVine;
-
-        super(x, y, {
-            size: cfg.SIZE,
-            speed: 0,
-            hp: gardenHp(cfg),
-            color: cfg.COLOR
-        });
-
-        this.type = "creeperVine";
-        this.knockbackImmune = true;
-        this.stunImmune = true;
-
-        // Grows toward the middle from wherever it started.
-        const dx = canvas.width / 2 - x;
-        const dy = canvas.height / 2 - y;
-        const d = Math.hypot(dx, dy) || 1;
-
-        this.growX = dx / d;
-        this.growY = dy / d;
-
-        this.sinceSegment = 0;
-
-    }
-
-    move() {
-
-        const cfg = GARDEN.creeperVine;
-
-        // Elites simply arrive much sooner - the vine is a clock,
-        // so a faster clock is the whole upgrade.
-        const step = cfg.GROW_PER_SEC * (Game.dt / 1000) *
-            (this.isElite ? GARDEN_ELITE.VINE_GROW_MULT : 1);
-
-        this.x += this.growX * step;
-        this.y += this.growY * step;
-
-        this.sinceSegment += step;
-
-        if (this.sinceSegment < 52)
-            return;
-
-        this.sinceSegment = 0;
-
-        Game.hazards.push(new BramblePatch(
-            this.x + this.size / 2,
-            this.y + this.size / 2,
-            99000
-        ));
-
-    }
-
-}
-
-// Types the Gardener Shade is allowed to bring back. Bosses and
-// the vine are excluded - a replanted boss would be a different
-// fight, and a replanted vine would never stop.
+// Types the Gardener Shade is allowed to bring back. Bosses are
+// excluded - a replanted boss would be a different fight - and so
+// is the Rose Knight, which arrives four at a time already.
 const GARDEN_REPLANTABLE = new Set([
     "boar", "hedgeWarden", "rootHulk",
     "brambleArcher", "sporePuffer",

@@ -229,7 +229,8 @@ class ThornMatron extends Enemy {
             Game.hazards.push(new BramblePatch(
                 Math.max(20, Math.min(canvas.width - 20, this.x + Math.cos(a) * r)),
                 Math.max(20, Math.min(canvas.height - 20, this.y + Math.sin(a) * r)),
-                8500
+                8500,
+                ACT2_BOSSES.matron.THORN_SPROUT_MS
             ));
 
         }
@@ -238,19 +239,49 @@ class ThornMatron extends Enemy {
 
     bloom() {
 
-        const count = ACT2_BOSSES.matron.BLOOM_COUNT;
+        const cfg = ACT2_BOSSES.matron;
+        const count = cfg.BLOOM_COUNT;
+        const size = GARDEN.wispSwarm.SIZE;
+
+        // Fanned out in front of her, toward the player, rather
+        // than in a row at her feet.
+        const facing = Math.atan2(
+            player.y - this.y,
+            player.x - this.x
+        );
 
         for (let i = 0; i < count; i++) {
 
-            const wisp = new Wisp(
-                this.x + (i - (count - 1) / 2) * 42,
-                this.y + 30
-            );
+            const a = facing + (i - (count - 1) / 2) *
+                      (cfg.BLOOM_ARC_SPREAD / Math.max(1, count - 1));
 
-            wisp.emergeTimer = GARDEN.EMERGE_MS;
+            const x = Math.max(10, Math.min(canvas.width - size - 10,
+                this.x + Math.cos(a) * cfg.BLOOM_ARC_RADIUS));
 
-            Game.enemies.push(wisp);
-            Game.enemiesRemaining++;
+            const y = Math.max(10, Math.min(canvas.height - size - 10,
+                this.y + Math.sin(a) * cfg.BLOOM_ARC_RADIUS));
+
+            // Warned first, exactly like the necromancer's
+            // skeletons and the King's reinforcements. Nothing
+            // exists to be hit - or to hit you - until it fires,
+            // which is the cleanest form the warning can take,
+            // and it replaces the old emerge timer that only
+            // started once the wisp was already standing there.
+            Game.spawnTelegraphs.push(new SpawnWarning(
+
+                x + size / 2,
+                y + size / 2,
+                size / 2 + 12,
+                cfg.BLOOM_WARN_MS,
+
+                () => {
+
+                    Game.enemies.push(new Wisp(x, y));
+                    Game.enemiesRemaining++;
+
+                }
+
+            ));
 
         }
 

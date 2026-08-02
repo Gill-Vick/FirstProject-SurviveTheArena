@@ -69,10 +69,18 @@ class GardenGroundHazard {
 // Laid by a charging Thornback Boar and by the Creeper Vine.
 // Individually trivial; a fight's worth of them carves the arena
 // into corridors, which is the point.
+//
+// Drawn as bright flowers rather than dark thorns, everywhere,
+// always. There used to be two looks - dark thorns on bare paving
+// and blooms anywhere they'd otherwise be lost - which meant the
+// same hazard read two different ways depending on what happened
+// to be under it. One loud, unmissable look is both clearer and
+// simpler: a thing that hurts to stand in should never be
+// camouflaged by the ground it is standing on.
 
 class BramblePatch extends GardenGroundHazard {
 
-    constructor(x, y, life) {
+    constructor(x, y, life, sproutMs = 0) {
 
         super(x, y, life);
 
@@ -82,47 +90,33 @@ class BramblePatch extends GardenGroundHazard {
         // Rolled once so the patch doesn't crawl frame to frame.
         this.seed = Math.random() * 1000;
 
-        // Dark thorns read perfectly on pale paving and vanish
-        // completely on grass, or on top of a bush, a bench or
-        // the fountain - which is exactly where a player is most
-        // likely to walk into one they never saw.
+        // Optional harmless windup before the patch opens.
         //
-        // Anywhere the dark version wouldn't be legible, the
-        // patch blooms instead: same hitbox, same rules, drawn as
-        // bright flowers that stand out against green and against
-        // clutter. Decided once at spawn, because the ground
-        // underneath it never changes.
-        this.bloom = !this.onBarePaving();
+        // Defaults to none, so a boar's charge trail and the
+        // Heartwood's canopy are unchanged - both are already
+        // telegraphed by the thing that made them. It exists for
+        // the Thorn Matron, who plants a fistful of these at
+        // range with nothing else to warn you.
+        this.sprout = sproutMs;
+        this.sproutMax = sproutMs;
 
     }
 
-    // True only over open paving, clear of any prop.
-    onBarePaving() {
+    update() {
 
-        // Outside the green arenas there is no planted border and
-        // no bushes, so thorns are always on stone.
-        if (!isGreenTheme())
-            return true;
+        if (this.sprout > 0) {
 
-        const borderX = canvas.width * GARDEN_BORDER;
-        const borderY = canvas.height * 0.11;
+            // Still opening: it ages, but it cannot hurt anyone
+            // yet, so the base class's contact check is skipped
+            // entirely rather than gated inside touchesPlayer.
+            this.sprout -= Game.dt;
+            this.life -= Game.dt;
 
-        const onGrass =
-            this.x < borderX || this.x > canvas.width - borderX ||
-            this.y < borderY || this.y > canvas.height - borderY;
+            return;
 
-        if (onGrass)
-            return false;
+        }
 
-        // Anything sitting on the paving hides them just as well
-        // as grass does.
-        return !(Arena.props ?? []).some(pr => {
-
-            const reach = (pr.r ?? Math.max(pr.w ?? 0, pr.h ?? 0) / 2 ?? 0) + this.radius;
-
-            return Math.hypot(pr.x - this.x, pr.y - this.y) < reach;
-
-        });
+        super.update();
 
     }
 
@@ -137,12 +131,38 @@ class BramblePatch extends GardenGroundHazard {
 
     draw() {
 
+        // Sprouting: a closing ring and a bud, so the ground that
+        // is about to become dangerous is marked before it is.
+        if (this.sprout > 0) {
+
+            const t = 1 - this.sprout / this.sproutMax;
+
+            ctx.save();
+
+            ctx.strokeStyle = `rgba(255, 95, 162, ${0.35 + t * 0.5})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius * (1.6 - t * 0.6), 0, Math.PI * 2);
+            ctx.stroke();
+
+            // The bud swells as it opens.
+            const bud = Math.round(2 + t * 4);
+
+            ctx.fillStyle = "#ff5fa2";
+            ctx.fillRect(Math.round(this.x) - bud, Math.round(this.y) - bud, bud * 2, bud * 2);
+
+            ctx.restore();
+
+            return;
+
+        }
+
         // Fades out over its last second rather than blinking
         // away, so the arena visibly re-opens.
         const fade = Math.min(1, this.life / 900);
 
         ctx.save();
-        ctx.globalAlpha = (this.bloom ? 0.95 : 0.75) * fade;
+        ctx.globalAlpha = 0.95 * fade;
 
         for (let i = 0; i < 7; i++) {
 
@@ -152,27 +172,13 @@ class BramblePatch extends GardenGroundHazard {
             const bx = Math.round(this.x + Math.cos(a) * r);
             const by = Math.round(this.y + Math.sin(a) * r);
 
-            if (this.bloom) {
+            // Four bright petals round a hot centre.
+            ctx.fillStyle = "#ff5fa2";
+            ctx.fillRect(bx - 5, by - 2, 10, 4);
+            ctx.fillRect(bx - 2, by - 5, 4, 10);
 
-                // Four bright petals round a hot centre. Big and
-                // loud on purpose - this version exists precisely
-                // because its surroundings are busy.
-                ctx.fillStyle = "#ff5fa2";
-                ctx.fillRect(bx - 5, by - 2, 10, 4);
-                ctx.fillRect(bx - 2, by - 5, 4, 10);
-
-                ctx.fillStyle = "#ffe066";
-                ctx.fillRect(bx - 2, by - 2, 4, 4);
-
-                continue;
-
-            }
-
-            ctx.fillStyle = i % 2 ? "#3d5a2a" : "#2c4420";
-            ctx.fillRect(bx - 3, by - 3, 6, 6);
-
-            ctx.fillStyle = "#7a2f42";
-            ctx.fillRect(bx - 1, by - 1, 2, 2);
+            ctx.fillStyle = "#ffe066";
+            ctx.fillRect(bx - 2, by - 2, 4, 4);
 
         }
 
@@ -184,9 +190,12 @@ class BramblePatch extends GardenGroundHazard {
 
 // Cached ring gradients, keyed by the inner/outer pair.
 //
-// The bosses only use a handful of distinct ring sizes, so a few
-// objects cover every ring in the game. Built at full alpha and
-// faded with globalAlpha, so the cached object never changes.
+// The bosses and the Root Hulk only use a handful of distinct
+// ring sizes, so a few objects cover every ring in the game.
+// Built at full alpha and faded with globalAlpha, so the cached
+// object never has to change.
+//
+// This has to live ABOVE RootRing.draw, which is its only caller.
 const RING_GRADIENT_CACHE = new Map();
 
 function ringGradient(inner, outer) {

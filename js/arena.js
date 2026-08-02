@@ -466,6 +466,19 @@ function generateRoseCourt(variant = "garden") {
 
     }
 
+    // Lantern posts standing on their own between the trees -
+    // the garden's light, and deliberately not bolted to a
+    // trunk the way the old wall brackets were.
+    //
+    // Placed BEFORE the trees, because the trees are the ones
+    // that have to give way (below).
+    [
+        { x: W * 0.26, y: H * 0.34 },
+        { x: W * 0.26, y: H * 0.80 },
+        { x: W * 0.74, y: H * 0.34 },
+        { x: W * 0.74, y: H * 0.80 }
+    ].slice(0, V.lanterns).forEach(l => Arena.torches.push({ x: l.x, y: l.y }));
+
     treeSpots.forEach(t => {
 
         // occWidth/top describe the pine's actual silhouette so
@@ -477,6 +490,25 @@ function generateRoseCourt(variant = "garden") {
                           + t.width * TREE_CANOPY_OVERLAP
                           - t.width * TREE_CANOPY_H;
 
+        // A pine is nearly three times as tall as its base is
+        // wide, so the inner rows the wilder variants add stand
+        // clear of the lamp posts on the floor and then lean
+        // straight over them anyway. Any tree whose canopy box
+        // covers a lantern is dropped rather than moved - the
+        // rows are what make the maze and the grove read as
+        // overgrown, and nudging one tree aside only pushes the
+        // overlap onto its neighbour.
+        const half = t.width * TREE_CANOPY_HALF;
+
+        const coversLantern = Arena.torches.some(l =>
+            Math.abs(l.x - t.x) < half + LANTERN_CLEARANCE &&
+            l.y > canopyTop - LANTERN_CLEARANCE &&
+            l.y < t.y + 40 + LANTERN_CLEARANCE
+        );
+
+        if (coversLantern)
+            return;
+
         Arena.pillars.push({
             x: t.x,
             y: t.y,
@@ -487,16 +519,6 @@ function generateRoseCourt(variant = "garden") {
         });
 
     });
-
-    // Lantern posts standing on their own between the trees -
-    // the garden's light, and deliberately not bolted to a
-    // trunk the way the old wall brackets were.
-    [
-        { x: W * 0.26, y: H * 0.34 },
-        { x: W * 0.26, y: H * 0.80 },
-        { x: W * 0.74, y: H * 0.34 },
-        { x: W * 0.74, y: H * 0.80 }
-    ].slice(0, V.lanterns).forEach(l => Arena.torches.push({ x: l.x, y: l.y }));
 
     // Ground dressing. None of this occludes or collides - it is
     // there to make the place read as a garden rather than a
@@ -3363,6 +3385,10 @@ const TREE_TRUNK_HALF = 0.075;
 const TREE_CANOPY_H = 1.7;
 const TREE_CANOPY_OVERLAP = 0.18;
 const TREE_CANOPY_HALF = 0.62;
+
+// How much daylight a lamp post needs around it before a tree is
+// allowed to stand there (see generateRoseCourt).
+const LANTERN_CLEARANCE = 26;
 
 // Three overlapping triangles that widen downward - the conifer
 // silhouette. Fractions are of the total canopy height/half-width.

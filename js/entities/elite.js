@@ -67,6 +67,17 @@ function makeElite(enemy) {
             enemy.eliteWardTimer = ELITE.LANCER_WARD_INTERVAL;
             break;
 
+        // More petals on the guard, and they grow back on a
+        // much shorter clock (read live in roseKnight.js). Set
+        // here rather than in the constructor because isElite
+        // isn't true yet while that runs.
+        case "roseKnight":
+            enemy.petals = GARDEN_ELITE.KNIGHT_GUARD_PETALS;
+            enemy.regrow =
+                GARDEN.roseKnight.GUARD_REGROW_MS *
+                GARDEN_ELITE.KNIGHT_GUARD_REGROW_MULT;
+            break;
+
         // A smaller, faster blink-assassin: undo the generic
         // size-up and shrink it below stock instead. Tempo
         // scales are read in shade.js.

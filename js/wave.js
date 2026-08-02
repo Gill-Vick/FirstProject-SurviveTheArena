@@ -33,7 +33,7 @@ const ENEMY_CLASSES = {
     pollenDrone: PollenDrone,
     gardenerShade: GardenerShade,
     vineWeaver: VineWeaver,
-    creeperVine: CreeperVine,
+    roseKnight: RoseKnight,
 
     thornMatron: ThornMatron,
     greenwarden: Greenwarden,
@@ -75,7 +75,7 @@ const SPAWN_GAP = {
     boar: 400, hedgeWarden: 600, rootHulk: 600,
     brambleArcher: 450, sporePuffer: 500, wisp: 200,
     pollenDrone: 600, gardenerShade: 600, vineWeaver: 600,
-    creeperVine: 700,
+    roseKnight: 600,
 
     thornMatron: 500, greenwarden: 500, heartwood: 500, herald: 500,
 
@@ -86,10 +86,6 @@ const SPAWN_GAP = {
 
 // Bosses never roll elite. (Kegs used to be excluded too,
 // but elite kegs now have their own payoff - cluster bombs.)
-//
-// The Creeper Vine is excluded for a different reason: it is
-// arena furniture with a health bar rather than a combatant, so
-// an elite one would just be a longer chore.
 const NO_ELITE = new Set([
     "boss", "knight", "royalMagus", "prince", "princess", "king",
     "thornMatron", "greenwarden", "heartwood", "herald"
@@ -101,7 +97,10 @@ const NO_ELITE = new Set([
 // at its own feet. Two of those overlapping leaves nowhere at all
 // to stand, which is not difficulty, it is a coin flip - so the
 // budget hands out at most one.
-const ELITE_CAP = { rootHulk: GARDEN_ELITE.HULK_MAX_PER_WAVE };
+const ELITE_CAP = {
+    rootHulk: GARDEN_ELITE.HULK_MAX_PER_WAVE,
+    roseKnight: GARDEN_ELITE.KNIGHT_MAX_PER_WAVE
+};
 
 // =====================================
 // Boss Waves
@@ -412,11 +411,11 @@ const GARDEN_SQUADS = [
     ["rootHulk", "rootHulk", "hedgeWarden", "sporePuffer", "vineWeaver", "pollenDrone"],
     ["boar", "boar", "rootHulk", "sporePuffer", "brambleArcher", "gardenerShade"],
     ["hedgeWarden", "rootHulk", "wisp", "wisp", "wisp", "wisp", "sporePuffer", "vineWeaver"],
-    ["boar", "rootHulk", "brambleArcher", "sporePuffer", "gardenerShade", "pollenDrone", "creeperVine"],
+    ["boar", "rootHulk", "brambleArcher", "sporePuffer", "gardenerShade", "pollenDrone"],
 
     // 26-29 - the full force.
     ["boar", "boar", "hedgeWarden", "rootHulk", "brambleArcher", "pollenDrone", "vineWeaver"],
-    ["rootHulk", "hedgeWarden", "boar", "sporePuffer", "brambleArcher", "gardenerShade", "creeperVine"],
+    ["rootHulk", "hedgeWarden", "boar", "sporePuffer", "brambleArcher", "gardenerShade"],
     ["boar", "wisp", "wisp", "wisp", "wisp", "sporePuffer", "pollenDrone", "vineWeaver", "rootHulk"],
     ["boar", "hedgeWarden", "rootHulk", "brambleArcher", "sporePuffer",
      "pollenDrone", "gardenerShade", "vineWeaver"]
@@ -522,12 +521,70 @@ function emergencePoint() {
 
 }
 
-function spawnSquad(types) {
+// The Rose Knights that hold the corners of a wave, on top of
+// whatever squad it was already fielding.
+//
+// From the hedge maze on - which is to say from the wave after
+// the Thorn Matron - every non-boss wave gets four of them, one
+// per corner. This is a flat difficulty increase by design: the
+// squads are unchanged, the knights are extra.
+function cornerGuardsForWave(wave) {
 
-    Game.enemiesRemaining = types.length;
-    Game.eliteEligibleLeft = types.filter(t => !NO_ELITE.has(t)).length;
+    if (wave < WAVES.ARENA_MAZE_START)
+        return [];
+
+    return ["roseKnight", "roseKnight", "roseKnight", "roseKnight"];
+
+}
+
+// The four corners, inset far enough that a knight's charge
+// telegraph is fully on screen before it starts moving.
+function cornerPoints() {
+
+    const m = 96;
+
+    return [
+        { x: m, y: m },
+        { x: canvas.width - m, y: m },
+        { x: m, y: canvas.height - m },
+        { x: canvas.width - m, y: canvas.height - m }
+    ];
+
+}
+
+// `guards` land at fixed corners rather than at emergence points
+// - four knights erupting out of random bushes would read as
+// more of the squad, and the whole point is that they close in
+// from the edges of a fight already in progress.
+function spawnSquad(types, guards = []) {
+
+    Game.enemiesRemaining = types.length + guards.length;
+
+    Game.eliteEligibleLeft =
+        types.concat(guards).filter(t => !NO_ELITE.has(t)).length;
 
     const token = Game.runToken;
+
+    const corners = cornerPoints();
+
+    guards.forEach((type, i) => {
+
+        const at = corners[i % corners.length];
+        const size = getEnemySize(type);
+
+        Game.spawnTelegraphs.push(new SpawnWarning(
+            at.x, at.y, size, GARDEN.EMERGE_MS,
+            () => {
+
+                if (Game.runToken !== token || !isRunActive())
+                    return;
+
+                spawnEnemyAt(type, at.x - size / 2, at.y - size / 2);
+
+            }
+        ));
+
+    });
 
     types.forEach(type => {
 
@@ -636,7 +693,7 @@ function startNormalWave() {
     // Act II fields squads instead of streams - see spawnSquad.
     if (Game.wave >= WAVES.GARDEN_START && Game.wave < WAVES.STORM_START) {
 
-        spawnSquad(squadForWave(Game.wave));
+        spawnSquad(squadForWave(Game.wave), cornerGuardsForWave(Game.wave));
 
         return;
 
@@ -658,7 +715,7 @@ function startNormalWave() {
                 "boar", "rootHulk", "pollenDrone"
             );
 
-        spawnSquad(squad);
+        spawnSquad(squad, cornerGuardsForWave(Game.wave));
 
         return;
 

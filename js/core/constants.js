@@ -923,7 +923,7 @@ const COINS = {
     pollenDrone: 12,
     gardenerShade: 12,
     vineWeaver: 11,
-    creeperVine: 5,
+    roseKnight: 16,
 
     thornMatron: 130,
     greenwarden: 150,
@@ -1858,7 +1858,7 @@ const GARDEN = {
         SIZE: 40, SPEED: 0, COLOR: "#4a3f6b",
         // Enormous, because the point is that it cannot be killed
         // by accident. You have to go and deal with it.
-        HP_BASE: 140, HP_EVERY: 1,
+        HP_BASE: 70, HP_EVERY: 1,
         // Works fast. It is invisible, harmless to touch and very
         // hard to kill, so all the pressure it applies has to
         // come from how quickly the dead come back.
@@ -1875,10 +1875,49 @@ const GARDEN = {
         PREFERRED_RANGE: 320
     },
 
-    creeperVine: {
-        SIZE: 34, COLOR: "#4f7a3a",
-        HP_BASE: 20, HP_EVERY: 2,
-        GROW_PER_SEC: 26
+    // Rose Knight. The garden's answer to the castle's Lancer,
+    // and a straight upgrade on it: longer reach, a guard that
+    // grows back, and a charge that leaves the lane it crossed
+    // full of bramble.
+    //
+    // Four of these arrive at the corners of every wave from the
+    // hedge maze on (see cornerGuardsForWave), on top of whatever
+    // squad the wave was already fielding - so they are meant to
+    // be fought as a pressure the arena is under rather than as
+    // four more things in the pile.
+    //
+    // Like the Lancer, its body is harmless. Everything it can do
+    // to you happens along the lance or in the thorns it plants,
+    // both of which are drawn before they land. Four units with
+    // always-on contact damage in a one-hit-death game would be a
+    // different and much worse thing.
+    roseKnight: {
+        SIZE: 44, SPEED: 1.35, COLOR: "#b5304c",
+        HP_BASE: 26, HP_EVERY: 2,
+
+        // Petal guard. Soaks whole hits like the Lancer's shield,
+        // but grows a petal back on a timer, so chipping it once
+        // and walking away doesn't work.
+        GUARD_PETALS: 3,
+        GUARD_REGROW_MS: 5200,
+
+        // Thrust: plant, brace, run the lance out.
+        THRUST_RANGE: 140,
+        THRUST_WIDTH: 36,
+        THRUST_WINDUP_MS: 520,
+        THRUST_MS: 240,
+        THRUST_COOLDOWN: 2100,
+
+        // Charge: the thrust always flows into it, and it lays
+        // thorns the whole way.
+        CHARGE_WINDUP_MS: 420,
+        CHARGE_MS: 380,
+        CHARGE_SPEED: 9.4,
+        CHARGE_WIDTH: 46,
+        TRAIL_EVERY_PX: 46,
+        TRAIL_MS: 5200,
+
+        LANCE_LENGTH: 52
     }
 
 };
@@ -1942,9 +1981,25 @@ const GARDEN_ELITE = {
 
     // Vine Weaver: the vines themselves hurt to cross.
     WEAVER_VINE_DAMAGE: true,
+    WEAVER_VINE_THICKNESS: 14,
+    // The web spans the arena, so a hit-per-frame-per-vine would
+    // be several hits for one step into it.
+    WEAVER_VINE_HIT_COOLDOWN: 900,
 
-    // Creeper Vine: simply grows far faster.
-    VINE_GROW_MULT: 2.4
+    // Rose Knight: the guard is the fight, so the elite's guard
+    // grows back faster than an unfocused player can break it -
+    // you have to burst it down inside one window or you never
+    // get through at all. And its charge finishes by bursting
+    // into a ring of thorns, so the place it stopped is not
+    // somewhere you want to have followed it to.
+    KNIGHT_GUARD_PETALS: 5,
+    KNIGHT_GUARD_REGROW_MULT: 0.42,
+    KNIGHT_BLOOM_THORNS: 8,
+    KNIGHT_BLOOM_RADIUS: 74,
+    // Four knights arrive every wave. Four of them with guards
+    // that outpace your damage is not a harder wave, it is a
+    // wall - so at most this many of the four roll elite.
+    KNIGHT_MAX_PER_WAVE: 2
 
 };
 
@@ -1989,6 +2044,19 @@ const ACT2_BOSSES = {
         LASH_MIN_COOLDOWN: 850,
         BLOOM_COOLDOWN: 6500,
         BLOOM_COUNT: 3,
+        // Warning before each wisp lands, and before each thorn
+        // patch becomes dangerous. She seeds a lot of ground at
+        // once from across the arena, so both need to announce
+        // themselves - damage appearing under the player's feet
+        // with no tell is the one thing a telegraphed boss must
+        // never do.
+        BLOOM_WARN_MS: 750,
+        THORN_SPROUT_MS: 650,
+        // Spawn telegraphs draw under the cast, so the wisps go
+        // out on an arc wide enough to clear her own body -
+        // otherwise she stands on top of her own warning.
+        BLOOM_ARC_RADIUS: 118,
+        BLOOM_ARC_SPREAD: 1.15,
         // Below half: the fan doubles up and the thorns come
         // thicker.
         PHASE2_COOLDOWN_MULT: 0.62,
@@ -2203,7 +2271,7 @@ const ENEMY_LABELS = {
     pollenDrone: "a Pollen Drone",
     gardenerShade: "a Gardener Shade",
     vineWeaver: "a Vine Weaver",
-    creeperVine: "a Creeper Vine",
+    roseKnight: "a Rose Knight",
 
     thornMatron: "the Thorn Matron",
     greenwarden: "the Greenwarden",
@@ -3157,7 +3225,7 @@ const BESTIARY_BASE_ORDER = [
     // Act II - the grounds.
     "boar", "hedgeWarden", "rootHulk", "brambleArcher",
     "sporePuffer", "wisp", "pollenDrone", "gardenerShade",
-    "vineWeaver", "creeperVine",
+    "vineWeaver", "roseKnight",
 
     // Act III - the storm.
     "cherub", "gateWarden", "censer", "scribe", "choir", "seraphBlade"
@@ -3509,14 +3577,14 @@ const BESTIARY = {
         baseSpeed: GARDEN.vineWeaver.SPEED
     },
 
-    creeperVine: {
-        name: "Creeper Vine", color: GARDEN.creeperVine.COLOR, size: GARDEN.creeperVine.SIZE,
+    roseKnight: {
+        name: "Rose Knight", color: GARDEN.roseKnight.COLOR, size: GARDEN.roseKnight.SIZE,
         isBoss: false,
-        desc: "Not a fighter. A deadline.",
-        behavior: "Grows inward from the edge and never stops, leaving permanent bramble behind it. Ignore it and the arena keeps getting smaller.",
-        hpAtWave(w) { return gardenBestiaryHp(GARDEN.creeperVine, w); },
-        hpScale: `${GARDEN.creeperVine.HP_BASE} HP at wave ${WAVES.GARDEN_START}, gaining 1 every ${GARDEN.creeperVine.HP_EVERY} waves`,
-        baseSpeed: 0
+        desc: "The garden keeps its own knights.",
+        behavior: `Four hold the corners of every wave from the hedge maze on, arriving alongside whatever else the wave fields. Braces and runs a ${GARDEN.roseKnight.THRUST_RANGE}px lance out, then flows straight into a charge that lays thorns the whole way. Its body is harmless - only the lance and the thorns are not. Behind a guard of ${GARDEN.roseKnight.GUARD_PETALS} petals that eats whole hits and grows one back every ${(GARDEN.roseKnight.GUARD_REGROW_MS / 1000).toFixed(1)}s, so chipping at it between fights gets you nowhere.`,
+        hpAtWave(w) { return gardenBestiaryHp(GARDEN.roseKnight, w); },
+        hpScale: `${GARDEN.roseKnight.HP_BASE} HP at wave ${WAVES.GARDEN_START}, gaining 1 every ${GARDEN.roseKnight.HP_EVERY} waves, behind ${GARDEN.roseKnight.GUARD_PETALS} petals`,
+        baseSpeed: GARDEN.roseKnight.SPEED
     },
 
     // =====================================
@@ -3751,9 +3819,9 @@ const BESTIARY_ELITE_TWISTS = {
         behavior: "Binds the field exactly as any weaver does, and the vines themselves hurt to cross."
     },
 
-    creeperVine: {
-        desc: "The same deadline, arriving much sooner.",
-        behavior: `Grows inward more than twice as fast. The arena closes in on a clock you can no longer afford to ignore.`
+    roseKnight: {
+        desc: "The guard grows back faster than you can break it.",
+        behavior: `Carries ${GARDEN_ELITE.KNIGHT_GUARD_PETALS} petals instead of ${GARDEN.roseKnight.GUARD_PETALS}, and regrows them well over twice as fast - chip damage never gets through, so it has to come down inside one window. Its charge ends by bursting into a ring of thorns.`
     },
 
     // --- Act III ---
