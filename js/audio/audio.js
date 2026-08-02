@@ -372,7 +372,16 @@ const Sound = {
 
         el.addEventListener("error", () => {
 
-            this.brokenMusic[id] = true;
+            // Only blacklist a track that never managed to play
+            // at all. An error part-way through a bed that has
+            // been running for minutes is a stall, not a missing
+            // file, and the watchdog above will recover it -
+            // blacklisting it here is what made a single hiccup
+            // silence the track permanently.
+            if (el.currentTime === 0)
+                this.brokenMusic[id] = true;
+            else
+                return;
 
             // Drop the dead element's fade too, or it sits in
             // the fade list ramping the volume of something
@@ -383,6 +392,19 @@ const Sound = {
                 this.musicEl = null;
                 this.musicId = null;
             }
+
+        });
+
+        // Belt and braces alongside el.loop: some browsers fire
+        // `ended` on a looping element anyway if the stream
+        // hiccups at the seam.
+        el.addEventListener("ended", () => {
+
+            if (this.musicEl !== el)
+                return;
+
+            el.currentTime = 0;
+            el.play().catch(() => {});
 
         });
 
@@ -503,12 +525,56 @@ const Sound = {
 
     },
 
+    // The music bed has to survive a long fight.
+    //
+    // Every bed is created with el.loop = true, but a loop flag
+    // is not a guarantee. A long WAV that stalls mid-stream, or
+    // an element that errors part-way through, simply stops - and
+    // the error handler then blacklisted the track for the rest
+    // of the session, so it never came back. On a long boss fight
+    // that reads as the music quietly giving up.
+    //
+    // This is the backstop: if the current bed has stopped and
+    // nothing asked it to stop, start it again. Only a track
+    // CHANGE ever really ends a bed now.
+
+    tickMusicWatchdog() {
+
+        const el = this.musicEl;
+
+        if (!el || document.hidden || this.isMuted())
+            return;
+
+        // An element being faded out is on its way out on
+        // purpose - leave it alone.
+        if (this.fades.some(f => f.el === el && f.stopAtEnd))
+            return;
+
+        if (!el.paused && !el.ended)
+            return;
+
+        // Seek back explicitly. An element that reached the end
+        // without looping will not restart from play() alone, and
+        // this costs nothing when it was merely paused.
+        try {
+            el.currentTime = 0;
+        } catch (err) {
+            // Some browsers throw if metadata isn't ready yet;
+            // the play() below still recovers it next frame.
+        }
+
+        el.play().catch(() => {});
+
+    },
+
     // Ticked once per frame from the game loop. Uses real ms
     // (Game.dt) so fades run at the same wall-clock rate on
     // any refresh rate - same convention as everything else
     // that counts in ms.
 
     update() {
+
+        this.tickMusicWatchdog();
 
         if (!this.fades.length)
             return;

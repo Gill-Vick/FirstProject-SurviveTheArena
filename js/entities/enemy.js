@@ -179,6 +179,23 @@ class Enemy {
 
     }
 
+    // True when this enemy should leave no trace on screen at
+    // all - not just an invisible body, but no contact shadow and
+    // no x-ray outline either.
+    //
+    // A hook rather than a Gardener-Shade check in the arena
+    // passes, because "invisible" turned out to mean three
+    // separate things in three separate files: the shade drew
+    // nothing itself, then drawEntityShadows painted an ellipse
+    // under it and drawOccludedOutlines drew a red outline
+    // through the trees. Concealment has to be asked once and
+    // answered everywhere.
+    isConcealed() {
+
+        return false;
+
+    }
+
     // Called once from onEnemyKilled, after the kill is credited.
     // A hook rather than a chain of type checks in game.js, so an
     // enemy that reacts to its own death (the elite Wisp splitting
@@ -234,6 +251,12 @@ class Enemy {
         if (this.pollenTimer > 0)
             this.pollenTimer -= Game.dt;
 
+        // Elite wisps whip the squad along as they die (see
+        // Wisp.onDeath). Ticked here so it expires on its own
+        // like every other timed buff.
+        if (this.wispHasteTimer > 0)
+            this.wispHasteTimer -= Game.dt;
+
         // Chill scales down however far move() actually
         // travelled this frame. Doing it here rather than
         // inside each move() means it works on every enemy -
@@ -267,6 +290,15 @@ class Enemy {
 
                 this.x = preX + (this.x - preX) * GARDEN.pollenDrone.AURA_SPEED_MULT;
                 this.y = preY + (this.y - preY) * GARDEN.pollenDrone.AURA_SPEED_MULT;
+
+            }
+
+            if (this.wispHasteTimer > 0) {
+
+                const m = GARDEN_ELITE.WISP_DEATH_HASTE_MULT;
+
+                this.x = preX + (this.x - preX) * m;
+                this.y = preY + (this.y - preY) * m;
 
             }
 
@@ -406,12 +438,25 @@ class Enemy {
         if (this.emergeTimer > 0)
             return;
 
-        // Vine Weaver tether: a share of this hit lands on
-        // everything else on the same vine. Guarded so a mirrored
-        // hit can't mirror itself back - the weaver writes
-        // straight to hp on the far end for the same reason.
-        if (this.tetherSource && !this.tetherSource.isDead())
+        // Vine Weaver tether: the hit is SPLIT across every end
+        // of the vine rather than copied along it, so this target
+        // only takes its own share. Six damage into a chain of
+        // six is one each.
+        //
+        // The weaver writes straight to hp on the far ends, so a
+        // split hit can't re-enter here and recurse.
+        if (this.tetherSource && !this.tetherSource.isDead()) {
+
+            const mine = Math.max(
+                1,
+                Math.floor(amount * this.tetherSource.incomingFraction())
+            );
+
             this.tetherSource.shareDamage(this, amount);
+
+            amount = mine;
+
+        }
 
         // Siblings fight - class-specific damage scale (see
         // SIBLINGS_CLASS_DAMAGE_SCALE in constants.js), applied

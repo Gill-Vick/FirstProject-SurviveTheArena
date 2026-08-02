@@ -226,6 +226,29 @@ class Projectile {
 
                 const dealt = Math.ceil(this.damage * multiplier);
 
+                // A charging elite Thornback Boar shatters what
+                // hits it - the projectile is spent, but nothing
+                // lands. Duck-typed rather than an instanceof so
+                // anything else can opt in later just by
+                // answering the question.
+                if (typeof enemy.breaksProjectiles === "function" &&
+                    enemy.breaksProjectiles()) {
+
+                    // Spend the shot without dealing anything.
+                    // life = 0 + resolve() is how a normal hit
+                    // retires a projectile (isDead reads life, not
+                    // a flag), so a shattered one has to retire
+                    // the same way or it flies on invisibly.
+                    this.life = 0;
+
+                    Particle.createHitBurst(px, py);
+
+                    this.resolve(px, py, enemy);
+
+                    return;
+
+                }
+
                 enemy.takeDamage(dealt, this.crit);
 
                 enemy.applyKnockback(px, py, 7);

@@ -82,6 +82,48 @@ class BramblePatch extends GardenGroundHazard {
         // Rolled once so the patch doesn't crawl frame to frame.
         this.seed = Math.random() * 1000;
 
+        // Dark thorns read perfectly on pale paving and vanish
+        // completely on grass, or on top of a bush, a bench or
+        // the fountain - which is exactly where a player is most
+        // likely to walk into one they never saw.
+        //
+        // Anywhere the dark version wouldn't be legible, the
+        // patch blooms instead: same hitbox, same rules, drawn as
+        // bright flowers that stand out against green and against
+        // clutter. Decided once at spawn, because the ground
+        // underneath it never changes.
+        this.bloom = !this.onBarePaving();
+
+    }
+
+    // True only over open paving, clear of any prop.
+    onBarePaving() {
+
+        // Outside the green arenas there is no planted border and
+        // no bushes, so thorns are always on stone.
+        if (!isGreenTheme())
+            return true;
+
+        const borderX = canvas.width * GARDEN_BORDER;
+        const borderY = canvas.height * 0.11;
+
+        const onGrass =
+            this.x < borderX || this.x > canvas.width - borderX ||
+            this.y < borderY || this.y > canvas.height - borderY;
+
+        if (onGrass)
+            return false;
+
+        // Anything sitting on the paving hides them just as well
+        // as grass does.
+        return !(Arena.props ?? []).some(pr => {
+
+            const reach = (pr.r ?? Math.max(pr.w ?? 0, pr.h ?? 0) / 2 ?? 0) + this.radius;
+
+            return Math.hypot(pr.x - this.x, pr.y - this.y) < reach;
+
+        });
+
     }
 
     touchesPlayer() {
@@ -100,7 +142,7 @@ class BramblePatch extends GardenGroundHazard {
         const fade = Math.min(1, this.life / 900);
 
         ctx.save();
-        ctx.globalAlpha = 0.75 * fade;
+        ctx.globalAlpha = (this.bloom ? 0.95 : 0.75) * fade;
 
         for (let i = 0; i < 7; i++) {
 
@@ -109,6 +151,22 @@ class BramblePatch extends GardenGroundHazard {
 
             const bx = Math.round(this.x + Math.cos(a) * r);
             const by = Math.round(this.y + Math.sin(a) * r);
+
+            if (this.bloom) {
+
+                // Four bright petals round a hot centre. Big and
+                // loud on purpose - this version exists precisely
+                // because its surroundings are busy.
+                ctx.fillStyle = "#ff5fa2";
+                ctx.fillRect(bx - 5, by - 2, 10, 4);
+                ctx.fillRect(bx - 2, by - 5, 4, 10);
+
+                ctx.fillStyle = "#ffe066";
+                ctx.fillRect(bx - 2, by - 2, 4, 4);
+
+                continue;
+
+            }
 
             ctx.fillStyle = i % 2 ? "#3d5a2a" : "#2c4420";
             ctx.fillRect(bx - 3, by - 3, 6, 6);
@@ -283,7 +341,8 @@ class RootArrow {
             Game.hazards.push(new SnarePatch(
                 this.x, this.y,
                 GARDEN.brambleArcher.ROOT_MS,
-                32
+                32,
+                true
             ));
 
         // An elite's arrow snares the GROUND whether it connects
@@ -336,7 +395,7 @@ class RootArrow {
 
 class SnarePatch {
 
-    constructor(x, y, life, radius) {
+    constructor(x, y, life, radius, root = false) {
 
         this.x = x;
         this.y = y;
@@ -347,6 +406,16 @@ class SnarePatch {
         this.maxRadius = radius;
 
         this.slowsPlayer = true;
+
+        // A direct hit ROOTS rather than slows - the player
+        // cannot move at all for the duration. That is the whole
+        // threat of the Bramble Archer: the arrow barely hurts,
+        // but being pinned while the squad closes does.
+        //
+        // The ground patch an elite's stray arrow leaves is only
+        // a slow; a field of full roots would take the game away
+        // from the player rather than pressure them.
+        this.rootsPlayer = root;
 
     }
 

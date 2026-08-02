@@ -501,6 +501,62 @@ function generateRoseCourt(variant = "garden") {
     // Ground dressing. None of this occludes or collides - it is
     // there to make the place read as a garden rather than a
     // marble box.
+    //
+    // Everything below goes through addProp, which refuses any
+    // placement that would overlap something already there. Props
+    // stacked on trees and lanterns looked like a mistake rather
+    // than a garden, and a bush drawn over a lamp post put out
+    // the only light in that corner.
+    const addProp = prop => {
+
+        const reach = p =>
+            p.r ?? Math.max(p.w ?? 0, p.h ?? 0) / 2 ?? 20;
+
+        // Lanterns win every contest - they are the arena's light
+        // source, and a covered one is a dark corner the player
+        // cannot explain.
+        const clearOfLanterns = Arena.torches.every(t =>
+            Math.hypot(t.x - prop.x, t.y - prop.y) > reach(prop) + 34
+        );
+
+        if (!clearOfLanterns)
+            return;
+
+        // Trees next: their trunks sit in the border, which is
+        // exactly where the bushes want to go.
+        const clearOfTrees = Arena.pillars.every(t =>
+            Math.hypot(t.x - prop.x, (t.y + 40) - prop.y) > reach(prop) + t.width * 0.4
+        );
+
+        if (!clearOfTrees)
+            return;
+
+        const clearOfProps = Arena.props.every(o =>
+            Math.hypot(o.x - prop.x, o.y - prop.y) > reach(prop) + reach(o) * 0.9
+        );
+
+        if (!clearOfProps)
+            return;
+
+        // The rose court's fountain is the one set piece that
+        // sits IN the planted border rather than on the paving,
+        // so the top row's middle bush lands right behind it. The
+        // beds already skip the middle for the same reason; this
+        // covers everything else that might wander in.
+        if (variant === "garden") {
+
+            const fx = W / 2;
+            const fy = H * 0.155;
+
+            if (Math.abs(prop.x - fx) < 96 + reach(prop) &&
+                Math.abs(prop.y - fy) < 62 + reach(prop))
+                return;
+
+        }
+
+        Arena.props.push(prop);
+
+    };
     const hedge = H * 0.11;
 
     for (let i = 0; i < V.bushes; i++) {
@@ -512,14 +568,14 @@ function generateRoseCourt(variant = "garden") {
         // off the border and into the court itself, which is
         // what makes the maze and the grove feel overgrown
         // rather than merely darker.
-        Arena.props.push({
+        addProp({
             kind: "bush",
             x: deep ? x + W * 0.03 : x,
             y: deep ? hedge + 74 : hedge + 16,
             r: 20 + (i % 3) * 5
         });
 
-        Arena.props.push({
+        addProp({
             kind: "bush",
             x: x + W * 0.05,
             y: deep ? H - hedge - 74 : H - hedge - 16,
@@ -536,13 +592,13 @@ function generateRoseCourt(variant = "garden") {
         // basin.
         [0.24, 0.76].forEach(f => {
 
-            Arena.props.push({ kind: "bed", x: W * f, y: hedge + 52, w: 96, h: 26 });
+            addProp({ kind: "bed", x: W * f, y: hedge + 52, w: 96, h: 26 });
 
         });
 
         [0.22, 0.5, 0.78].forEach(f => {
 
-            Arena.props.push({ kind: "bed", x: W * f, y: H - hedge - 52, w: 96, h: 26 });
+            addProp({ kind: "bed", x: W * f, y: H - hedge - 52, w: 96, h: 26 });
 
         });
 
@@ -550,8 +606,8 @@ function generateRoseCourt(variant = "garden") {
 
     if (V.benches) {
 
-        Arena.props.push({ kind: "bench", x: W * 0.35, y: hedge + 96 });
-        Arena.props.push({ kind: "bench", x: W * 0.65, y: H - hedge - 96 });
+        addProp({ kind: "bench", x: W * 0.35, y: hedge + 96 });
+        addProp({ kind: "bench", x: W * 0.65, y: H - hedge - 96 });
 
     }
 
@@ -2720,6 +2776,11 @@ function drawEntityShadows() {
         if (!ent)
             return;
 
+        // A concealed enemy casts nothing - a shadow on the floor
+        // is exactly as much of a giveaway as a body.
+        if (ent.isConcealed?.())
+            return;
+
         const size = ent.size ?? 32;
 
         const cx = ent.x + size / 2;
@@ -2994,9 +3055,17 @@ function buildXRayTargets() {
     if (player)
         targets.push({ shape: "square", ent: player, color: "#4da6ff" });
 
-    Game.enemies.forEach(ent =>
-        targets.push({ shape: "square", ent, color: "#ff3b30" })
-    );
+    // Concealed enemies are left out: the x-ray exists so nothing
+    // can hide BEHIND scenery, and outlining something that is
+    // deliberately hidden defeats the concealment instead.
+    Game.enemies.forEach(ent => {
+
+        if (ent.isConcealed?.())
+            return;
+
+        targets.push({ shape: "square", ent, color: "#ff3b30" });
+
+    });
 
     Game.projectiles.forEach(ent =>
         targets.push({ shape: "square", ent, color: "#ffd54d" })

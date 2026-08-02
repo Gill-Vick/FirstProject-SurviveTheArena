@@ -158,6 +158,26 @@ class Player {
         if (this.rootTimer > 0)
             this.rootTimer -= Game.dt;
 
+        // Standing in a Bramble Archer's root re-asserts the
+        // root every frame, so it lapses on its own the moment
+        // the patch expires - same self-expiring shape as the
+        // chill and the pollen aura, and nothing has to remember
+        // to switch it off.
+        //
+        // Slow-resistance still applies: an item that shortens
+        // roots shortens this one, rather than the roster's
+        // signature effect quietly ignoring the counter built
+        // for it.
+        const rooted = Game.hazards.some(
+            h => h.rootsPlayer && h.containsPlayer?.()
+        );
+
+        if (rooted)
+            this.rootTimer = Math.max(
+                this.rootTimer,
+                80 * (1 - this.getSlowResistance())
+            );
+
     }
 
     takeHit(source = "an unknown enemy") {

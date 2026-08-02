@@ -92,9 +92,16 @@ const SPAWN_GAP = {
 // an elite one would just be a longer chore.
 const NO_ELITE = new Set([
     "boss", "knight", "royalMagus", "prince", "princess", "king",
-    "thornMatron", "greenwarden", "heartwood", "herald",
-    "creeperVine"
+    "thornMatron", "greenwarden", "heartwood", "herald"
 ]);
+
+// Types that may appear at most N times as an ELITE in one wave.
+//
+// The elite Root Hulk's stomp covers the whole arena bar a pocket
+// at its own feet. Two of those overlapping leaves nowhere at all
+// to stand, which is not difficulty, it is a coin flip - so the
+// budget hands out at most one.
+const ELITE_CAP = { rootHulk: GARDEN_ELITE.HULK_MAX_PER_WAVE };
 
 // =====================================
 // Boss Waves
@@ -245,6 +252,7 @@ function startWave() {
     // spawnEnemy() then hands the budget out at exact odds.
     Game.eliteBudget = eliteCountForWave(Game.wave);
     Game.eliteEligibleLeft = 0;
+    Game.eliteTypeCounts = {};
 
     updateArenaForWave();
 
@@ -1175,7 +1183,11 @@ function spawnEnemyAt(type, x, y) {
     // wave's eligible spawns. Giving each eligible spawn
     // budget/remaining odds distributes them uniformly while
     // guaranteeing the exact count.
-    if (!NO_ELITE.has(type) && Game.eliteBudget > 0) {
+    const capped =
+        ELITE_CAP[type] !== undefined &&
+        (Game.eliteTypeCounts?.[type] ?? 0) >= ELITE_CAP[type];
+
+    if (!NO_ELITE.has(type) && Game.eliteBudget > 0 && !capped) {
 
         const odds =
             Game.eliteBudget / Math.max(1, Game.eliteEligibleLeft);
@@ -1185,6 +1197,9 @@ function spawnEnemyAt(type, x, y) {
             makeElite(enemy);
 
             Game.eliteBudget--;
+
+            Game.eliteTypeCounts ??= {};
+            Game.eliteTypeCounts[type] = (Game.eliteTypeCounts[type] ?? 0) + 1;
 
         }
 

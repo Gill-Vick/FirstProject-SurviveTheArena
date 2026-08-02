@@ -137,6 +137,9 @@ class ThornbackBoar extends Enemy {
 
         this.type = "boar";
 
+        // It weighs what it weighs - nothing shoves it.
+        this.knockbackImmune = true;
+
         this.chargeCooldown = cfg.CHARGE_COOLDOWN * Math.random();
         this.windup = 0;
         this.charging = false;
@@ -184,6 +187,18 @@ class ThornbackBoar extends Enemy {
 
     }
 
+    // An elite mid-charge shatters anything shot at it, so the
+    // ranged answer stops working exactly when it matters. Only
+    // WHILE charging - stood still it is as shootable as anything
+    // else, which keeps a counter on the table.
+    breaksProjectiles() {
+
+        return this.isElite &&
+               GARDEN_ELITE.BOAR_BREAKS_PROJECTILES &&
+               this.charging;
+
+    }
+
     beginCharge() {
 
         const target = getAggroSource(this);
@@ -198,16 +213,16 @@ class ThornbackBoar extends Enemy {
         this.charging = true;
         this.sinceTrail = 0;
 
-        // Elites bounce once off the first wall they meet, so the
-        // angle you dodged is not the angle that comes back.
-        this.ricochetsLeft = this.isElite ? GARDEN_ELITE.BOAR_RICOCHETS : 0;
-
     }
 
     advanceCharge() {
 
         const cfg = GARDEN.boar;
-        const step = cfg.CHARGE_SPEED * Game.timeScale;
+
+        // Elites come in appreciably faster, which is most of
+        // what makes their charge a different problem.
+        const step = cfg.CHARGE_SPEED * Game.timeScale *
+            (this.isElite ? GARDEN_ELITE.BOAR_CHARGE_SPEED_MULT : 1);
 
         this.x += this.chargeX * step;
         this.y += this.chargeY * step;
@@ -236,23 +251,6 @@ class ThornbackBoar extends Enemy {
 
         if (!hitEdge)
             return;
-
-        if (this.ricochetsLeft > 0) {
-
-            this.ricochetsLeft--;
-
-            if (this.x <= 0 || this.x + this.size >= canvas.width)
-                this.chargeX *= -1;
-
-            if (this.y <= 0 || this.y + this.size >= canvas.height)
-                this.chargeY *= -1;
-
-            this.x = Math.max(0, Math.min(canvas.width - this.size, this.x));
-            this.y = Math.max(0, Math.min(canvas.height - this.size, this.y));
-
-            return;
-
-        }
 
         this.charging = false;
 
@@ -286,37 +284,97 @@ class HedgeWarden extends Enemy {
 
     }
 
+    // Standing in greenery it simply cannot be killed. Bushes
+    // and trees both count - the whole border of every green
+    // arena is cover, which is what makes dragging it out into
+    // the middle the only play.
     inCover() {
-
-        // Elites carry their own cover with them.
-        if (this.isElite && GARDEN_ELITE.WARDEN_REGROW_ANYWHERE)
-            return true;
 
         const cfg = GARDEN.hedgeWarden;
 
         const cx = this.x + this.size / 2;
         const cy = this.y + this.size / 2;
 
-        return (Arena.props ?? []).some(p =>
+        const nearBush = (Arena.props ?? []).some(p =>
             p.kind === "bush" &&
             Math.hypot(p.x - cx, p.y - cy) < cfg.COVER_RADIUS
         );
 
+        if (nearBush)
+            return true;
+
+        return (Arena.pillars ?? []).some(t =>
+            Math.hypot(t.x - cx, (t.y + 40) - cy) < cfg.COVER_RADIUS + t.width * 0.3
+        );
+
     }
 
-    move() {
+    takeDamage(amount, crit = false) {
 
-        super.move();
+        // Immortal in cover, not merely tough. Damage numbers
+        // still show so the player learns the rule quickly rather
+        // than concluding their build is broken.
+        if (this.inCover()) {
 
-        if (!this.inCover())
+            Game.damageNumbers.push(new DamageNumber(
+                this.x + this.size / 2,
+                this.y,
+                0,
+                false
+            ));
+
+            this.flashTimer = 3;
+
             return;
 
-        const cfg = GARDEN.hedgeWarden;
+        }
 
-        this.shieldHp = Math.min(
-            cfg.SHIELD_MAX,
-            this.shieldHp + cfg.REGROW_PER_SEC * (Game.dt / 1000)
-        );
+        super.takeDamage(amount, crit);
+
+    }
+
+    attack() {
+
+        // The elite hands its cover out: a flat shield to
+        // everything nearby, refreshed while it lives.
+        if (!this.isElite)
+            return;
+
+        livingAllies(this).forEach(ally => {
+
+            if (ally.isBoss)
+                return;
+
+            if (gardenDist(this, ally) > GARDEN_ELITE.WARDEN_SHIELD_RADIUS)
+                return;
+
+            ally.shieldHp = Math.max(ally.shieldHp, GARDEN_ELITE.WARDEN_SHIELD_ALLIES);
+
+        });
+
+    }
+
+    draw() {
+
+        // A visible thicket around it while it is untouchable -
+        // the rule has to be legible from across the arena.
+        if (this.inCover()) {
+
+            const cx = this.x + this.size / 2;
+            const cy = this.y + this.size / 2;
+            const pulse = 0.5 + Math.sin(Date.now() / 260) * 0.5;
+
+            ctx.save();
+            ctx.strokeStyle = `rgba(120, 220, 120, ${0.4 + pulse * 0.35})`;
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(cx, cy, this.size * 0.82, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+
+        }
+
+        super.draw();
 
     }
 
@@ -352,6 +410,16 @@ class RootHulk extends Enemy {
 
     }
 
+    // Elites wind up much longer, because what follows covers the
+    // whole arena.
+    telegraphMs() {
+
+        return this.isElite && GARDEN_ELITE.HULK_FULL_ARENA
+            ? GARDEN_ELITE.HULK_FULL_TELEGRAPH_MS
+            : GARDEN.rootHulk.STOMP_TELEGRAPH_MS;
+
+    }
+
     move() {
 
         // Roots itself to stomp.
@@ -380,7 +448,7 @@ class RootHulk extends Enemy {
         this.stompCooldown -= Game.dt;
 
         if (this.stompCooldown <= 0) {
-            this.telegraph = cfg.STOMP_TELEGRAPH_MS;
+            this.telegraph = this.telegraphMs();
             this.stompCooldown = cfg.STOMP_COOLDOWN;
         }
 
@@ -393,14 +461,23 @@ class RootHulk extends Enemy {
         const cx = this.x + this.size / 2;
         const cy = this.y + this.size / 2;
 
-        Game.hazards.push(new RootRing(cx, cy, cfg.RING_INNER, cfg.RING_OUTER));
+        // The elite's stomp takes the ENTIRE arena bar a wide
+        // pocket at its own feet. It completely inverts the
+        // fight: for a moment the safest place on the map is
+        // pressed up against the thing that's attacking.
+        if (this.isElite && GARDEN_ELITE.HULK_FULL_ARENA) {
 
-        if (this.isElite)
             Game.hazards.push(new RootRing(
                 cx, cy,
-                GARDEN_ELITE.HULK_SECOND_RING_INNER,
-                GARDEN_ELITE.HULK_SECOND_RING_OUTER
+                GARDEN_ELITE.HULK_SAFE_RADIUS,
+                canvas.width + canvas.height
             ));
+
+            return;
+
+        }
+
+        Game.hazards.push(new RootRing(cx, cy, cfg.RING_INNER, cfg.RING_OUTER));
 
     }
 
@@ -411,12 +488,41 @@ class RootHulk extends Enemy {
         if (this.telegraph > 0) {
 
             const cfg = GARDEN.rootHulk;
-            const t = 1 - this.telegraph / cfg.STOMP_TELEGRAPH_MS;
+            const t = 1 - this.telegraph / this.telegraphMs();
 
             const cx = this.x + this.size / 2;
             const cy = this.y + this.size / 2;
 
+            const full = this.isElite && GARDEN_ELITE.HULK_FULL_ARENA;
+
             ctx.save();
+
+            if (full) {
+
+                // Shade everything that is about to erupt, and
+                // leave the safe pocket clear. With the whole
+                // arena going up, showing the DANGER is useless -
+                // the player needs to see the one place to stand.
+                ctx.fillStyle = `rgba(150, 60, 30, ${0.1 + t * 0.22})`;
+                ctx.beginPath();
+                ctx.rect(0, 0, canvas.width, canvas.height);
+                ctx.arc(cx, cy, GARDEN_ELITE.HULK_SAFE_RADIUS, 0, Math.PI * 2, true);
+                ctx.fill();
+
+                ctx.strokeStyle = `rgba(160, 255, 150, ${0.5 + t * 0.45})`;
+                ctx.lineWidth = 5;
+                ctx.beginPath();
+                ctx.arc(cx, cy, GARDEN_ELITE.HULK_SAFE_RADIUS, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.restore();
+
+                super.draw();
+
+                return;
+
+            }
+
             ctx.strokeStyle = `rgba(150, 90, 40, ${0.35 + t * 0.45})`;
             ctx.lineWidth = 3;
 
@@ -494,7 +600,15 @@ class BrambleArcher extends Enemy {
             (target.x + target.size / 2) - cx
         );
 
-        Game.hazards.push(new RootArrow(cx, cy, angle, this.isElite));
+        // A spread of three rather than one. Sidestepping a
+        // single arrow was trivial; sidestepping the fan means
+        // committing to a direction.
+        for (let i = 0; i < cfg.ARROWS; i++)
+            Game.hazards.push(new RootArrow(
+                cx, cy,
+                angle + (i - (cfg.ARROWS - 1) / 2) * cfg.ARROW_SPREAD,
+                this.isElite
+            ));
 
     }
 
@@ -547,13 +661,25 @@ class SporePuffer extends Enemy {
 
         const target = getAggroSource(this);
 
-        Game.hazards.push(new SporeCloud(
-            target.x + target.size / 2,
-            target.y + target.size / 2,
-            cfg.CLOUD_RADIUS,
-            cfg.CLOUD_MS,
-            this.isElite ? GARDEN_ELITE.PUFFER_SPLIT_COUNT : 0
-        ));
+        const extra = this.isElite ? GARDEN_ELITE.PUFFER_EXTRA_CLOUDS : 0;
+
+        // The first cloud lands on the player; an elite's extras
+        // are thrown around them, so the ground you'd retreat to
+        // goes as well.
+        for (let i = 0; i <= extra; i++) {
+
+            const a = (i / (extra + 1)) * Math.PI * 2;
+            const r = i === 0 ? 0 : cfg.CLOUD_RADIUS * 1.1;
+
+            Game.hazards.push(new SporeCloud(
+                target.x + target.size / 2 + Math.cos(a) * r,
+                target.y + target.size / 2 + Math.sin(a) * r,
+                cfg.CLOUD_RADIUS,
+                cfg.CLOUD_MS,
+                this.isElite ? GARDEN_ELITE.PUFFER_SPLIT_COUNT : 0
+            ));
+
+        }
 
     }
 
@@ -609,7 +735,12 @@ class Wisp extends Enemy {
 
         const nx = -dy / d;
         const ny = dx / d;
-        const sway = Math.sin(this.wobble) * 0.55;
+
+        // Weaves hard across its own approach - eight of these
+        // arriving in a straight line would just be a wall, and
+        // the sway is what makes a swarm a dodging problem rather
+        // than a damage one.
+        const sway = Math.sin(this.wobble) * cfg.SWAY;
 
         this.x += ((dx / d) + nx * sway) * this.speed * Game.timeScale;
         this.y += ((dy / d) + ny * sway) * this.speed * Game.timeScale;
@@ -620,9 +751,14 @@ class Wisp extends Enemy {
 
         // An elite wisp doesn't die so much as divide: killing it
         // makes the swarm MORE numerous, so raw damage is the one
-        // thing that doesn't solve it.
+        // thing that doesn't solve it. Its death also whips the
+        // rest of the squad into a sprint.
         if (!this.isElite)
             return;
+
+        livingAllies(this).forEach(ally => {
+            ally.wispHasteTimer = GARDEN_ELITE.WISP_DEATH_HASTE_MS;
+        });
 
         for (let i = 0; i < GARDEN_ELITE.WISP_SPLIT_COUNT; i++) {
 
@@ -668,15 +804,43 @@ class PollenDrone extends Enemy {
 
         this.type = "pollenDrone";
         this.protectsAllies = true;
+        this.knockbackImmune = true;
 
         this.wardTimer = 0;
 
+        // Its own place on the perimeter circuit, so several
+        // drones don't fly in formation.
+        this.orbitPhase = Math.random() * Math.PI * 2;
+
     }
 
+    // Flies a fixed circuit around the edge of the arena and
+    // ignores the player completely.
+    //
+    // A support that kites the player is a support the player
+    // bumps into; one that patrols the rim is one you have to
+    // deliberately leave the fight to go and kill, which is a far
+    // better decision to put in front of them.
     move() {
 
-        holdRange(this, GARDEN.pollenDrone.PREFERRED_RANGE);
-        this.keepInArenaOnceEntered();
+        const cfg = GARDEN.pollenDrone;
+
+        this.orbitPhase += (Math.PI * 2) * (Game.dt / cfg.ORBIT_PERIOD_MS);
+
+        const insetX = canvas.width * cfg.ORBIT_INSET;
+        const insetY = canvas.height * cfg.ORBIT_INSET;
+
+        const tx = canvas.width / 2 + Math.cos(this.orbitPhase) * (canvas.width / 2 - insetX);
+        const ty = canvas.height / 2 + Math.sin(this.orbitPhase) * (canvas.height / 2 - insetY);
+
+        const dx = tx - (this.x + this.size / 2);
+        const dy = ty - (this.y + this.size / 2);
+        const d = Math.hypot(dx, dy) || 1;
+
+        const step = Math.min(d, this.speed * Game.timeScale);
+
+        this.x += (dx / d) * step;
+        this.y += (dy / d) * step;
 
     }
 
@@ -766,17 +930,75 @@ class GardenerShade extends Enemy {
 
         this.type = "gardenerShade";
 
+        this.knockbackImmune = true;
+        this.stunImmune = true;
+
         this.replantCooldown = cfg.REPLANT_COOLDOWN;
+
+        // Counts down while it is visible, mid-replant.
+        this.revealTimer = 0;
 
         // Types this shade has watched die, in order.
         this.compost = [];
 
     }
 
-    move() {
+    // Stands still, out at the edge, and stays invisible unless
+    // it is actually raising something.
+    //
+    // It can always be HIT, though - a stray shot or an AoE will
+    // find it, and damage numbers popping out of empty air are
+    // how you learn where it is standing. What protects it is the
+    // size of its health pool, not invulnerability: killing it is
+    // a decision you commit to rather than something that happens
+    // while you're aiming at something else.
+    move() {}
 
-        holdRange(this, GARDEN.gardenerShade.PREFERRED_RANGE);
-        this.keepInArenaOnceEntered();
+    isHidden() {
+
+        return this.revealTimer <= 0;
+
+    }
+
+    // Unseen, and unseen properly: no body, no contact shadow and
+    // no x-ray outline. See Enemy.isConcealed.
+    //
+    // Returning nothing from draw() is NOT enough on its own -
+    // drawEntityShadows was still painting an ellipse under it
+    // and drawOccludedOutlines still drew its silhouette through
+    // the trees, either of which gives the position away just as
+    // completely as a body would.
+    isConcealed() {
+
+        return this.isHidden();
+
+    }
+
+    // No physical attack whatsoever - you walk straight through
+    // it. Everything it does to you, it does through what it puts
+    // back on the field.
+    checkPlayerCollision() {}
+
+    draw() {
+
+        // Nothing at all while hidden.
+        if (this.isHidden())
+            return;
+
+        // Mid-replant it is fully visible, and ringed, so the one
+        // moment it is findable is unmistakable.
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        ctx.save();
+        ctx.strokeStyle = `rgba(190, 160, 255, ${0.5 + Math.sin(Date.now() / 120) * 0.3})`;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(cx, cy, this.size * 0.9, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+
+        super.draw();
 
     }
 
@@ -792,12 +1014,16 @@ class GardenerShade extends Enemy {
 
         const cfg = GARDEN.gardenerShade;
 
+        if (this.revealTimer > 0)
+            this.revealTimer -= Game.dt;
+
         this.replantCooldown -= Game.dt;
 
         if (this.replantCooldown > 0 || this.compost.length === 0)
             return;
 
         this.replantCooldown = cfg.REPLANT_COOLDOWN;
+        this.revealTimer = cfg.REVEAL_MS;
 
         const type = this.compost.shift();
         const Cls = ENEMY_CLASSES[type];
@@ -837,6 +1063,7 @@ class GardenerShade extends Enemy {
 // focusing one target quietly wastes half of it. The tether is
 // live: it re-picks its ends every frame as things die.
 
+// (see the class above for why it is drawn this way)
 class VineWeaver extends Enemy {
 
     constructor(x, y) {
@@ -865,14 +1092,17 @@ class VineWeaver extends Enemy {
 
     attack() {
 
-        const cfg = GARDEN.vineWeaver;
-
-        const want = this.isElite ? GARDEN_ELITE.WEAVER_TETHER_COUNT : 2;
-
-        this.tethered = livingAllies(this)
-            .filter(a => a.type !== "vineWeaver" &&
-                         gardenDist(this, a) < cfg.TETHER_RANGE)
-            .slice(0, want);
+        // Everything on the field, at any range - the weaver is
+        // a squad-wide effect rather than a local one now.
+        //
+        // The Gardener Shade is deliberately excluded: it spends
+        // the fight invisible, and a vine running off to it would
+        // point straight at where it is standing.
+        this.tethered = livingAllies(this).filter(a =>
+            a.type !== "vineWeaver" &&
+            a.type !== "gardenerShade" &&
+            !a.isBoss
+        );
 
         // Every tethered ally points back at this weaver, so
         // Enemy.takeDamage can mirror a share of the hit onto
@@ -883,14 +1113,28 @@ class VineWeaver extends Enemy {
 
     // Mirror a fraction of `amount` onto everything else on the
     // tether. Called from the damaged ally, via tetherSource.
+    // Damage is DIVIDED across the vine, not copied along it.
+    //
+    // Six damage into a chain of six is one each - so a big hit
+    // on a tethered target is close to wasted, and the weaver has
+    // to come off the board before focused damage means anything
+    // again. The old version mirrored a share onto each ally,
+    // which made the weaver a damage AMPLIFIER for the player
+    // rather than a problem.
     shareDamage(from, amount) {
 
-        const cfg = GARDEN.vineWeaver;
-        const share = Math.max(1, Math.round(amount * cfg.SHARE_FRACTION));
+        const alive = this.tethered.filter(a => !a.isDead());
 
-        this.tethered.forEach(a => {
+        if (alive.length === 0)
+            return;
 
-            if (a === from || a.isDead())
+        // The struck target is one of the ends, so it counts too.
+        const ends = alive.includes(from) ? alive.length : alive.length + 1;
+        const share = Math.max(1, Math.floor(amount / ends));
+
+        alive.forEach(a => {
+
+            if (a === from)
                 return;
 
             // Straight to hp: routing back through takeDamage
@@ -902,6 +1146,16 @@ class VineWeaver extends Enemy {
                 onEnemyKilled(a);
 
         });
+
+    }
+
+    // What the struck target should actually take, given how many
+    // ends the vine has. Read by Enemy.takeDamage.
+    incomingFraction() {
+
+        const alive = this.tethered.filter(a => !a.isDead()).length;
+
+        return alive === 0 ? 1 : 1 / (alive + 1);
 
     }
 
@@ -974,7 +1228,11 @@ class CreeperVine extends Enemy {
     move() {
 
         const cfg = GARDEN.creeperVine;
-        const step = cfg.GROW_PER_SEC * (Game.dt / 1000);
+
+        // Elites simply arrive much sooner - the vine is a clock,
+        // so a faster clock is the whole upgrade.
+        const step = cfg.GROW_PER_SEC * (Game.dt / 1000) *
+            (this.isElite ? GARDEN_ELITE.VINE_GROW_MULT : 1);
 
         this.x += this.growX * step;
         this.y += this.growY * step;

@@ -1783,7 +1783,6 @@ const GARDEN = {
         CHARGE_SPEED: 6.2,
         CHARGE_WINDUP_MS: 620,
         CHARGE_COOLDOWN: 3400,
-        // Bramble dropped along the charge line, in ms of life.
         TRAIL_MS: 5200,
         TRAIL_EVERY_PX: 46
     },
@@ -1791,19 +1790,18 @@ const GARDEN = {
     hedgeWarden: {
         SIZE: 64, SPEED: 0.62, COLOR: "#3f6b3a",
         HP_BASE: 22, HP_EVERY: 2,
-        // Regrows this much shield per tick while in cover.
-        REGROW_PER_SEC: 2.2,
-        SHIELD_MAX: 10,
-        COVER_RADIUS: 96
+        // It is not shielded near greenery - it is UNKILLABLE
+        // near greenery. The only answer is to pull it into the
+        // open, which is a positional problem no amount of damage
+        // solves.
+        COVER_RADIUS: 110
     },
 
     rootHulk: {
-        SIZE: 60, SPEED: 0.7, COLOR: "#5c4a2e",
-        HP_BASE: 18, HP_EVERY: 2,
+        SIZE: 60, SPEED: 1.05, COLOR: "#5c4a2e",
+        HP_BASE: 30, HP_EVERY: 2,
         STOMP_COOLDOWN: 4200,
         STOMP_TELEGRAPH_MS: 780,
-        // The ring erupts BETWEEN these radii - point blank is
-        // safe, which inverts the usual "back off" instinct.
         RING_INNER: 78,
         RING_OUTER: 168
     },
@@ -1814,7 +1812,12 @@ const GARDEN = {
         PREFERRED_RANGE: 300,
         SHOOT_COOLDOWN: 2100,
         PROJECTILE_SPEED: 5.2,
-        ROOT_MS: 620
+        // A full stop, not a slow. The arrow still barely hurts;
+        // being unable to move for a beat while the rest of the
+        // squad closes is the entire threat.
+        ARROWS: 3,
+        ARROW_SPREAD: 0.18,
+        ROOT_MS: 700
     },
 
     sporePuffer: {
@@ -1822,51 +1825,56 @@ const GARDEN = {
         HP_BASE: 10, HP_EVERY: 3,
         PREFERRED_RANGE: 260,
         SHOOT_COOLDOWN: 3000,
-        CLOUD_RADIUS: 82,
+        CLOUD_RADIUS: 128,
         CLOUD_MS: 4600
     },
 
     wispSwarm: {
-        SIZE: 26, SPEED: 1.9, COLOR: "#cfe6a0",
-        HP_BASE: 12, HP_EVERY: 3,
-        // Every wisp lost makes the rest this much faster.
-        SPEED_PER_LOSS: 0.22,
-        MEMBERS: 4
+        SIZE: 26, SPEED: 2.6, COLOR: "#cfe6a0",
+        HP_BASE: 16, HP_EVERY: 3,
+        SPEED_PER_LOSS: 0.16,
+        MEMBERS: 8,
+        // How hard they weave across their own approach line.
+        SWAY: 1.35
     },
 
     pollenDrone: {
-        SIZE: 36, SPEED: 1.0, COLOR: "#e6c760",
+        SIZE: 36, SPEED: 1.9, COLOR: "#e6c760",
         HP_BASE: 11, HP_EVERY: 3,
-        AURA_RADIUS: 165,
+        AURA_RADIUS: 300,
         AURA_SPEED_MULT: 1.28,
         HEAL_PER_SEC: 1.1,
-        // Hangs back behind the line it is buffing.
-        PREFERRED_RANGE: 340
+        // It patrols the perimeter on a fixed circuit and never
+        // reacts to the player at all - so it is always somewhere
+        // you have to go OUT of your way to reach.
+        ORBIT_INSET: 0.14,
+        ORBIT_PERIOD_MS: 16000
     },
 
     gardenerShade: {
-        SIZE: 40, SPEED: 0.95, COLOR: "#4a3f6b",
-        HP_BASE: 13, HP_EVERY: 3,
-        REPLANT_COOLDOWN: 9000,
-        // Seedlings come back at this fraction of full HP.
+        SIZE: 40, SPEED: 0, COLOR: "#4a3f6b",
+        // Enormous, because the point is that it cannot be killed
+        // by accident. You have to go and deal with it.
+        HP_BASE: 140, HP_EVERY: 1,
+        // Works fast. It is invisible, harmless to touch and very
+        // hard to kill, so all the pressure it applies has to
+        // come from how quickly the dead come back.
+        REPLANT_COOLDOWN: 4200,
         SEEDLING_HP_FRACTION: 0.45,
-        PREFERRED_RANGE: 300
+        // Only visible while it is actually raising something.
+        REVEAL_MS: 1400,
+        ORBIT_INSET: 0.09
     },
 
     vineWeaver: {
         SIZE: 38, SPEED: 0.9, COLOR: "#3f7f6b",
         HP_BASE: 12, HP_EVERY: 3,
-        TETHER_RANGE: 420,
-        // Fraction of damage on one tethered ally that is
-        // mirrored onto the other.
-        SHARE_FRACTION: 0.5,
         PREFERRED_RANGE: 320
     },
 
     creeperVine: {
         SIZE: 34, COLOR: "#4f7a3a",
         HP_BASE: 20, HP_EVERY: 2,
-        // Grows inward from its edge at this many px/sec.
         GROW_PER_SEC: 26
     }
 
@@ -1880,43 +1888,58 @@ const GARDEN = {
 
 const GARDEN_ELITE = {
 
-    // Boar: its charge bounces off the first thing it hits and
-    // keeps going, so the safe angle changes mid-charge.
-    BOAR_RICOCHETS: 1,
+    // Boar: charges faster, and shrugs off anything shot at it
+    // mid-charge - so the ranged answer stops working at exactly
+    // the moment you need it.
+    BOAR_CHARGE_SPEED_MULT: 1.55,
+    BOAR_BREAKS_PROJECTILES: true,
 
-    // Hedge Warden: regrows anywhere, not just standing in cover,
-    // so it can no longer be pulled into the open and burst.
-    WARDEN_REGROW_ANYWHERE: true,
+    // Hedge Warden: still unkillable in cover, and now hands a
+    // flat shield to everything around it as well.
+    WARDEN_SHIELD_ALLIES: 8,
+    WARDEN_SHIELD_RADIUS: 190,
 
-    // Root Hulk: two rings with a safe gap between them.
-    HULK_SECOND_RING_INNER: 208,
-    HULK_SECOND_RING_OUTER: 286,
+    // Root Hulk: one long windup, then the WHOLE arena erupts
+    // except the ring at its feet. It inverts the fight
+    // completely - the only safe place is right next to it.
+    //
+    // Capped at one per wave, because two overlapping
+    // whole-arena stomps leave nowhere to stand at all.
+    HULK_FULL_ARENA: true,
+    HULK_FULL_TELEGRAPH_MS: 2100,
+    HULK_SAFE_RADIUS: 150,
+    HULK_MAX_PER_WAVE: 1,
 
-    // Bramble Archer: root arrows leave a snare patch where they
-    // land, so a dodged arrow still costs ground.
+    // Bramble Archer: a missed arrow still snares the ground.
     ARCHER_SNARE_MS: 3200,
     ARCHER_SNARE_RADIUS: 62,
 
-    // Spore Puffer: clouds split in two when they expire.
+    // Spore Puffer: two extra clouds per throw, and each splits
+    // again as it dies.
+    PUFFER_EXTRA_CLOUDS: 2,
     PUFFER_SPLIT_COUNT: 2,
 
-    // Wisp Swarm: a killed wisp splits into two weaker ones
-    // instead of only hastening the rest.
+    // Wisp: splits on death AND hastens the whole squad, so
+    // killing them is actively counterproductive.
     WISP_SPLIT_COUNT: 2,
+    WISP_DEATH_HASTE_MS: 3000,
+    WISP_DEATH_HASTE_MULT: 1.35,
 
-    // Pollen Drone: the aura also hands out a refreshing one-hit
-    // shield, turning "kill the drone" from advice into a rule.
+    // Pollen Drone: refreshing one-hit ward on top of the aura.
     DRONE_GRANTS_WARD: true,
     DRONE_WARD_REFRESH_MS: 4200,
 
     // Gardener Shade: replants at full strength.
     SHADE_FULL_REPLANT: true,
 
-    // Vine Weaver: three-way tether, and the vine itself hurts.
-    WEAVER_TETHER_COUNT: 3,
-    WEAVER_VINE_DAMAGE: true
+    // Vine Weaver: the vines themselves hurt to cross.
+    WEAVER_VINE_DAMAGE: true,
+
+    // Creeper Vine: simply grows far faster.
+    VINE_GROW_MULT: 2.4
 
 };
+
 
 // =====================================
 // Act II / III Boss Tuning
@@ -3392,7 +3415,7 @@ const BESTIARY = {
         name: "Thornback Boar", color: GARDEN.boar.COLOR, size: GARDEN.boar.SIZE,
         isBoss: false,
         desc: "A bristling thing that would rather redraw the arena than fight in it.",
-        behavior: "Paws the ground, then charges in a straight line until it hits something, laying bramble the whole way. The trail outlives the boar.",
+        behavior: "Paws the ground, then charges in a straight line until it hits something, laying bramble the whole way. Nothing shoves it off course, and the trail outlives the boar.",
         hpAtWave(w) { return gardenBestiaryHp(GARDEN.boar, w); },
         hpScale: `${GARDEN.boar.HP_BASE} HP at wave ${WAVES.GARDEN_START}, gaining 1 every ${GARDEN.boar.HP_EVERY} waves`,
         baseSpeed: GARDEN.boar.SPEED
@@ -3402,7 +3425,7 @@ const BESTIARY = {
         name: "Hedge Warden", color: GARDEN.hedgeWarden.COLOR, size: GARDEN.hedgeWarden.SIZE,
         isBoss: false,
         desc: "Living topiary. It heals from the garden itself.",
-        behavior: "Regrows a shield whenever it stands near a bush. Fight it in the open, or don't fight it at all.",
+        behavior: "Cannot be killed at all while it stands near a bush or a tree - and the whole border of the garden is both. Drag it into the open, or don't fight it.",
         hpAtWave(w) { return gardenBestiaryHp(GARDEN.hedgeWarden, w); },
         hpScale: `${GARDEN.hedgeWarden.HP_BASE} HP at wave ${WAVES.GARDEN_START}, gaining 1 every ${GARDEN.hedgeWarden.HP_EVERY} waves`,
         baseSpeed: GARDEN.hedgeWarden.SPEED
@@ -3412,7 +3435,7 @@ const BESTIARY = {
         name: "Root Hulk", color: GARDEN.rootHulk.COLOR, size: GARDEN.rootHulk.SIZE,
         isBoss: false,
         desc: "A knot of old roots that walks. Backing away from it is a mistake.",
-        behavior: "Roots itself, then erupts in a RING - the ground at its own feet stays safe. Every instinct you have says step back. Don't.",
+        behavior: "Roots itself, then erupts in a RING - the ground at its own feet stays safe. Every instinct you have says step back. Don't. Heavier and quicker on its feet than it looks.",
         hpAtWave(w) { return gardenBestiaryHp(GARDEN.rootHulk, w); },
         hpScale: `${GARDEN.rootHulk.HP_BASE} HP at wave ${WAVES.GARDEN_START}, gaining 1 every ${GARDEN.rootHulk.HP_EVERY} waves`,
         baseSpeed: GARDEN.rootHulk.SPEED
@@ -3422,7 +3445,7 @@ const BESTIARY = {
         name: "Bramble Archer", color: GARDEN.brambleArcher.COLOR, size: GARDEN.brambleArcher.SIZE,
         isBoss: false,
         desc: "Its arrows barely scratch. That was never the idea.",
-        behavior: "Holds range and fires arrows that root you in place. The arrow is not the threat - whatever else is on the screen is.",
+        behavior: "Holds range and fires a spread of three arrows. A hit roots you COMPLETELY for a beat - the arrow is not the threat, whatever else is on the screen while you cannot move is.",
         hpAtWave(w) { return gardenBestiaryHp(GARDEN.brambleArcher, w); },
         hpScale: `${GARDEN.brambleArcher.HP_BASE} HP at wave ${WAVES.GARDEN_START}, gaining 1 every ${GARDEN.brambleArcher.HP_EVERY} waves`,
         baseSpeed: GARDEN.brambleArcher.SPEED
@@ -3432,7 +3455,7 @@ const BESTIARY = {
         name: "Spore Puffer", color: GARDEN.sporePuffer.COLOR, size: GARDEN.sporePuffer.SIZE,
         isBoss: false,
         desc: "A bladder of old pollen. Harmless alone; unforgivable in company.",
-        behavior: "Lobs clouds that hang where they land, hiding what's inside and slowing anything that walks through.",
+        behavior: "Lobs large clouds that hang where they land, hiding what's inside and slowing anything that walks through.",
         hpAtWave(w) { return gardenBestiaryHp(GARDEN.sporePuffer, w); },
         hpScale: `${GARDEN.sporePuffer.HP_BASE} HP at wave ${WAVES.GARDEN_START}, gaining 1 every ${GARDEN.sporePuffer.HP_EVERY} waves`,
         baseSpeed: GARDEN.sporePuffer.SPEED
@@ -3442,7 +3465,7 @@ const BESTIARY = {
         name: "Wisp", color: GARDEN.wispSwarm.COLOR, size: GARDEN.wispSwarm.SIZE,
         isBoss: false,
         desc: "Garden lights that never learned to stay put.",
-        behavior: `Comes in fours and drifts rather than charges. Every wisp you kill makes the survivors faster, so a swarm gets harder to hit as it shrinks.`,
+        behavior: `Comes in packs of ${GARDEN.wispSwarm.MEMBERS}, fast, and weaving hard across its own approach rather than charging. Every wisp you kill makes the survivors faster, so a swarm gets harder to hit as it shrinks.`,
         hpAtWave(w) { return Math.max(1, Math.round(gardenBestiaryHp(GARDEN.wispSwarm, w) / GARDEN.wispSwarm.MEMBERS)); },
         hpScale: "A quarter of the swarm's pool each - fragile, but they speed up as they die",
         baseSpeed: GARDEN.wispSwarm.SPEED
@@ -3452,7 +3475,7 @@ const BESTIARY = {
         name: "Pollen Drone", color: GARDEN.pollenDrone.COLOR, size: GARDEN.pollenDrone.SIZE,
         isBoss: false,
         desc: "It has no attack whatsoever. Kill it first anyway.",
-        behavior: "Hangs back and bathes every nearby ally in pollen - faster, and healing. The rest of the squad is a much harder fight while it lives.",
+        behavior: "Patrols the rim of the arena on a fixed circuit and ignores you entirely, bathing everything in a wide radius with pollen - faster, and healing. You have to leave the fight to go and deal with it.",
         hpAtWave(w) { return gardenBestiaryHp(GARDEN.pollenDrone, w); },
         hpScale: `${GARDEN.pollenDrone.HP_BASE} HP at wave ${WAVES.GARDEN_START}, gaining 1 every ${GARDEN.pollenDrone.HP_EVERY} waves`,
         baseSpeed: GARDEN.pollenDrone.SPEED
@@ -3462,7 +3485,7 @@ const BESTIARY = {
         name: "Gardener Shade", color: GARDEN.gardenerShade.COLOR, size: GARDEN.gardenerShade.SIZE,
         isBoss: false,
         desc: "Still tending the beds, long after anyone asked it to.",
-        behavior: "Remembers what died and plants it again as a weaker seedling. Your kills don't stay dead until it does.",
+        behavior: "Completely invisible, motionless, and out at the edge - no body, no shadow, nothing. It shows itself only to replant the dead, and it does that often. It has no attack at all and you walk straight through it; everything it does to you, it does through what it puts back on the field. It CAN be hit - the damage numbers are how you find it - but it has enough health that it will never die by accident.",
         hpAtWave(w) { return gardenBestiaryHp(GARDEN.gardenerShade, w); },
         hpScale: `${GARDEN.gardenerShade.HP_BASE} HP at wave ${WAVES.GARDEN_START}, gaining 1 every ${GARDEN.gardenerShade.HP_EVERY} waves`,
         baseSpeed: GARDEN.gardenerShade.SPEED
@@ -3472,7 +3495,7 @@ const BESTIARY = {
         name: "Vine Weaver", color: GARDEN.vineWeaver.COLOR, size: GARDEN.vineWeaver.SIZE,
         isBoss: false,
         desc: "It binds the squad together, and shares out the suffering.",
-        behavior: "Tethers two allies with a living vine. Half of everything you land on one is mirrored onto the other - so focusing a single target quietly wastes your damage.",
+        behavior: "Binds EVERY enemy on the field to one vine, at any range. Damage is divided between all of them rather than landing on your target - six damage across six enemies is one each. Kill the weaver before anything else means anything.",
         hpAtWave(w) { return gardenBestiaryHp(GARDEN.vineWeaver, w); },
         hpScale: `${GARDEN.vineWeaver.HP_BASE} HP at wave ${WAVES.GARDEN_START}, gaining 1 every ${GARDEN.vineWeaver.HP_EVERY} waves`,
         baseSpeed: GARDEN.vineWeaver.SPEED
@@ -3676,18 +3699,18 @@ const BESTIARY_ELITE_TWISTS = {
     // --- Act II ---
 
     boar: {
-        desc: "A charger that doesn't stop at the wall.",
-        behavior: "Rebounds off the first thing it hits and keeps going, so the angle you dodged is not the angle that comes back."
+        desc: "A charge you cannot shoot down.",
+        behavior: "Charges markedly faster, and shatters any projectile that hits it mid-charge - so the ranged answer stops working at exactly the moment you need it. It is only armoured WHILE charging."
     },
 
     hedgeWarden: {
-        desc: "Overgrown enough to carry its own cover.",
-        behavior: "Regrows its shield anywhere, not just beside a bush - so it can no longer be dragged into the open and burst down."
+        desc: "It shares its cover out.",
+        behavior: `Still unkillable in greenery, and now hands every ally within reach a ${GARDEN_ELITE.WARDEN_SHIELD_ALLIES}-point shield on top - so the whole squad has to be dragged off the hedges, not just the warden.`
     },
 
     rootHulk: {
-        desc: "One stomp, two rings.",
-        behavior: "Erupts in a second, wider ring outside the first. There is a safe gap between them, and it is not where you were standing."
+        desc: "The whole arena, all at once.",
+        behavior: "Winds up far longer, then erupts across the ENTIRE map except a wide pocket at its own feet. The only safe place on the floor is pressed right up against it. Never more than one per wave."
     },
 
     brambleArcher: {
@@ -3697,12 +3720,12 @@ const BESTIARY_ELITE_TWISTS = {
 
     sporePuffer: {
         desc: "Its clouds outlive it, then outlive themselves.",
-        behavior: `Each cloud breaks into ${GARDEN_ELITE.PUFFER_SPLIT_COUNT} smaller ones as it expires, so the ground it denies is inherited rather than cleared.`
+        behavior: `Throws ${GARDEN_ELITE.PUFFER_EXTRA_CLOUDS} extra clouds around you as well as the one on you, and every cloud breaks into ${GARDEN_ELITE.PUFFER_SPLIT_COUNT} smaller ones as it expires.`
     },
 
     wisp: {
         desc: "It doesn't die so much as divide.",
-        behavior: `Splits into ${GARDEN_ELITE.WISP_SPLIT_COUNT} weaker wisps when killed. Raw damage is the one thing that doesn't solve this.`
+        behavior: `Splits into ${GARDEN_ELITE.WISP_SPLIT_COUNT} weaker wisps when killed, AND its death sends every other enemy on the field into a sprint. Raw damage is actively counterproductive here.`
     },
 
     pollenDrone: {
@@ -3716,8 +3739,13 @@ const BESTIARY_ELITE_TWISTS = {
     },
 
     vineWeaver: {
-        desc: "A wider web, and the web itself bites.",
-        behavior: `Tethers ${GARDEN_ELITE.WEAVER_TETHER_COUNT} allies at once instead of two, and the vines hurt to cross.`
+        desc: "The web itself bites.",
+        behavior: "Binds the field exactly as any weaver does, and the vines themselves hurt to cross."
+    },
+
+    creeperVine: {
+        desc: "The same deadline, arriving much sooner.",
+        behavior: `Grows inward more than twice as fast. The arena closes in on a clock you can no longer afford to ignore.`
     },
 
     // --- Act III ---
