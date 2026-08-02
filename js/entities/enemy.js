@@ -625,6 +625,14 @@ class Enemy {
         if (this.protectsAllies)
             this.drawProtectAura();
 
+        // Pollen on an ally. Now that the drone's aura covers the
+        // whole arena there is no circle to stand outside of, so
+        // the tell has to live on the things being buffed rather
+        // than on the buffer - otherwise "why is this thing
+        // healing" has no answer on screen anywhere.
+        if (this.pollenTimer > 0)
+            this.drawPollenMotes();
+
         if (this.isElite)
             this.drawEliteRing();
 
@@ -962,6 +970,38 @@ class Enemy {
     // Elite tank's protective aura - a broad gold dome so
     // "everything in here is unkillable, kill the tank" reads
     // at a glance.
+
+    // Gold motes turning over an enemy the Pollen Drone is
+    // feeding. Deliberately small - it appears on most of the
+    // squad at once, so it has to read without burying them.
+    drawPollenMotes() {
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        const now = Date.now();
+
+        ctx.save();
+
+        for (let i = 0; i < 3; i++) {
+
+            const a = now / 420 + (i / 3) * Math.PI * 2;
+            const r = this.size * 0.62;
+
+            ctx.globalAlpha = 0.45 + Math.sin(now / 200 + i) * 0.3;
+            ctx.fillStyle = "#ffe066";
+
+            ctx.fillRect(
+                Math.round(cx + Math.cos(a) * r) - 2,
+                Math.round(cy + Math.sin(a) * r * 0.6) - 2,
+                4, 4
+            );
+
+        }
+
+        ctx.restore();
+
+    }
 
     drawProtectAura() {
 

@@ -340,12 +340,11 @@ class HedgeWarden extends Enemy {
         if (!this.isElite)
             return;
 
+        // Arena-wide, same as the drone's pollen. Splitting the
+        // squad up no longer strips the shields off half of it.
         livingAllies(this).forEach(ally => {
 
             if (ally.isBoss)
-                return;
-
-            if (gardenDist(this, ally) > GARDEN_ELITE.WARDEN_SHIELD_RADIUS)
                 return;
 
             ally.shieldHp = Math.max(ally.shieldHp, GARDEN_ELITE.WARDEN_SHIELD_ALLIES);
@@ -858,10 +857,10 @@ class PollenDrone extends Enemy {
         if (grantWard)
             this.wardTimer = GARDEN_ELITE.DRONE_WARD_REFRESH_MS;
 
+        // No range check at all - the pollen reaches everything
+        // on the field. There is nowhere to stand that is out of
+        // its reach, so the only answer is to go and kill it.
         livingAllies(this).forEach(ally => {
-
-            if (gardenDist(this, ally) > cfg.AURA_RADIUS)
-                return;
 
             // Re-asserted every frame and never cleared here, so
             // it lapses on its own the moment the drone dies or
@@ -882,6 +881,14 @@ class PollenDrone extends Enemy {
 
     }
 
+    // A glow on the DRONE, not a ring around it.
+    //
+    // The aura used to be drawn as a big circle, which was honest
+    // while it had a radius. Now that the pollen reaches the
+    // whole arena, a circle would be actively misleading - it
+    // would read as a boundary you could stand outside. So the
+    // drone just burns brightly, and the allies it is feeding
+    // carry the tell instead (see Enemy.draw).
     drawProtectAura() {
 
         const cfg = GARDEN.pollenDrone;
@@ -890,16 +897,12 @@ class PollenDrone extends Enemy {
 
         ctx.save();
 
-        // Translate to the drone and fill a cached local-space
-        // gradient, rather than building one around it - see
-        // auraGradient. globalAlpha carries the pulse, so the
-        // cached object never has to change.
         ctx.translate(this.x + this.size / 2, this.y + this.size / 2);
         ctx.globalAlpha = 0.55 + pulse * 0.45;
 
-        ctx.fillStyle = auraGradient("230, 199, 96", cfg.AURA_RADIUS, 0.2, 0.11);
+        ctx.fillStyle = auraGradient("230, 199, 96", cfg.AURA_GLOW_RADIUS, 0.15, 0.3);
         ctx.beginPath();
-        ctx.arc(0, 0, cfg.AURA_RADIUS, 0, Math.PI * 2);
+        ctx.arc(0, 0, cfg.AURA_GLOW_RADIUS, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.restore();

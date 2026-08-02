@@ -1841,7 +1841,10 @@ const GARDEN = {
     pollenDrone: {
         SIZE: 36, SPEED: 1.9, COLOR: "#e6c760",
         HP_BASE: 11, HP_EVERY: 3,
-        AURA_RADIUS: 300,
+        // Presentation only. The heal and the haste reach the
+        // whole field - this is just how big the glow around the
+        // drone itself is drawn.
+        AURA_GLOW_RADIUS: 120,
         AURA_SPEED_MULT: 1.28,
         HEAL_PER_SEC: 1.1,
         // It patrols the perimeter on a fixed circuit and never
@@ -1896,8 +1899,9 @@ const GARDEN_ELITE = {
 
     // Hedge Warden: still unkillable in cover, and now hands a
     // flat shield to everything around it as well.
+    // Arena-wide, like the drone's aura. There is no radius
+    // here on purpose.
     WARDEN_SHIELD_ALLIES: 8,
-    WARDEN_SHIELD_RADIUS: 190,
 
     // Root Hulk: one long windup, then the WHOLE arena erupts
     // except the ring at its feet. It inverts the fight
@@ -1907,7 +1911,11 @@ const GARDEN_ELITE = {
     // whole-arena stomps leave nowhere to stand at all.
     HULK_FULL_ARENA: true,
     HULK_FULL_TELEGRAPH_MS: 2100,
-    HULK_SAFE_RADIUS: 150,
+    // Doubled. The stomp is meant to relocate the player, not to
+    // demand pixel-perfect placement - at half this the pocket
+    // was small enough that reaching it at all was the whole
+    // challenge, rather than deciding to.
+    HULK_SAFE_RADIUS: 300,
     HULK_MAX_PER_WAVE: 1,
 
     // Bramble Archer: a missed arrow still snares the ground.
@@ -3475,7 +3483,7 @@ const BESTIARY = {
         name: "Pollen Drone", color: GARDEN.pollenDrone.COLOR, size: GARDEN.pollenDrone.SIZE,
         isBoss: false,
         desc: "It has no attack whatsoever. Kill it first anyway.",
-        behavior: "Patrols the rim of the arena on a fixed circuit and ignores you entirely, bathing everything in a wide radius with pollen - faster, and healing. You have to leave the fight to go and deal with it.",
+        behavior: "Patrols the rim of the arena on a fixed circuit and ignores you entirely, bathing EVERY enemy on the field with pollen - faster, and healing - no matter how far away they are. There is nowhere out of its reach, so you have to leave the fight and go and deal with it.",
         hpAtWave(w) { return gardenBestiaryHp(GARDEN.pollenDrone, w); },
         hpScale: `${GARDEN.pollenDrone.HP_BASE} HP at wave ${WAVES.GARDEN_START}, gaining 1 every ${GARDEN.pollenDrone.HP_EVERY} waves`,
         baseSpeed: GARDEN.pollenDrone.SPEED
@@ -3705,7 +3713,7 @@ const BESTIARY_ELITE_TWISTS = {
 
     hedgeWarden: {
         desc: "It shares its cover out.",
-        behavior: `Still unkillable in greenery, and now hands every ally within reach a ${GARDEN_ELITE.WARDEN_SHIELD_ALLIES}-point shield on top - so the whole squad has to be dragged off the hedges, not just the warden.`
+        behavior: `Still unkillable in greenery, and now hands every enemy on the field a ${GARDEN_ELITE.WARDEN_SHIELD_ALLIES}-point shield on top, at any range - so nothing on the board is soft while it lives.`
     },
 
     rootHulk: {
