@@ -156,9 +156,46 @@ class Enemy {
         // remaining amount, and any overflow still lands on hp.
         this.shieldHp = 0;
 
+        // Milliseconds left of this enemy's arrival, while it is
+        // climbing out of the ground rather than fighting.
+        //
+        // The garden squads erupt from cover INSIDE the arena
+        // instead of walking in from the edge (see spawnSquad in
+        // wave.js), which is what stops the whole wave being shot
+        // down at the border before it arrives. While this is
+        // running the enemy has no hitbox, deals no damage, takes
+        // no damage and does not move - so it cannot be
+        // pre-killed, and equally cannot erupt straight into the
+        // player for a free hit. Both halves matter; an arrival
+        // that is only invulnerable is just a cheap shot.
+        this.emergeTimer = 0;
+
     }
 
+    // True while still climbing out - see emergeTimer.
+    isEmerging() {
+
+        return this.emergeTimer > 0;
+
+    }
+
+    // Called once from onEnemyKilled, after the kill is credited.
+    // A hook rather than a chain of type checks in game.js, so an
+    // enemy that reacts to its own death (the elite Wisp splitting
+    // in two) keeps that behaviour in its own class.
+    onDeath() {}
+
     update() {
+
+        // Arrival runs before anything else and short-circuits
+        // the rest of the frame: an emerging enemy is scenery.
+        if (this.emergeTimer > 0) {
+
+            this.emergeTimer -= Game.dt;
+
+            return;
+
+        }
 
         this.x += this.knockbackX * Game.timeScale;
         this.y += this.knockbackY * Game.timeScale;
@@ -189,6 +226,14 @@ class Enemy {
         if (this.chillTimer > 0)
             this.chillTimer -= Game.dt;
 
+        // Pollen Drone aura - re-asserted every frame by the
+        // drone, so it lapses on its own the moment the drone
+        // dies or this enemy walks out of range. Same
+        // self-expiring shape as the chill above; nothing has to
+        // remember to switch it off.
+        if (this.pollenTimer > 0)
+            this.pollenTimer -= Game.dt;
+
         // Chill scales down however far move() actually
         // travelled this frame. Doing it here rather than
         // inside each move() means it works on every enemy -
@@ -210,6 +255,18 @@ class Enemy {
 
                 this.x = preX + (this.x - preX) * ELEMENTAL_PRISM.ICE_SLOW_FACTOR;
                 this.y = preY + (this.y - preY) * ELEMENTAL_PRISM.ICE_SLOW_FACTOR;
+
+            }
+
+            // Pollen haste, applied the same way and for the same
+            // reason: scaling the distance actually travelled
+            // works on every mover - chases, kites, lunges,
+            // charges - without a single subclass knowing the
+            // Pollen Drone exists.
+            if (this.pollenTimer > 0) {
+
+                this.x = preX + (this.x - preX) * GARDEN.pollenDrone.AURA_SPEED_MULT;
+                this.y = preY + (this.y - preY) * GARDEN.pollenDrone.AURA_SPEED_MULT;
 
             }
 
@@ -315,6 +372,10 @@ class Enemy {
 
     checkPlayerCollision() {
 
+        // No hitbox while climbing out - see emergeTimer.
+        if (this.emergeTimer > 0)
+            return;
+
         if (
 
             player.x < this.x + this.size &&
@@ -338,6 +399,19 @@ class Enemy {
         // number, no spark, and no ward burned on it.
         if (amount <= 0)
             return;
+
+        // Untouchable while climbing out - see emergeTimer. This
+        // is the half of the arrival that stops a squad being
+        // deleted before it has stood up.
+        if (this.emergeTimer > 0)
+            return;
+
+        // Vine Weaver tether: a share of this hit lands on
+        // everything else on the same vine. Guarded so a mirrored
+        // hit can't mirror itself back - the weaver writes
+        // straight to hp on the far end for the same reason.
+        if (this.tetherSource && !this.tetherSource.isDead())
+            this.tetherSource.shareDamage(this, amount);
 
         // Siblings fight - class-specific damage scale (see
         // SIBLINGS_CLASS_DAMAGE_SCALE in constants.js), applied

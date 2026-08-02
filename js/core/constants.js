@@ -909,7 +909,34 @@ const COINS = {
     royalMagus: 110,
     prince: 70,
     princess: 55,
-    king: 150
+    king: 150,
+
+    // Act II. Worth more than castle units of the same bulk -
+    // there are far fewer of them per wave, so per-kill value
+    // has to carry the wave's payout.
+    boar: 9,
+    hedgeWarden: 11,
+    rootHulk: 10,
+    brambleArcher: 8,
+    sporePuffer: 8,
+    wisp: 3,
+    pollenDrone: 12,
+    gardenerShade: 12,
+    vineWeaver: 11,
+    creeperVine: 5,
+
+    thornMatron: 130,
+    greenwarden: 150,
+    heartwood: 175,
+    herald: 200,
+
+    // Act III.
+    cherub: 10,
+    gateWarden: 14,
+    censer: 12,
+    scribe: 13,
+    choir: 16,
+    seraphBlade: 13
 };
 
 // =====================================
@@ -1723,6 +1750,396 @@ const ENEMY_TYPES = {
 // Used for the "You were slain by ___"
 // game over message.
 
+// =====================================
+// Garden Roster (Act II, waves 16-30)
+// =====================================
+//
+// From wave 16 the castle units stop spawning entirely and this
+// roster takes over. It is built on a different premise from the
+// castle's: by wave 16 every class is strong enough that "more
+// enemies with more HP" stops being a threat, so almost nothing
+// here tries to out-damage the player. They deny ground, break up
+// position, and multiply each other - which stays dangerous no
+// matter how big the player's numbers get.
+//
+// They are also roughly twice the castle roster's bulk, and
+// arrive as one squad rather than a stream (see spawnSquad in
+// wave.js), so a wave is six or seven real decisions instead of
+// twenty identical ones.
+
+const GARDEN = {
+
+    // Shared arrival window - see Enemy.emergeTimer.
+    EMERGE_MS: 620,
+
+    // Squad members erupt no closer than this to the player, so
+    // an arrival can never be an ambush the player had no chance
+    // to react to.
+    EMERGE_MIN_PLAYER_DIST: 220,
+
+    boar: {
+        SIZE: 46, SPEED: 1.05, COLOR: "#7a5230",
+        HP_BASE: 14, HP_EVERY: 2,
+        CHARGE_SPEED: 6.2,
+        CHARGE_WINDUP_MS: 620,
+        CHARGE_COOLDOWN: 3400,
+        // Bramble dropped along the charge line, in ms of life.
+        TRAIL_MS: 5200,
+        TRAIL_EVERY_PX: 46
+    },
+
+    hedgeWarden: {
+        SIZE: 64, SPEED: 0.62, COLOR: "#3f6b3a",
+        HP_BASE: 22, HP_EVERY: 2,
+        // Regrows this much shield per tick while in cover.
+        REGROW_PER_SEC: 2.2,
+        SHIELD_MAX: 10,
+        COVER_RADIUS: 96
+    },
+
+    rootHulk: {
+        SIZE: 60, SPEED: 0.7, COLOR: "#5c4a2e",
+        HP_BASE: 18, HP_EVERY: 2,
+        STOMP_COOLDOWN: 4200,
+        STOMP_TELEGRAPH_MS: 780,
+        // The ring erupts BETWEEN these radii - point blank is
+        // safe, which inverts the usual "back off" instinct.
+        RING_INNER: 78,
+        RING_OUTER: 168
+    },
+
+    brambleArcher: {
+        SIZE: 38, SPEED: 1.1, COLOR: "#6b7f3a",
+        HP_BASE: 9, HP_EVERY: 3,
+        PREFERRED_RANGE: 300,
+        SHOOT_COOLDOWN: 2100,
+        PROJECTILE_SPEED: 5.2,
+        ROOT_MS: 620
+    },
+
+    sporePuffer: {
+        SIZE: 42, SPEED: 0.85, COLOR: "#8a7fb0",
+        HP_BASE: 10, HP_EVERY: 3,
+        PREFERRED_RANGE: 260,
+        SHOOT_COOLDOWN: 3000,
+        CLOUD_RADIUS: 82,
+        CLOUD_MS: 4600
+    },
+
+    wispSwarm: {
+        SIZE: 26, SPEED: 1.9, COLOR: "#cfe6a0",
+        HP_BASE: 12, HP_EVERY: 3,
+        // Every wisp lost makes the rest this much faster.
+        SPEED_PER_LOSS: 0.22,
+        MEMBERS: 4
+    },
+
+    pollenDrone: {
+        SIZE: 36, SPEED: 1.0, COLOR: "#e6c760",
+        HP_BASE: 11, HP_EVERY: 3,
+        AURA_RADIUS: 165,
+        AURA_SPEED_MULT: 1.28,
+        HEAL_PER_SEC: 1.1,
+        // Hangs back behind the line it is buffing.
+        PREFERRED_RANGE: 340
+    },
+
+    gardenerShade: {
+        SIZE: 40, SPEED: 0.95, COLOR: "#4a3f6b",
+        HP_BASE: 13, HP_EVERY: 3,
+        REPLANT_COOLDOWN: 9000,
+        // Seedlings come back at this fraction of full HP.
+        SEEDLING_HP_FRACTION: 0.45,
+        PREFERRED_RANGE: 300
+    },
+
+    vineWeaver: {
+        SIZE: 38, SPEED: 0.9, COLOR: "#3f7f6b",
+        HP_BASE: 12, HP_EVERY: 3,
+        TETHER_RANGE: 420,
+        // Fraction of damage on one tethered ally that is
+        // mirrored onto the other.
+        SHARE_FRACTION: 0.5,
+        PREFERRED_RANGE: 320
+    },
+
+    creeperVine: {
+        SIZE: 34, COLOR: "#4f7a3a",
+        HP_BASE: 20, HP_EVERY: 2,
+        // Grows inward from its edge at this many px/sec.
+        GROW_PER_SEC: 26
+    }
+
+};
+
+// Elite signature twists for the garden roster, mirroring the
+// castle roster's (see ELITE). Generic elite buffs - x2 HP, x1.2
+// size, x1.3 speed, the gold ring - are applied on top by
+// makeElite; these are the changes that make an elite a different
+// PROBLEM rather than a bigger one.
+
+const GARDEN_ELITE = {
+
+    // Boar: its charge bounces off the first thing it hits and
+    // keeps going, so the safe angle changes mid-charge.
+    BOAR_RICOCHETS: 1,
+
+    // Hedge Warden: regrows anywhere, not just standing in cover,
+    // so it can no longer be pulled into the open and burst.
+    WARDEN_REGROW_ANYWHERE: true,
+
+    // Root Hulk: two rings with a safe gap between them.
+    HULK_SECOND_RING_INNER: 208,
+    HULK_SECOND_RING_OUTER: 286,
+
+    // Bramble Archer: root arrows leave a snare patch where they
+    // land, so a dodged arrow still costs ground.
+    ARCHER_SNARE_MS: 3200,
+    ARCHER_SNARE_RADIUS: 62,
+
+    // Spore Puffer: clouds split in two when they expire.
+    PUFFER_SPLIT_COUNT: 2,
+
+    // Wisp Swarm: a killed wisp splits into two weaker ones
+    // instead of only hastening the rest.
+    WISP_SPLIT_COUNT: 2,
+
+    // Pollen Drone: the aura also hands out a refreshing one-hit
+    // shield, turning "kill the drone" from advice into a rule.
+    DRONE_GRANTS_WARD: true,
+    DRONE_WARD_REFRESH_MS: 4200,
+
+    // Gardener Shade: replants at full strength.
+    SHADE_FULL_REPLANT: true,
+
+    // Vine Weaver: three-way tether, and the vine itself hurts.
+    WEAVER_TETHER_COUNT: 3,
+    WEAVER_VINE_DAMAGE: true
+
+};
+
+// =====================================
+// Act II / III Boss Tuning
+// =====================================
+//
+// One block for all four, because they were written together and
+// have to be balanced against each other.
+//
+// Deliberately on the generous side. Every earlier boss in this
+// game is gated behind a shop tier bought with the previous
+// boss's coins, and these four have no such tier yet - there is
+// no Thorn Matron reward to help with the Greenwarden. Until
+// there is, they are tuned to be readable and dramatic rather
+// than punishing: long telegraphs, one threat at a time, and a
+// real reward window in every fight.
+//
+// The windows are the important part. Each of these bosses opens
+// itself up for a few seconds if the player does the right thing
+// - that is what makes a fight feel fought rather than survived.
+
+const ACT2_BOSSES = {
+
+    // Half health is the turn. Every one of these bosses changes
+    // gear there rather than merely looking angrier - see
+    // bossPhase() in gardenBosses.js.
+    PHASE2_THRESHOLD: 0.5,
+
+    matron: {
+        HP_BASE: 520, HP_PER_CYCLE: 55,
+        SPEED: 1.15,
+        SEED_COOLDOWN: 3000,
+        // She still has to kneel to reseed, and it is still the
+        // punish window - but it is now brief enough that you have
+        // to already be on her, not merely notice and start
+        // running.
+        KNEEL_MS: 800,
+        KNEEL_VULN_MULT: 1.6,
+        LASH_COOLDOWN: 1700,
+        LASH_MIN_COOLDOWN: 850,
+        BLOOM_COOLDOWN: 6500,
+        BLOOM_COUNT: 3,
+        // Below half: the fan doubles up and the thorns come
+        // thicker.
+        PHASE2_COOLDOWN_MULT: 0.62,
+        PHASE2_SEED_BONUS: 4
+    },
+
+    greenwarden: {
+        HP_BASE: 620, HP_PER_CYCLE: 62,
+        SPEED: 0.85,
+        // Meaningfully harder to disarm, and it rebuilds itself
+        // less than half as slowly as it used to.
+        LIMB_HP: 55,
+        REGROW_MS: 11000,
+        // The stagger survives as a reward, but it is a window
+        // now rather than a holiday.
+        STAGGER_MS: 1800,
+        FLAIL_COOLDOWN: 1900,
+        RAKE_COOLDOWN: 2300,
+        SEED_COOLDOWN: 3400,
+        // Below half it regrows limbs in PAIRS, so disarming it
+        // completely stops being something you can hold.
+        PHASE2_COOLDOWN_MULT: 0.6,
+        PHASE2_REGROW_PAIRS: true
+    },
+
+    heartwood: {
+        HP_BASE: 780, HP_PER_CYCLE: 78,
+        ROOT_COOLDOWN: 1400,
+        ROOT_TELEGRAPH_MS: 480,
+        CANOPY_COOLDOWN: 4200,
+        SAPLING_COOLDOWN: 5200,
+        SAPLING_COUNT: 3,
+        SURGE_COOLDOWN: 5600,
+        // The core still opens - it is the only way to fight a
+        // thing that never moves - but far less often, for less
+        // time, and for less payoff.
+        CORE_OPEN_EVERY: 13000,
+        CORE_OPEN_MS: 1800,
+        CORE_DAMAGE_MULT: 1.7,
+        // Below half: roots come in pairs and the surge doubles.
+        PHASE2_COOLDOWN_MULT: 0.55,
+        PHASE2_DOUBLE_ROOTS: true
+    },
+
+    herald: {
+        HP_BASE: 900, HP_PER_CYCLE: 90,
+        SPEED: 1.9,
+        // Longer out of reach, and a much shorter window on the
+        // ground. You get one good opening per cycle and have to
+        // take all of it.
+        AIR_MS: 7500,
+        GROUND_MS: 3200,
+        PILLAR_COOLDOWN: 1500,
+        PILLAR_COUNT: 3,
+        MARK_COOLDOWN: 4000,
+        LANDING_SHOCK_RADIUS: 210,
+        // Below half: five pillars at a time, and it barely
+        // touches down.
+        PHASE2_COOLDOWN_MULT: 0.6,
+        PHASE2_PILLAR_COUNT: 5,
+        PHASE2_GROUND_MULT: 0.7
+    }
+
+};
+
+
+// =====================================
+// Angel Roster (Act III, waves 31-40)
+// =====================================
+//
+// The third and last roster, and deliberately a different kind
+// of pressure again.
+//
+//   The castle came AT you.       Melee and volume.
+//   The garden took the GROUND.   Denial and attrition.
+//   The angels JUDGE you.         Precision and consequence.
+//
+// Almost nothing here mills around. They telegraph hard, commit
+// hard, and punish a specific mistake - standing in the open,
+// attacking from the front, ignoring a mark. Fights are short
+// exchanges with clear right answers, which is the correct shape
+// for the last stretch of a run where the player is at their
+// strongest and wants to be tested rather than ground down.
+
+const ANGELS = {
+
+    EMERGE_MS: 620,
+
+    cherub: {
+        SIZE: 34, SPEED: 1.45, COLOR: "#f2efe0",
+        HP_BASE: 12, HP_EVERY: 3,
+        // Flies in a fixed formation offset from its flightmates
+        // instead of converging, so a squad arrives as a line.
+        PREFERRED_RANGE: 250,
+        SHOOT_COOLDOWN: 2000,
+        BOLT_SPEED: 6.4
+    },
+
+    gateWarden: {
+        SIZE: 66, SPEED: 0.72, COLOR: "#cfd6e8",
+        HP_BASE: 26, HP_EVERY: 2,
+        // Blocks damage arriving within this arc of its facing.
+        // The counterplay is a flank, not a bigger number - which
+        // is why it is the one angel that ignores raw damage.
+        SHIELD_ARC: Math.PI * 0.62,
+        SHIELD_LEAK: 0.15
+    },
+
+    censer: {
+        SIZE: 48, SPEED: 0.95, COLOR: "#e8c168",
+        HP_BASE: 20, HP_EVERY: 2,
+        // A burning censer swung on a chain - a ring of hurt that
+        // moves with it, so it denies the space it occupies
+        // rather than aiming at anything.
+        CHAIN_RADIUS: 96,
+        SPIN_MS: 2600
+    },
+
+    scribe: {
+        SIZE: 40, SPEED: 1.0, COLOR: "#b7a6e8",
+        HP_BASE: 16, HP_EVERY: 3,
+        PREFERRED_RANGE: 330,
+        MARK_COOLDOWN: 6200,
+        // How long you have to break line of sight before the
+        // mark lands. The arenas are full of occluders; this is
+        // what they are for.
+        MARK_FUSE_MS: 2400,
+        MARK_RADIUS: 118
+    },
+
+    choir: {
+        SIZE: 38, SPEED: 0.9, COLOR: "#ffe9a8",
+        HP_BASE: 18, HP_EVERY: 3,
+        PREFERRED_RANGE: 360,
+        // While a Choir lives, the first angel to fall gets back
+        // up once. THE kill-order unit of the roster.
+        REVIVE_COOLDOWN: 7000,
+        REVIVE_HP_FRACTION: 0.5
+    },
+
+    seraphBlade: {
+        SIZE: 44, SPEED: 1.15, COLOR: "#9fd8ff",
+        HP_BASE: 19, HP_EVERY: 2,
+        // Telegraphs a line clean across the arena, then crosses
+        // it. Dodgeable by stepping off the line - never by
+        // out-running it.
+        DASH_COOLDOWN: 4200,
+        TELEGRAPH_MS: 900,
+        DASH_SPEED: 11
+    }
+
+};
+
+// Elite signature twists, same contract as ELITE/GARDEN_ELITE:
+// generic buffs on top, these are what make it a different
+// problem rather than a bigger one.
+
+const ANGEL_ELITE = {
+
+    // Cherub: bolts split into a cross on impact.
+    CHERUB_SPLIT: 4,
+
+    // Gate Warden: the shield covers its whole body, so there is
+    // no flank - only breaking it by attacking while it swings.
+    WARDEN_FULL_ARC: true,
+
+    // Censer: two chains at opposite ends, so the safe gap is
+    // halved and moves.
+    CENSER_SECOND_CHAIN: true,
+
+    // Scribe: the mark chains to where you were, so simply
+    // running does not reset it.
+    SCRIBE_ECHO_MARK: true,
+
+    // Choir: revives everything, repeatedly, until it is dead.
+    CHOIR_UNLIMITED: true,
+
+    // Seraph Blade: crosses back on a second line.
+    BLADE_RETURN_PASS: true
+
+};
+
 const ENEMY_LABELS = {
 
     grunt: "a Grunt",
@@ -1743,7 +2160,32 @@ const ENEMY_LABELS = {
     prince: "the Prince",
     princess: "the Princess",
     hero: "the Hero",
-    king: "the King"
+    king: "the King",
+
+    // Act II - the grounds.
+    boar: "a Thornback Boar",
+    hedgeWarden: "a Hedge Warden",
+    rootHulk: "a Root Hulk",
+    brambleArcher: "a Bramble Archer",
+    sporePuffer: "a Spore Puffer",
+    wisp: "a Wisp",
+    pollenDrone: "a Pollen Drone",
+    gardenerShade: "a Gardener Shade",
+    vineWeaver: "a Vine Weaver",
+    creeperVine: "a Creeper Vine",
+
+    thornMatron: "the Thorn Matron",
+    greenwarden: "the Greenwarden",
+    heartwood: "the Heartwood",
+    herald: "the Herald",
+
+    // Act III - the storm.
+    cherub: "a Cherub",
+    gateWarden: "a Gate Warden",
+    censer: "a Censer",
+    scribe: "a Scribe",
+    choir: "a Choir",
+    seraphBlade: "a Seraph Blade"
 
 };
 
@@ -2478,13 +2920,36 @@ const WAVES = {
     // floor/pillars/lighting look like (see updateArenaForWave in
     // arena.js), never what walks in.
     //
-    //    1-5   castle   Castle Guard
-    //    6-10  night    Knight
-    //   11-15  throne   Royal Magus
-    //   16-20  garden   Prince & Princess
-    //   21+    storm    King
-    ARENA_SET4_START: 16,
-    ARENA_SET5_START: 21,
+    // The campaign runs in three acts of three arenas each, and
+    // each act has its own roster - see GARDEN_START/STORM_START,
+    // which are the two places the enemy pool actually changes.
+    //
+    //   ACT I - the castle. Castle roster.
+    //     1-5    castle    Castle Guard
+    //     6-10   night     Knight
+    //    11-15   throne    Royal Magus
+    //
+    //   ACT II - the grounds. Garden roster, no castle units.
+    //    16-20   garden    Thorn Matron
+    //    21-25   maze      Greenwarden
+    //    26-30   grove     Heartwood
+    //
+    //   ACT III - the storm. Angel roster.
+    //    31-35   storm     Herald
+    //    36-40   stormGrove Prince & Princess / Hero
+    //    41-50   final     every roster, then the King
+    //
+    // The last band is TEN waves, not five: nine waves recapping
+    // everything the run has fought, then the King. Anything that
+    // assumes a five-wave cadence has to read these constants
+    // rather than doing its own modulo - see isEliteWave() and
+    // the Boss Rush jump in wave.js.
+    ARENA_GARDEN_START: 16,
+    ARENA_MAZE_START: 21,
+    ARENA_GROVE_START: 26,
+    ARENA_STORM_START: 31,
+    ARENA_STORM_GROVE_START: 36,
+    ARENA_FINAL_START: 41,
 
     // Set-1/set-2 units keep spawning during set-3 waves,
     // thinned by this multiplier so the arena isn't
@@ -2514,11 +2979,30 @@ const WAVES = {
     RUNNER_UNLOCK_WAVE: 3,
     RUNNER_EVERY: 2,
 
+    // Which roster walks in.
+    //
+    // Only two lines in the whole campaign change the enemy pool,
+    // and these are they: at GARDEN_START the castle units stop
+    // spawning entirely and the garden roster takes over, and at
+    // STORM_START the angels do the same. The final band mixes
+    // all three again for its recap (see getFinalCounts).
+    GARDEN_START: 16,
+    STORM_START: 31,
+
     BOSS_WAVE: 5,
     KNIGHT_WAVE: 10,
     MAGUS_WAVE: 15,
-    SIBLINGS_WAVE: 20,
-    KING_WAVE: 25,
+
+    // Act II bosses.
+    MATRON_WAVE: 20,
+    GREENWARDEN_WAVE: 25,
+    HEARTWOOD_WAVE: 30,
+
+    // Act III.
+    HERALD_WAVE: 35,
+    SIBLINGS_WAVE: 40,
+    KING_WAVE: 50,
+
     BOSS_ESCORT_GRUNTS: 8,
     BOSS_ESCORT_TANKS: 4,
 
@@ -2634,12 +3118,25 @@ const BOSS_ENRAGE = {
 // selector.
 
 const BESTIARY_BASE_ORDER = [
+    // Act I - the castle.
     "grunt", "tank", "archer", "runner",
     "fireMage", "necromancer", "skeleton", "lancer",
-    "shade", "frostWeaver", "powderKeg", "bloodCleric"
+    "shade", "frostWeaver", "powderKeg", "bloodCleric",
+
+    // Act II - the grounds.
+    "boar", "hedgeWarden", "rootHulk", "brambleArcher",
+    "sporePuffer", "wisp", "pollenDrone", "gardenerShade",
+    "vineWeaver", "creeperVine",
+
+    // Act III - the storm.
+    "cherub", "gateWarden", "censer", "scribe", "choir", "seraphBlade"
 ];
 
-const BESTIARY_BOSS_ORDER = ["boss", "knight", "royalMagus", "prince", "princess", "king"];
+const BESTIARY_BOSS_ORDER = [
+    "boss", "knight", "royalMagus",
+    "thornMatron", "greenwarden", "heartwood",
+    "herald", "prince", "princess", "king"
+];
 
 const BESTIARY = {
 
@@ -2885,9 +3382,234 @@ const BESTIARY = {
         hpAtWave(w) { return KING.BASE_HP + w * KING.HP_PER_WAVE; },
         hpScale: `${KING.BASE_HP} HP, plus ${KING.HP_PER_WAVE} for every wave you've reached`,
         baseSpeed: KING.SPEED
+    },
+
+    // =====================================
+    // Act II - the grounds (waves 16-30)
+    // =====================================
+
+    boar: {
+        name: "Thornback Boar", color: GARDEN.boar.COLOR, size: GARDEN.boar.SIZE,
+        isBoss: false,
+        desc: "A bristling thing that would rather redraw the arena than fight in it.",
+        behavior: "Paws the ground, then charges in a straight line until it hits something, laying bramble the whole way. The trail outlives the boar.",
+        hpAtWave(w) { return gardenBestiaryHp(GARDEN.boar, w); },
+        hpScale: `${GARDEN.boar.HP_BASE} HP at wave ${WAVES.GARDEN_START}, gaining 1 every ${GARDEN.boar.HP_EVERY} waves`,
+        baseSpeed: GARDEN.boar.SPEED
+    },
+
+    hedgeWarden: {
+        name: "Hedge Warden", color: GARDEN.hedgeWarden.COLOR, size: GARDEN.hedgeWarden.SIZE,
+        isBoss: false,
+        desc: "Living topiary. It heals from the garden itself.",
+        behavior: "Regrows a shield whenever it stands near a bush. Fight it in the open, or don't fight it at all.",
+        hpAtWave(w) { return gardenBestiaryHp(GARDEN.hedgeWarden, w); },
+        hpScale: `${GARDEN.hedgeWarden.HP_BASE} HP at wave ${WAVES.GARDEN_START}, gaining 1 every ${GARDEN.hedgeWarden.HP_EVERY} waves`,
+        baseSpeed: GARDEN.hedgeWarden.SPEED
+    },
+
+    rootHulk: {
+        name: "Root Hulk", color: GARDEN.rootHulk.COLOR, size: GARDEN.rootHulk.SIZE,
+        isBoss: false,
+        desc: "A knot of old roots that walks. Backing away from it is a mistake.",
+        behavior: "Roots itself, then erupts in a RING - the ground at its own feet stays safe. Every instinct you have says step back. Don't.",
+        hpAtWave(w) { return gardenBestiaryHp(GARDEN.rootHulk, w); },
+        hpScale: `${GARDEN.rootHulk.HP_BASE} HP at wave ${WAVES.GARDEN_START}, gaining 1 every ${GARDEN.rootHulk.HP_EVERY} waves`,
+        baseSpeed: GARDEN.rootHulk.SPEED
+    },
+
+    brambleArcher: {
+        name: "Bramble Archer", color: GARDEN.brambleArcher.COLOR, size: GARDEN.brambleArcher.SIZE,
+        isBoss: false,
+        desc: "Its arrows barely scratch. That was never the idea.",
+        behavior: "Holds range and fires arrows that root you in place. The arrow is not the threat - whatever else is on the screen is.",
+        hpAtWave(w) { return gardenBestiaryHp(GARDEN.brambleArcher, w); },
+        hpScale: `${GARDEN.brambleArcher.HP_BASE} HP at wave ${WAVES.GARDEN_START}, gaining 1 every ${GARDEN.brambleArcher.HP_EVERY} waves`,
+        baseSpeed: GARDEN.brambleArcher.SPEED
+    },
+
+    sporePuffer: {
+        name: "Spore Puffer", color: GARDEN.sporePuffer.COLOR, size: GARDEN.sporePuffer.SIZE,
+        isBoss: false,
+        desc: "A bladder of old pollen. Harmless alone; unforgivable in company.",
+        behavior: "Lobs clouds that hang where they land, hiding what's inside and slowing anything that walks through.",
+        hpAtWave(w) { return gardenBestiaryHp(GARDEN.sporePuffer, w); },
+        hpScale: `${GARDEN.sporePuffer.HP_BASE} HP at wave ${WAVES.GARDEN_START}, gaining 1 every ${GARDEN.sporePuffer.HP_EVERY} waves`,
+        baseSpeed: GARDEN.sporePuffer.SPEED
+    },
+
+    wisp: {
+        name: "Wisp", color: GARDEN.wispSwarm.COLOR, size: GARDEN.wispSwarm.SIZE,
+        isBoss: false,
+        desc: "Garden lights that never learned to stay put.",
+        behavior: `Comes in fours and drifts rather than charges. Every wisp you kill makes the survivors faster, so a swarm gets harder to hit as it shrinks.`,
+        hpAtWave(w) { return Math.max(1, Math.round(gardenBestiaryHp(GARDEN.wispSwarm, w) / GARDEN.wispSwarm.MEMBERS)); },
+        hpScale: "A quarter of the swarm's pool each - fragile, but they speed up as they die",
+        baseSpeed: GARDEN.wispSwarm.SPEED
+    },
+
+    pollenDrone: {
+        name: "Pollen Drone", color: GARDEN.pollenDrone.COLOR, size: GARDEN.pollenDrone.SIZE,
+        isBoss: false,
+        desc: "It has no attack whatsoever. Kill it first anyway.",
+        behavior: "Hangs back and bathes every nearby ally in pollen - faster, and healing. The rest of the squad is a much harder fight while it lives.",
+        hpAtWave(w) { return gardenBestiaryHp(GARDEN.pollenDrone, w); },
+        hpScale: `${GARDEN.pollenDrone.HP_BASE} HP at wave ${WAVES.GARDEN_START}, gaining 1 every ${GARDEN.pollenDrone.HP_EVERY} waves`,
+        baseSpeed: GARDEN.pollenDrone.SPEED
+    },
+
+    gardenerShade: {
+        name: "Gardener Shade", color: GARDEN.gardenerShade.COLOR, size: GARDEN.gardenerShade.SIZE,
+        isBoss: false,
+        desc: "Still tending the beds, long after anyone asked it to.",
+        behavior: "Remembers what died and plants it again as a weaker seedling. Your kills don't stay dead until it does.",
+        hpAtWave(w) { return gardenBestiaryHp(GARDEN.gardenerShade, w); },
+        hpScale: `${GARDEN.gardenerShade.HP_BASE} HP at wave ${WAVES.GARDEN_START}, gaining 1 every ${GARDEN.gardenerShade.HP_EVERY} waves`,
+        baseSpeed: GARDEN.gardenerShade.SPEED
+    },
+
+    vineWeaver: {
+        name: "Vine Weaver", color: GARDEN.vineWeaver.COLOR, size: GARDEN.vineWeaver.SIZE,
+        isBoss: false,
+        desc: "It binds the squad together, and shares out the suffering.",
+        behavior: "Tethers two allies with a living vine. Half of everything you land on one is mirrored onto the other - so focusing a single target quietly wastes your damage.",
+        hpAtWave(w) { return gardenBestiaryHp(GARDEN.vineWeaver, w); },
+        hpScale: `${GARDEN.vineWeaver.HP_BASE} HP at wave ${WAVES.GARDEN_START}, gaining 1 every ${GARDEN.vineWeaver.HP_EVERY} waves`,
+        baseSpeed: GARDEN.vineWeaver.SPEED
+    },
+
+    creeperVine: {
+        name: "Creeper Vine", color: GARDEN.creeperVine.COLOR, size: GARDEN.creeperVine.SIZE,
+        isBoss: false,
+        desc: "Not a fighter. A deadline.",
+        behavior: "Grows inward from the edge and never stops, leaving permanent bramble behind it. Ignore it and the arena keeps getting smaller.",
+        hpAtWave(w) { return gardenBestiaryHp(GARDEN.creeperVine, w); },
+        hpScale: `${GARDEN.creeperVine.HP_BASE} HP at wave ${WAVES.GARDEN_START}, gaining 1 every ${GARDEN.creeperVine.HP_EVERY} waves`,
+        baseSpeed: 0
+    },
+
+    // =====================================
+    // Act III - the storm (waves 31-40)
+    // =====================================
+
+    cherub: {
+        name: "Cherub", color: ANGELS.cherub.COLOR, size: ANGELS.cherub.SIZE,
+        isBoss: false,
+        desc: "The lowest of the host, and there are always more.",
+        behavior: "Holds formation at range - each one offset from the last - and fires bolts of light. A flight of them covers most of the arena at once.",
+        hpAtWave(w) { return gardenBestiaryHp(ANGELS.cherub, w); },
+        hpScale: `${ANGELS.cherub.HP_BASE} HP at wave ${WAVES.STORM_START}, gaining 1 every ${ANGELS.cherub.HP_EVERY} waves`,
+        baseSpeed: ANGELS.cherub.SPEED
+    },
+
+    gateWarden: {
+        name: "Gate Warden", color: ANGELS.gateWarden.COLOR, size: ANGELS.gateWarden.SIZE,
+        isBoss: false,
+        desc: "It only ever faces you. That is the whole problem.",
+        behavior: "Shrugs off almost everything that arrives at its front and nothing that arrives at its back. No amount of damage solves it - only a flank does.",
+        hpAtWave(w) { return gardenBestiaryHp(ANGELS.gateWarden, w); },
+        hpScale: `${ANGELS.gateWarden.HP_BASE} HP at wave ${WAVES.STORM_START}, gaining 1 every ${ANGELS.gateWarden.HP_EVERY} waves`,
+        baseSpeed: ANGELS.gateWarden.SPEED
+    },
+
+    censer: {
+        name: "Censer", color: ANGELS.censer.COLOR, size: ANGELS.censer.SIZE,
+        isBoss: false,
+        desc: "Swinging its burning offering, endlessly, at nothing in particular.",
+        behavior: "Never aims. It simply walks toward you with a lethal ring turning around it, and you fight it from outside the chain or not at all.",
+        hpAtWave(w) { return gardenBestiaryHp(ANGELS.censer, w); },
+        hpScale: `${ANGELS.censer.HP_BASE} HP at wave ${WAVES.STORM_START}, gaining 1 every ${ANGELS.censer.HP_EVERY} waves`,
+        baseSpeed: ANGELS.censer.SPEED
+    },
+
+    scribe: {
+        name: "Scribe", color: ANGELS.scribe.COLOR, size: ANGELS.scribe.SIZE,
+        isBoss: false,
+        desc: "It writes your name down. Then it waits.",
+        behavior: "Marks you, and the mark lands unless you put something solid between yourself and the Scribe before the fuse burns out. The dotted line shows you exactly what to break.",
+        hpAtWave(w) { return gardenBestiaryHp(ANGELS.scribe, w); },
+        hpScale: `${ANGELS.scribe.HP_BASE} HP at wave ${WAVES.STORM_START}, gaining 1 every ${ANGELS.scribe.HP_EVERY} waves`,
+        baseSpeed: ANGELS.scribe.SPEED
+    },
+
+    choir: {
+        name: "Choir", color: ANGELS.choir.COLOR, size: ANGELS.choir.SIZE,
+        isBoss: false,
+        desc: "It does not fight. It simply refuses to let the others stay dead.",
+        behavior: "Sings fallen angels back up at half strength. Everything you kill while it lives is on loan.",
+        hpAtWave(w) { return gardenBestiaryHp(ANGELS.choir, w); },
+        hpScale: `${ANGELS.choir.HP_BASE} HP at wave ${WAVES.STORM_START}, gaining 1 every ${ANGELS.choir.HP_EVERY} waves`,
+        baseSpeed: ANGELS.choir.SPEED
+    },
+
+    seraphBlade: {
+        name: "Seraph Blade", color: ANGELS.seraphBlade.COLOR, size: ANGELS.seraphBlade.SIZE,
+        isBoss: false,
+        desc: "It draws the line before it crosses it.",
+        behavior: "Marks a line clean across the arena, holds it long enough to be read, then crosses at speed. Step off the line - you will never outrun it.",
+        hpAtWave(w) { return gardenBestiaryHp(ANGELS.seraphBlade, w); },
+        hpScale: `${ANGELS.seraphBlade.HP_BASE} HP at wave ${WAVES.STORM_START}, gaining 1 every ${ANGELS.seraphBlade.HP_EVERY} waves`,
+        baseSpeed: ANGELS.seraphBlade.SPEED
+    },
+
+    // =====================================
+    // Act II / III bosses
+    // =====================================
+
+    thornMatron: {
+        name: "Thorn Matron", color: "#a8446b", size: 82, isBoss: true,
+        desc: "The keeper of the rose court, still keeping it.",
+        behavior: "Seeds the arena with thorns and lashes harder the more of it she has taken. She kneels to plant, and is vulnerable while she does - but not for long. Below half health she throws two fans at once and buries the ground.",
+        lore: "She tended these beds when the court still had a court to walk in them. She pruned for the Queen, and cut roses for a Princess who has since grown into something with a crown of her own. No one ever came to tell her the household had fallen; no one ever came at all. So she kept planting, and the garden kept spreading, and by the time anyone noticed, the roses had taken the walls.",
+        hpAtWave(w) { return ACT2_BOSSES.matron.HP_BASE + Math.floor(w / 5) * ACT2_BOSSES.matron.HP_PER_CYCLE; },
+        hpScale: `${ACT2_BOSSES.matron.HP_BASE} HP, plus ${ACT2_BOSSES.matron.HP_PER_CYCLE} for every five waves reached`,
+        baseSpeed: 0.85
+    },
+
+    greenwarden: {
+        name: "Greenwarden", color: "#3f7a3c", size: 96, isBoss: true,
+        desc: "A hedge shaped like a guardian, that took the shaping seriously.",
+        behavior: "Three limbs, three attacks. Break a limb and that attack stops - break all three and it staggers. It regrows them quickly, and below half health it grows them back in pairs.",
+        lore: "Topiary in the old style: a warden clipped into a hedge at the maze's heart, so that visitors would feel watched and behave. It worked. Season after season it was cut back into the same shape, until the shape stopped needing the shears — until it stepped out of its own outline and went on standing guard over a maze with nothing left in it to protect.",
+        hpAtWave(w) { return ACT2_BOSSES.greenwarden.HP_BASE + Math.floor(w / 5) * ACT2_BOSSES.greenwarden.HP_PER_CYCLE; },
+        hpScale: `${ACT2_BOSSES.greenwarden.HP_BASE} HP, plus ${ACT2_BOSSES.greenwarden.HP_PER_CYCLE} for every five waves reached`,
+        baseSpeed: 0.6
+    },
+
+    heartwood: {
+        name: "Heartwood", color: "#6b4a2a", size: 130, isBoss: true,
+        desc: "It does not move. It does not have to.",
+        behavior: "Fights entirely through the grove - roots erupting underfoot, canopy falling, saplings pushing up, sap surging out in rings. Its core opens only rarely, and briefly. Below half health the roots come in pairs and a second surge closes the outer ring.",
+        lore: "The oldest thing on the grounds, and the only one that remembers what stood here before the castle. The garden did not grow around it; it grew around the garden. Every root in the grove is a finger of it, and every wall the masons raised was raised on ground it had already claimed. It has been waiting a very long time, and it has never once needed to take a step.",
+        hpAtWave(w) { return ACT2_BOSSES.heartwood.HP_BASE + Math.floor(w / 5) * ACT2_BOSSES.heartwood.HP_PER_CYCLE; },
+        hpScale: `${ACT2_BOSSES.heartwood.HP_BASE} HP, plus ${ACT2_BOSSES.heartwood.HP_PER_CYCLE} for every five waves reached`,
+        baseSpeed: 0
+    },
+
+    herald: {
+        name: "Herald", color: "#dfe6f5", size: 76, isBoss: true,
+        desc: "The first of the host, and the announcement of the rest.",
+        behavior: "Flies, and cannot be touched while airborne. It comes down rarely and briefly, and its landing is itself an attack. Marks you the way its Scribes will. Below half health it hurls five pillars at a time and barely lands at all.",
+        lore: "It came down with the storm, and the storm has not lifted since. It does not speak, does not bargain, does not appear to notice the arena at all — it circles, it judges, it descends, and it writes down what it finds. Whatever it is heralding has not arrived yet. That is the part worth worrying about.",
+        hpAtWave(w) { return ACT2_BOSSES.herald.HP_BASE + Math.floor(w / 5) * ACT2_BOSSES.herald.HP_PER_CYCLE; },
+        hpScale: `${ACT2_BOSSES.herald.HP_BASE} HP, plus ${ACT2_BOSSES.herald.HP_PER_CYCLE} for every five waves reached`,
+        baseSpeed: 1.5
     }
 
 };
+
+// Bestiary HP preview for the Act II/III rosters. Mirrors
+// gardenHp() in garden.js, but takes an explicit wave so the
+// bestiary can show a value for a wave you aren't on.
+function gardenBestiaryHp(cfg, w) {
+
+    const start = ANGELS[Object.keys(ANGELS).find(k => ANGELS[k] === cfg)]
+        ? WAVES.STORM_START
+        : WAVES.GARDEN_START;
+
+    return cfg.HP_BASE + Math.floor(Math.max(0, w - start) / cfg.HP_EVERY);
+
+}
 
 // =====================================
 // Elite Bestiary Entries
@@ -2951,6 +3673,85 @@ const BESTIARY_ELITE_TWISTS = {
         behavior: `Soaks one hit before taking damage, and swings a dagger that kills from just outside touching range.`
     },
 
+    // --- Act II ---
+
+    boar: {
+        desc: "A charger that doesn't stop at the wall.",
+        behavior: "Rebounds off the first thing it hits and keeps going, so the angle you dodged is not the angle that comes back."
+    },
+
+    hedgeWarden: {
+        desc: "Overgrown enough to carry its own cover.",
+        behavior: "Regrows its shield anywhere, not just beside a bush - so it can no longer be dragged into the open and burst down."
+    },
+
+    rootHulk: {
+        desc: "One stomp, two rings.",
+        behavior: "Erupts in a second, wider ring outside the first. There is a safe gap between them, and it is not where you were standing."
+    },
+
+    brambleArcher: {
+        desc: "Every shot costs you ground, hit or miss.",
+        behavior: "A dodged arrow still buries itself and snares the ground where it lands for several seconds."
+    },
+
+    sporePuffer: {
+        desc: "Its clouds outlive it, then outlive themselves.",
+        behavior: `Each cloud breaks into ${GARDEN_ELITE.PUFFER_SPLIT_COUNT} smaller ones as it expires, so the ground it denies is inherited rather than cleared.`
+    },
+
+    wisp: {
+        desc: "It doesn't die so much as divide.",
+        behavior: `Splits into ${GARDEN_ELITE.WISP_SPLIT_COUNT} weaker wisps when killed. Raw damage is the one thing that doesn't solve this.`
+    },
+
+    pollenDrone: {
+        desc: "Now it hands out shields as well.",
+        behavior: "Its aura grants nearby allies a refreshing one-hit ward on top of the healing and haste. Killing it first stops being advice and starts being a rule."
+    },
+
+    gardenerShade: {
+        desc: "Nothing you kill counts.",
+        behavior: "Replants the fallen at full strength instead of as weakened seedlings."
+    },
+
+    vineWeaver: {
+        desc: "A wider web, and the web itself bites.",
+        behavior: `Tethers ${GARDEN_ELITE.WEAVER_TETHER_COUNT} allies at once instead of two, and the vines hurt to cross.`
+    },
+
+    // --- Act III ---
+
+    cherub: {
+        desc: "Its bolts burst.",
+        behavior: `Every bolt scatters into ${ANGEL_ELITE.CHERUB_SPLIT} smaller ones on impact, so the space you dodged into isn't safe either.`
+    },
+
+    gateWarden: {
+        desc: "No back to get behind.",
+        behavior: "The shield covers the whole body rather than an arc. Flanking stops working entirely; you have to grind it down through the leak."
+    },
+
+    censer: {
+        desc: "Two chains, half the gap.",
+        behavior: "Swings a second censer opposite the first, so the safe opening is halved and keeps moving."
+    },
+
+    scribe: {
+        desc: "The mark follows where you were.",
+        behavior: "Its judgement echoes to your previous position as well, so simply running does not reset it - you still have to break the sightline."
+    },
+
+    choir: {
+        desc: "It will not stop singing.",
+        behavior: "Raises the fallen at full strength, again and again, for as long as it is alive. The wave does not end until the Choir does."
+    },
+
+    seraphBlade: {
+        desc: "It comes back across.",
+        behavior: "Crosses the arena, turns, and crosses again on the reverse line - the dodge has to be held, not just timed."
+    },
+
     lancer: {
         desc: "A shield-bearer for the entire wave.",
         behavior: `Its shield takes ${ELITE.LANCER_SHIELD_HITS} hits, it lunges whether the shield is up or not, and every few seconds it hands nearby allies a one-hit shield of their own.`
@@ -2978,7 +3779,21 @@ const BESTIARY_ELITE_TWISTS = {
 
 };
 
-BESTIARY_BASE_ORDER.forEach(type => {
+// Types that get an "Elite X" card generated for them.
+//
+// A type with no twist entry is skipped rather than crashing.
+// That guard is not paranoia: the Creeper Vine has no elite form
+// (it is in NO_ELITE - it's arena furniture with a health bar),
+// so it has no twist, and reading .desc off the missing entry
+// threw at load time. Because this loop runs at the top level of
+// constants.js, that one throw took out EVERY declaration below
+// it - BESTIARY_NORMAL_ORDER and everything after simply ceased
+// to exist - and it did it silently, with the game still
+// starting and the console still clean.
+const BESTIARY_ELITE_ORDER =
+    BESTIARY_BASE_ORDER.filter(type => BESTIARY_ELITE_TWISTS[type]);
+
+BESTIARY_ELITE_ORDER.forEach(type => {
 
     const base = BESTIARY[type];
     const twist = BESTIARY_ELITE_TWISTS[type];
@@ -3021,5 +3836,7 @@ BESTIARY_BASE_ORDER.forEach(type => {
 // across a page boundary (12 per page, both lists even).
 
 const BESTIARY_NORMAL_ORDER = BESTIARY_BASE_ORDER.flatMap(
-    type => [type, eliteBestiaryKey(type)]
+    type => BESTIARY_ELITE_TWISTS[type]
+        ? [type, eliteBestiaryKey(type)]
+        : [type]
 );

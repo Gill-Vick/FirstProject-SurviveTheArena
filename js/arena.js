@@ -52,8 +52,12 @@ function updateArenaForWave() {
     // rather than the SET*_START ones - see the note in
     // constants.js: those drive spawning, these only drive looks.
     const desired =
-        Game.wave >= WAVES.ARENA_SET5_START ? "storm" :
-        Game.wave >= WAVES.ARENA_SET4_START ? "garden" :
+        Game.wave >= WAVES.ARENA_FINAL_START ? "final" :
+        Game.wave >= WAVES.ARENA_STORM_GROVE_START ? "stormGrove" :
+        Game.wave >= WAVES.ARENA_STORM_START ? "storm" :
+        Game.wave >= WAVES.ARENA_GROVE_START ? "grove" :
+        Game.wave >= WAVES.ARENA_MAZE_START ? "maze" :
+        Game.wave >= WAVES.ARENA_GARDEN_START ? "garden" :
         Game.wave >= WAVES.SET3_START ? "throne" :
         Game.wave >= WAVES.SET2_START ? "night" :
         "castle";
@@ -93,10 +97,25 @@ function applyArenaTheme(theme, wipe) {
     if (wipe)
         Arena.transitionAt = Date.now();
 
-    if (theme === "storm")
+    // The three Act II/III green arenas are variations on the
+    // rose court rather than separate builders: same trees,
+    // hedges and lanterns, different density and palette. They
+    // are the same PLACE at three depths - a tended court, a
+    // maze, then wild woodland - so building them from one
+    // generator is what keeps that reading rather than a
+    // shortcut.
+    if (theme === "final")
+        generateFinalArena();
+    else if (theme === "stormGrove")
+        generateRoseCourt("stormGrove");
+    else if (theme === "storm")
         generateStormRuin();
+    else if (theme === "grove")
+        generateRoseCourt("grove");
+    else if (theme === "maze")
+        generateRoseCourt("maze");
     else if (theme === "garden")
-        generateRoseCourt();
+        generateRoseCourt("garden");
     else if (theme === "throne")
         generateThroneRoom();
     else if (theme === "night")
@@ -310,7 +329,90 @@ function generateNightThrone() {
 // lantern posts are the light, and bushes, flower beds and
 // benches dress the ground (see drawArenaProps).
 
-function generateRoseCourt() {
+// The four green arenas, as differences from the rose court.
+//
+// They are the same PLACE seen at four depths - a tended court,
+// then the maze behind it, then wild woodland, then that same
+// woodland under the angels' storm - so they are built by one
+// generator from one table rather than by four near-identical
+// functions. Anything not listed here is shared by all of them.
+const GREEN_VARIANTS = {
+
+    garden: {
+        floor: [176, 168, 152],   // pale marble terrace
+        soil: [74, 96, 52],
+        trees: 6,
+        bushes: 9,
+        beds: true,
+        benches: true,
+        lanterns: 4,
+        tint: null
+    },
+
+    maze: {
+        // Hedge maze: the paving gives way to trodden gravel and
+        // the planting closes in, so the same arena fights much
+        // tighter without moving a single wall.
+        floor: [142, 134, 116],
+        soil: [58, 82, 44],
+        trees: 10,
+        bushes: 16,
+        beds: false,
+        benches: false,
+        lanterns: 4,
+        tint: "rgba(20, 40, 24, 0.14)"
+    },
+
+    grove: {
+        // Wild woodland - no paving left at all, just leaf litter
+        // under a closed canopy.
+        floor: [86, 74, 54],
+        soil: [48, 68, 38],
+        trees: 12,
+        bushes: 20,
+        beds: false,
+        benches: false,
+        lanterns: 3,
+        tint: "rgba(14, 34, 20, 0.26)"
+    },
+
+    stormGrove: {
+        // The same wood with the storm overhead: the light goes
+        // cold and the greens go grey.
+        floor: [70, 66, 58],
+        soil: [42, 56, 40],
+        trees: 12,
+        bushes: 18,
+        beds: false,
+        benches: false,
+        lanterns: 3,
+        tint: "rgba(24, 32, 52, 0.3)"
+    }
+
+};
+
+// True for every arena built by generateRoseCourt.
+//
+// Every look/behaviour check that used to read `theme ===
+// "garden"` goes through this, so adding a fifth green arena
+// never means hunting down a dozen equality tests - which is
+// exactly how the storm arena's shadow direction got missed the
+// first time round.
+function isGreenTheme(theme = Arena.theme) {
+
+    return GREEN_VARIANTS[theme] !== undefined;
+
+}
+
+function greenVariant(theme = Arena.theme) {
+
+    return GREEN_VARIANTS[theme] ?? GREEN_VARIANTS.garden;
+
+}
+
+function generateRoseCourt(variant = "garden") {
+
+    const V = GREEN_VARIANTS[variant] ?? GREEN_VARIANTS.garden;
 
     // No columns here - a garden has trees. They still go in
     // Arena.pillars because that's the foreground-occluder list
@@ -334,6 +436,10 @@ function generateRoseCourt() {
     // screen edge, while the trunk stays on the border's soil.
     const bx = W * (GARDEN_BORDER * 0.63);
 
+    // Six trees down the two borders in the tended court; the
+    // wilder variants add pairs further in, closing the arena
+    // down without ever blocking the middle where the fighting
+    // happens.
     const treeSpots = [
         { x: bx, y: H * 0.26, width: 110 },
         { x: bx, y: H * 0.66, width: 124 },
@@ -342,6 +448,23 @@ function generateRoseCourt() {
         { x: W - bx, y: H * 0.66, width: 124 },
         { x: W - bx, y: H * 1.04, width: 134 }
     ];
+
+    const extraRows = [
+        { y: H * 0.16, width: 104 },
+        { y: H * 0.88, width: 118 },
+        { y: H * 0.52, width: 112 }
+    ];
+
+    for (let i = 0; treeSpots.length < V.trees && i < extraRows.length; i++) {
+
+        const row = extraRows[i];
+
+        treeSpots.push({ x: W * 0.235, y: row.y, width: row.width });
+
+        if (treeSpots.length < V.trees)
+            treeSpots.push({ x: W * 0.765, y: row.y, width: row.width });
+
+    }
 
     treeSpots.forEach(t => {
 
@@ -373,39 +496,305 @@ function generateRoseCourt() {
         { x: W * 0.26, y: H * 0.80 },
         { x: W * 0.74, y: H * 0.34 },
         { x: W * 0.74, y: H * 0.80 }
-    ].forEach(l => Arena.torches.push({ x: l.x, y: l.y }));
+    ].slice(0, V.lanterns).forEach(l => Arena.torches.push({ x: l.x, y: l.y }));
 
     // Ground dressing. None of this occludes or collides - it is
     // there to make the place read as a garden rather than a
     // marble box.
     const hedge = H * 0.11;
 
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < V.bushes; i++) {
 
-        const x = W * (0.06 + i * 0.11);
+        const x = W * (0.06 + (i % 9) * 0.11);
+        const deep = i >= 9;
 
-        Arena.props.push({ kind: "bush", x, y: hedge + 16, r: 20 + (i % 3) * 5 });
-        Arena.props.push({ kind: "bush", x: x + W * 0.05, y: H - hedge - 16, r: 18 + (i % 4) * 5 });
+        // The extra bushes the wilder variants ask for come in
+        // off the border and into the court itself, which is
+        // what makes the maze and the grove feel overgrown
+        // rather than merely darker.
+        Arena.props.push({
+            kind: "bush",
+            x: deep ? x + W * 0.03 : x,
+            y: deep ? hedge + 74 : hedge + 16,
+            r: 20 + (i % 3) * 5
+        });
+
+        Arena.props.push({
+            kind: "bush",
+            x: x + W * 0.05,
+            y: deep ? H - hedge - 74 : H - hedge - 16,
+            r: 18 + (i % 4) * 5
+        });
 
     }
 
-    // Top row skips the middle - the fountain sits there (see
-    // drawArenaSetPiece), and props draw after set pieces, so a
-    // bed placed there would be painted straight over its basin.
-    [0.24, 0.76].forEach(f => {
+    if (V.beds) {
 
-        Arena.props.push({ kind: "bed", x: W * f, y: hedge + 52, w: 96, h: 26 });
+        // Top row skips the middle - the fountain sits there (see
+        // drawArenaSetPiece), and props draw after set pieces, so
+        // a bed placed there would be painted straight over its
+        // basin.
+        [0.24, 0.76].forEach(f => {
 
-    });
+            Arena.props.push({ kind: "bed", x: W * f, y: hedge + 52, w: 96, h: 26 });
 
-    [0.22, 0.5, 0.78].forEach(f => {
+        });
 
-        Arena.props.push({ kind: "bed", x: W * f, y: H - hedge - 52, w: 96, h: 26 });
+        [0.22, 0.5, 0.78].forEach(f => {
 
-    });
+            Arena.props.push({ kind: "bed", x: W * f, y: H - hedge - 52, w: 96, h: 26 });
 
-    Arena.props.push({ kind: "bench", x: W * 0.35, y: hedge + 96 });
-    Arena.props.push({ kind: "bench", x: W * 0.65, y: H - hedge - 96 });
+        });
+
+    }
+
+    if (V.benches) {
+
+        Arena.props.push({ kind: "bench", x: W * 0.35, y: hedge + 96 });
+        Arena.props.push({ kind: "bench", x: W * 0.65, y: H - hedge - 96 });
+
+    }
+
+}
+
+// Fireflies under the grove's closed canopy - the only light in
+// there that isn't a lantern. Clock-driven and stateless like
+// every other ambient effect in this pass.
+function drawGroveFireflies(now) {
+
+    ctx.save();
+
+    for (let i = 0; i < 22; i++) {
+
+        const a = stormHash(i + 60);
+        const b = stormHash(i + 130);
+        const c = stormHash(i + 200);
+
+        const t = now / 1000;
+
+        const x = canvas.width * (0.08 + a * 0.84)
+                  + Math.sin(t * (0.3 + b * 0.3) + c * 6) * 70;
+
+        const y = canvas.height * (0.12 + b * 0.76)
+                  + Math.cos(t * (0.25 + a * 0.3) + c * 6) * 44;
+
+        // Each blinks on its own cycle, and most are dark at any
+        // moment - a constellation that never quite repeats.
+        const blink = Math.sin(t * (1.4 + c * 1.6) + a * 9);
+
+        if (blink < 0.35)
+            continue;
+
+        ctx.globalAlpha = (blink - 0.35) * 1.1;
+        ctx.fillStyle = "#d6f08a";
+        ctx.fillRect(Math.round(x), Math.round(y), 3, 3);
+
+        ctx.globalAlpha *= 0.35;
+        ctx.fillRect(Math.round(x) - 3, Math.round(y) - 3, 9, 9);
+
+    }
+
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+}
+
+// Rain slanting through the storm grove, plus the lightning
+// wash. Reuses getStormFlash so the grove and the ruin flare on
+// exactly the same frame - they are the same storm.
+function drawStormGroveRain(now) {
+
+    ctx.save();
+
+    ctx.strokeStyle = "rgba(180, 205, 235, 0.32)";
+    ctx.lineWidth = 1;
+
+    for (let i = 0; i < 90; i++) {
+
+        // stormHash rather than a modulo step - the arithmetic
+        // version lands on a handful of repeating lanes and the
+        // rain comes out as stripes. See the note on stormHash.
+        const lane = stormHash(i);
+        const speed = 620 + stormHash(i + 300) * 340;
+
+        const x = lane * (canvas.width + 200) - 100;
+        const y = ((now / speed) + stormHash(i + 700)) % 1 * (canvas.height + 120) - 60;
+
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + 7, y + 22);
+        ctx.stroke();
+
+    }
+
+    const flash = getStormFlash();
+
+    if (flash > 0.01) {
+
+        ctx.fillStyle = `rgba(190, 214, 255, ${flash * 0.22})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    }
+
+    ctx.restore();
+
+}
+
+// Focal object for the three arenas beyond the rose court.
+//
+// The court has its fountain; giving the maze, the grove and the
+// storm grove the same one made them read as the same room three
+// times. Each gets the thing its own band is actually about -
+// which is also the cheapest way to make a variation feel like a
+// place.
+function drawGreenSetPiece() {
+
+    const cx = canvas.width / 2;
+    const cy = canvas.height * 0.34;
+    const now = Date.now();
+
+    ctx.save();
+
+    if (Arena.theme === "maze") {
+
+        // A sundial at the maze's centre - the thing you navigate
+        // toward, and a quiet joke: it still keeps time for a
+        // household that no longer exists.
+        ctx.fillStyle = "rgba(0, 0, 0, 0.22)";
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + 26, 62, 20, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#8d8676";
+        ctx.fillRect(cx - 12, cy - 6, 24, 34);
+
+        ctx.fillStyle = "#b9b2a0";
+        ctx.beginPath();
+        ctx.ellipse(cx, cy - 8, 52, 17, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#6f6959";
+        ctx.beginPath();
+        ctx.ellipse(cx, cy - 8, 44, 13, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Hour marks, and a gnomon whose shadow creeps round on
+        // the clock - the only moving part.
+        ctx.fillStyle = "#3c382e";
+
+        for (let i = 0; i < 12; i++) {
+
+            const a = (i / 12) * Math.PI * 2;
+
+            ctx.fillRect(
+                Math.round(cx + Math.cos(a) * 38) - 2,
+                Math.round(cy - 8 + Math.sin(a) * 11) - 2,
+                4, 4
+            );
+
+        }
+
+        const sweep = (now / 24000) % 1 * Math.PI * 2;
+
+        ctx.strokeStyle = "rgba(30, 28, 22, 0.5)";
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - 8);
+        ctx.lineTo(cx + Math.cos(sweep) * 40, cy - 8 + Math.sin(sweep) * 12);
+        ctx.stroke();
+
+        ctx.fillStyle = "#d8d2c0";
+        ctx.fillRect(cx - 3, cy - 34, 6, 28);
+
+    } else if (Arena.theme === "grove") {
+
+        // A ring of standing stones around bare earth: the spot
+        // the Heartwood grows out of, marked long before anyone
+        // thought to build a castle nearby.
+        ctx.fillStyle = "rgba(30, 22, 14, 0.35)";
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + 10, 118, 44, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        for (let i = 0; i < 7; i++) {
+
+            const a = (i / 7) * Math.PI * 2 - 0.4;
+            const sx = cx + Math.cos(a) * 116;
+            const sy = cy + 10 + Math.sin(a) * 42;
+
+            const h = 30 + (i % 3) * 12;
+
+            ctx.fillStyle = "rgba(0, 0, 0, 0.28)";
+            ctx.beginPath();
+            ctx.ellipse(sx, sy + 4, 15, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = "#6e6a5e";
+            ctx.fillRect(Math.round(sx) - 10, Math.round(sy) - h, 20, h);
+
+            ctx.fillStyle = "#8b8779";
+            ctx.fillRect(Math.round(sx) - 10, Math.round(sy) - h, 6, h);
+
+            // Faint carvings, lit by whatever is under the grove.
+            ctx.fillStyle = `rgba(150, 220, 140, ${0.18 + Math.sin(now / 900 + i) * 0.1})`;
+            ctx.fillRect(Math.round(sx) - 3, Math.round(sy) - h + 8, 5, 5);
+            ctx.fillRect(Math.round(sx) - 3, Math.round(sy) - h + 20, 5, 5);
+
+        }
+
+    } else {
+
+        // Storm grove: the same standing stones, now struck. One
+        // is toppled, and the rest carry the storm's charge -
+        // the grove after the angels arrived.
+        ctx.fillStyle = "rgba(20, 24, 34, 0.4)";
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + 10, 118, 44, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        const flash = getStormFlash();
+
+        for (let i = 0; i < 7; i++) {
+
+            const a = (i / 7) * Math.PI * 2 - 0.4;
+            const sx = cx + Math.cos(a) * 116;
+            const sy = cy + 10 + Math.sin(a) * 42;
+
+            // The fourth stone lies where it fell.
+            if (i === 3) {
+
+                ctx.fillStyle = "#5c5a54";
+                ctx.fillRect(Math.round(sx) - 22, Math.round(sy) - 8, 44, 15);
+
+                continue;
+
+            }
+
+            const h = 30 + (i % 3) * 12;
+
+            ctx.fillStyle = "#585a63";
+            ctx.fillRect(Math.round(sx) - 10, Math.round(sy) - h, 20, h);
+
+            ctx.fillStyle = `rgba(190, 220, 255, ${0.25 + flash * 0.6})`;
+            ctx.fillRect(Math.round(sx) - 3, Math.round(sy) - h + 8, 5, 5);
+            ctx.fillRect(Math.round(sx) - 3, Math.round(sy) - h + 20, 5, 5);
+
+        }
+
+    }
+
+    ctx.restore();
+
+}
+
+// The last arena (waves 41-50): the throne approach again, but
+// after everything. Deliberately a REPRISE rather than a new
+// look - nine waves recapping every roster the run has fought
+// belong somewhere the player recognises, and the King should be
+// beaten where he was always going to be.
+function generateFinalArena() {
+
+    generateThroneRoom();
 
 }
 
@@ -832,12 +1221,12 @@ function ensureFloorTexture() {
     const salt =
         Arena.theme === "castle" ? 0x1a2b :
         Arena.theme === "night" ? 0x51de :
-        Arena.theme === "garden" ? 0x2c91 :
+        isGreenTheme() ? 0x2c91 :
         Arena.theme === "storm" ? 0x6ad4 : 0x7403;
 
     const rng = makeFloorRng((canvas.width * 73856093) ^ (canvas.height * 19349663) ^ salt);
 
-    if (Arena.theme === "garden") {
+    if (isGreenTheme()) {
 
         // Pale marble terrace inset inside a planted border on
         // all four sides. The border matters: the trees are
@@ -846,18 +1235,38 @@ function ensureFloorTexture() {
         const hedgeY = snapTexel(canvas.height * 0.11);
         const hedgeX = snapTexel(canvas.width * GARDEN_BORDER);
 
+        // The court's paving goes from pale marble in the rose
+        // garden to bare leaf litter out in the grove - the one
+        // change that does the most to say how far from the
+        // castle you have walked.
+        const V = greenVariant();
+
         paintPixelStone(fctx, 0, 0, canvas.width, canvas.height,
-                        [176, 168, 152], rng, { tile: 40 });
+                        V.floor, rng, { tile: 40 });
 
         paintPixelHedge(fctx, 0, 0, canvas.width, hedgeY, rng);
         paintPixelHedge(fctx, 0, canvas.height - hedgeY, canvas.width, hedgeY, rng);
         paintPixelHedge(fctx, 0, 0, hedgeX, canvas.height, rng);
         paintPixelHedge(fctx, canvas.width - hedgeX, 0, hedgeX, canvas.height, rng);
 
-        // Petals drift across the open marble court only.
-        paintRosePetals(fctx, hedgeX, hedgeY,
-                        canvas.width - hedgeX * 2,
-                        canvas.height - hedgeY * 2, rng, 90);
+        // Petals drift across the open court only - and only the
+        // tended one has roses to shed them.
+        if (Arena.theme === "garden")
+            paintRosePetals(fctx, hedgeX, hedgeY,
+                            canvas.width - hedgeX * 2,
+                            canvas.height - hedgeY * 2, rng, 90);
+
+        // Overall wash, baked in rather than drawn live: it is a
+        // property of the ground, not of the light.
+        if (V.tint) {
+            fctx.fillStyle = V.tint;
+            fctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // Bushes, beds and benches straight into the bitmap. They
+        // are static for the whole band, so there is no reason to
+        // pay for them once a frame - see drawArenaProps.
+        drawArenaProps(fctx);
 
         floorSig = sig;
 
@@ -1045,7 +1454,14 @@ function drawArenaFloor() {
     // fight's own marks - all on top of the baked floor but under
     // everything that moves. Every theme gets these.
     drawArenaSetPiece();
-    drawArenaProps();
+
+    // ...except the green arenas, which already have their props
+    // baked into the floor bitmap (see ensureFloorTexture). Their
+    // planting is dense enough that drawing it live cost more
+    // than everything else in the frame put together.
+    if (!isGreenTheme())
+        drawArenaProps();
+
     drawArenaDecals();
 
 }
@@ -1409,7 +1825,29 @@ function drawLightingSystem() {
 
     }
 
-    if (Arena.theme === "garden") {
+    if (isGreenTheme()) {
+
+        // Each green arena gets its own hour. The rose court is a
+        // warm dusk; the maze is later and colder; the grove is
+        // under a closed canopy with almost no sky left; the
+        // storm grove has no sun at all, only the storm.
+        //
+        // This is the cheapest thing that stops four variations
+        // of one generator reading as the same place four times,
+        // and it costs one lookup.
+        const GV = {
+            garden:     { sky: "rgba(34, 24, 58, 0.34)", mid: "rgba(40, 30, 62, 0.14)",
+                          sunA: "rgba(255, 198, 138, 0.52)", sunB: "rgba(250, 172, 126, 0.24)" },
+            maze:       { sky: "rgba(26, 22, 52, 0.46)", mid: "rgba(30, 28, 56, 0.24)",
+                          sunA: "rgba(240, 168, 122, 0.38)", sunB: "rgba(214, 140, 118, 0.18)" },
+            grove:      { sky: "rgba(14, 26, 22, 0.56)", mid: "rgba(18, 32, 26, 0.34)",
+                          sunA: "rgba(190, 224, 150, 0.24)", sunB: "rgba(150, 190, 130, 0.12)" },
+            stormGrove: { sky: "rgba(14, 20, 38, 0.62)", mid: "rgba(18, 26, 44, 0.4)",
+                          sunA: "rgba(150, 185, 235, 0.2)", sunB: "rgba(120, 150, 200, 0.1)" }
+        }[Arena.theme] ?? {
+            sky: "rgba(34, 24, 58, 0.34)", mid: "rgba(40, 30, 62, 0.14)",
+            sunA: "rgba(255, 198, 138, 0.52)", sunB: "rgba(250, 172, 126, 0.24)"
+        };
 
         // ---- rose court: dusk. A violet sky wash settling over
         // the whole garden, warm amber sunset low on the right
@@ -1420,9 +1858,9 @@ function drawLightingSystem() {
         // Kept light: too much violet turned the marble to mud
         // rather than reading as pale stone at dusk.
         let dusk = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        dusk.addColorStop(0, "rgba(34, 24, 58, 0.34)");
-        dusk.addColorStop(0.5, "rgba(40, 30, 62, 0.14)");
-        dusk.addColorStop(1, "rgba(28, 20, 48, 0.3)");
+        dusk.addColorStop(0, GV.sky);
+        dusk.addColorStop(0.5, GV.mid);
+        dusk.addColorStop(1, GV.sky);
 
         ctx.fillStyle = dusk;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1434,8 +1872,8 @@ function drawLightingSystem() {
             sun.x, sun.y, canvas.width * 1.05
         );
 
-        sunset.addColorStop(0, "rgba(255, 198, 138, 0.52)");
-        sunset.addColorStop(0.45, "rgba(250, 172, 126, 0.24)");
+        sunset.addColorStop(0, GV.sunA);
+        sunset.addColorStop(0.45, GV.sunB);
         sunset.addColorStop(1, "rgba(210, 140, 130, 0)");
 
         ctx.fillStyle = sunset;
@@ -2020,7 +2458,7 @@ function trackPlayerFootsteps() {
     const look =
         Arena.theme === "storm"
             ? { color: "rgba(150, 180, 215, 0.9)", r: 7 }
-            : Arena.theme === "garden"
+            : isGreenTheme()
                 ? { color: "rgba(40, 56, 34, 0.9)", r: 6 }
                 : { color: "rgba(90, 82, 70, 0.9)", r: 6 };
 
@@ -2246,7 +2684,7 @@ function getArenaShadowLight() {
 
 function getArenaShadowStrength() {
 
-    if (Arena.theme === "storm" || Arena.theme === "garden")
+    if (Arena.theme === "storm" || isGreenTheme())
         return 0.3;
 
     return 0.45;
@@ -2456,7 +2894,7 @@ function drawPillars() {
 
     }
 
-    if (Arena.theme === "garden") {
+    if (isGreenTheme()) {
 
         Arena.pillars.forEach(p => drawGardenTree(p));
 
@@ -2995,10 +3433,20 @@ function drawGardenTree(p) {
 // benches. Drawn flat onto the floor pass, so entities walk OVER
 // all of it and it never becomes accidental cover.
 
-function drawArenaProps() {
+// Ground dressing - bushes, beds, benches.
+//
+// Takes its target context because the green arenas BAKE these
+// into the cached floor bitmap instead of drawing them live (see
+// ensureFloorTexture). They never move, and at the grove's forty
+// bushes the live version was several hundred path operations
+// every frame - which is the same trap the pixel-fx primitives
+// already carry a rule about. Baked, they cost nothing.
+function drawArenaProps(target = ctx) {
 
     if (Arena.props.length === 0)
         return;
+
+    const ctx = target;
 
     ctx.save();
 
@@ -3946,7 +4394,15 @@ function drawArenaSetPiece() {
 
     }
 
-    if (Arena.theme === "garden") {
+    if (isGreenTheme() && Arena.theme !== "garden") {
+
+        drawGreenSetPiece();
+
+        return;
+
+    }
+
+    if (isGreenTheme()) {
 
         // A fountain at the head of the court, water running.
         const cx2 = W / 2;
@@ -4338,7 +4794,17 @@ function drawArenaAmbient() {
 
     }
 
-    if (Arena.theme === "garden") {
+    if (isGreenTheme()) {
+
+        // Airborne dressing, per arena. Petals belong to the rose
+        // court; further out it becomes leaf fall, then fireflies
+        // under the closed canopy, then rain driven through the
+        // trees. The ambient layer is what a place sounds like
+        // when you can't hear it.
+        if (Arena.theme === "grove")
+            drawGroveFireflies(now);
+        else if (Arena.theme === "stormGrove")
+            drawStormGroveRain(now);
 
         // Petals coming down off the trees, on top of the static
         // ones already baked into the floor.
@@ -4567,7 +5033,7 @@ function drawTorches() {
     // they render bigger: a heavier bracket, a taller flame
     // with a white-hot inner tongue, and a stronger halo.
     const night = Arena.theme === "night";
-    const garden = Arena.theme === "garden";
+    const garden = isGreenTheme();
     const storm = Arena.theme === "storm";
 
     const now = Date.now();

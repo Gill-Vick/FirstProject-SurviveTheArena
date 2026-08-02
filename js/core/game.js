@@ -551,6 +551,19 @@ function onEnemyKilled(enemy) {
 
     Game.enemiesRemaining--;
 
+    // Any Gardener Shade on the field remembers what just died,
+    // so it has something to replant. Done here rather than in
+    // the shade's own update because this is the one place every
+    // death in the game passes through.
+    Game.enemies.forEach(e => {
+
+        if ((e.type === "gardenerShade" || e.type === "choir") && !e.isDead())
+            e.noteDeath(enemy.type);
+
+    });
+
+    enemy.onDeath();
+
     // Bosses go down with a slam; everything else with the
     // stock death blip. (No coin chime here on purpose - one
     // per kill turned into constant jingling, and the death

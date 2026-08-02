@@ -21,7 +21,32 @@ const ENEMY_CLASSES = {
     royalMagus: RoyalMagus,
     prince: Prince,
     princess: Princess,
-    king: King
+    king: King,
+
+    // Act II - the grounds.
+    boar: ThornbackBoar,
+    hedgeWarden: HedgeWarden,
+    rootHulk: RootHulk,
+    brambleArcher: BrambleArcher,
+    sporePuffer: SporePuffer,
+    wisp: Wisp,
+    pollenDrone: PollenDrone,
+    gardenerShade: GardenerShade,
+    vineWeaver: VineWeaver,
+    creeperVine: CreeperVine,
+
+    thornMatron: ThornMatron,
+    greenwarden: Greenwarden,
+    heartwood: Heartwood,
+    herald: Herald,
+
+    // Act III - the storm.
+    cherub: Cherub,
+    gateWarden: GateWarden,
+    censer: Censer,
+    scribe: Scribe,
+    choir: Choir,
+    seraphBlade: SeraphBlade
 
 };
 
@@ -43,15 +68,82 @@ const SPAWN_GAP = {
     royalMagus: 500,
     prince: 500,
     princess: 500,
-    king: 500
+    king: 500,
+
+    // Act II units all arrive together (see spawnSquad), so
+    // these only matter for the recap waves in the final band.
+    boar: 400, hedgeWarden: 600, rootHulk: 600,
+    brambleArcher: 450, sporePuffer: 500, wisp: 200,
+    pollenDrone: 600, gardenerShade: 600, vineWeaver: 600,
+    creeperVine: 700,
+
+    thornMatron: 500, greenwarden: 500, heartwood: 500, herald: 500,
+
+    cherub: 350, gateWarden: 600, censer: 500,
+    scribe: 550, choir: 600, seraphBlade: 500
 
 };
 
 // Bosses never roll elite. (Kegs used to be excluded too,
 // but elite kegs now have their own payoff - cluster bombs.)
+//
+// The Creeper Vine is excluded for a different reason: it is
+// arena furniture with a health bar rather than a combatant, so
+// an elite one would just be a longer chore.
 const NO_ELITE = new Set([
-    "boss", "knight", "royalMagus", "prince", "princess", "king"
+    "boss", "knight", "royalMagus", "prince", "princess", "king",
+    "thornMatron", "greenwarden", "heartwood", "herald",
+    "creeperVine"
 ]);
+
+// =====================================
+// Boss Waves
+// =====================================
+//
+// Every boss in the campaign, wave -> spawner.
+//
+// A table rather than the chain of ifs this used to be: adding a
+// boss is now one line, and "is this a boss wave" is the same
+// lookup as "which boss", so the two can't drift apart. They did
+// drift - the sound cue read from a hand-maintained array that
+// had to be kept in step with the dispatch below it.
+//
+// Safe to reference the spawners up here: they are function
+// declarations further down this same file, so they are hoisted
+// and already exist by the time this initialiser runs.
+
+const BOSS_WAVE_SPAWNERS = {
+
+    [WAVES.BOSS_WAVE]: startBossWave,
+    [WAVES.KNIGHT_WAVE]: startKnightWave,
+    [WAVES.MAGUS_WAVE]: startMagusWave,
+
+    [WAVES.MATRON_WAVE]: startMatronWave,
+    [WAVES.GREENWARDEN_WAVE]: startGreenwardenWave,
+    [WAVES.HEARTWOOD_WAVE]: startHeartwoodWave,
+
+    [WAVES.HERALD_WAVE]: startHeraldWave,
+    [WAVES.SIBLINGS_WAVE]: startSiblingsWave,
+    [WAVES.KING_WAVE]: startKingWave
+
+};
+
+const BOSS_WAVE_NUMBERS =
+    Object.keys(BOSS_WAVE_SPAWNERS).map(Number).sort((a, b) => a - b);
+
+// The next boss wave strictly after `from`, for Boss Rush.
+//
+// It used to just add BOSS_WAVE (5) each time, which worked only
+// while every boss sat on a multiple of five. The campaign's last
+// band is ten waves long - nine recap waves then the King at 50 -
+// so a flat +5 would drop Boss Rush on wave 45, which has no boss
+// on it at all.
+function nextBossWave(from) {
+
+    return BOSS_WAVE_NUMBERS.find(w => w > from)
+        ?? (from + WAVES.BOSS_WAVE);
+
+}
 
 // =====================================
 // Elite Waves
@@ -179,48 +271,13 @@ function startWave() {
             ? ((Game.wave - 1) % WAVES.KING_WAVE) + 1
             : Game.wave;
 
-    const bossWaves = [
-        WAVES.BOSS_WAVE, WAVES.KNIGHT_WAVE, WAVES.MAGUS_WAVE,
-        WAVES.SIBLINGS_WAVE, WAVES.KING_WAVE
-    ];
+    const spawner = BOSS_WAVE_SPAWNERS[cycleWave];
 
-    Sound.play(bossWaves.includes(cycleWave) ? "bossSpawn" : "waveStart");
+    Sound.play(spawner ? "bossSpawn" : "waveStart");
 
-    if (cycleWave === WAVES.BOSS_WAVE) {
+    if (spawner) {
 
-        startBossWave();
-
-        return;
-
-    }
-
-    if (cycleWave === WAVES.KNIGHT_WAVE) {
-
-        startKnightWave();
-
-        return;
-
-    }
-
-    if (cycleWave === WAVES.MAGUS_WAVE) {
-
-        startMagusWave();
-
-        return;
-
-    }
-
-    if (cycleWave === WAVES.SIBLINGS_WAVE) {
-
-        startSiblingsWave();
-
-        return;
-
-    }
-
-    if (cycleWave === WAVES.KING_WAVE) {
-
-        startKingWave();
+        spawner();
 
         return;
 
@@ -306,7 +363,298 @@ function getSet3Counts() {
 
 }
 
+// =====================================
+// Squads (Act II, waves 16-30)
+// =====================================
+//
+// The garden does not spawn a stream of enemies from the screen
+// edge. It spawns ONE squad, all at once, erupting out of cover
+// inside the arena.
+//
+// Both halves of that matter. Arriving together is what makes a
+// wave read as a small elite force rather than a queue - six
+// units with roles, not twenty of the same thing. And arriving
+// INSIDE is what stops the whole wave being deleted at the
+// border before it has a chance to be a fight, which was the
+// specific failure the edge spawns had: a strong player just
+// stood at the top of the screen and killed everything as it
+// walked on.
+//
+// Compositions are hand-written rather than rolled, because the
+// point is the mix. Every squad has at least one support, so
+// every wave has a correct kill order.
+
+const GARDEN_SQUADS = [
+
+    // 16 - introduces the frontline and one support, so the
+    // "kill the drone first" lesson lands while it is cheap.
+    ["boar", "boar", "hedgeWarden", "brambleArcher", "pollenDrone"],
+
+    // 17 - ranged denial arrives.
+    ["boar", "rootHulk", "sporePuffer", "brambleArcher", "pollenDrone"],
+
+    // 18 - the swarm, with a weaver binding what's left of it.
+    ["hedgeWarden", "wisp", "wisp", "wisp", "wisp", "brambleArcher", "vineWeaver"],
+
+    // 19 - two supports at once; this is where order starts to
+    // really cost you.
+    ["boar", "rootHulk", "brambleArcher", "gardenerShade", "pollenDrone"],
+
+    // 21-24 escalate by adding, never by replacing.
+    ["rootHulk", "rootHulk", "hedgeWarden", "sporePuffer", "vineWeaver", "pollenDrone"],
+    ["boar", "boar", "rootHulk", "sporePuffer", "brambleArcher", "gardenerShade"],
+    ["hedgeWarden", "rootHulk", "wisp", "wisp", "wisp", "wisp", "sporePuffer", "vineWeaver"],
+    ["boar", "rootHulk", "brambleArcher", "sporePuffer", "gardenerShade", "pollenDrone", "creeperVine"],
+
+    // 26-29 - the full force.
+    ["boar", "boar", "hedgeWarden", "rootHulk", "brambleArcher", "pollenDrone", "vineWeaver"],
+    ["rootHulk", "hedgeWarden", "boar", "sporePuffer", "brambleArcher", "gardenerShade", "creeperVine"],
+    ["boar", "wisp", "wisp", "wisp", "wisp", "sporePuffer", "pollenDrone", "vineWeaver", "rootHulk"],
+    ["boar", "hedgeWarden", "rootHulk", "brambleArcher", "sporePuffer",
+     "pollenDrone", "gardenerShade", "vineWeaver"]
+
+];
+
+// Act III squads. Smaller than the garden's and far more
+// pointed: every one of these is a question with a right answer
+// (flank the warden, break line of sight on the scribe, step off
+// the blade's line, kill the choir first), so the last stretch
+// tests the player rather than grinding them.
+
+const ANGEL_SQUADS = [
+
+    // 31 - one of each idea, cheaply.
+    ["cherub", "cherub", "gateWarden", "scribe"],
+
+    // 32 - the blade arrives.
+    ["cherub", "censer", "seraphBlade", "scribe"],
+
+    // 33 - the choir, so kill order starts mattering again.
+    ["gateWarden", "censer", "cherub", "choir"],
+
+    // 34 - two questions at once.
+    ["seraphBlade", "gateWarden", "scribe", "cherub", "choir"],
+
+    // 36-39, in the storm grove, with the trees making the
+    // scribe's mark genuinely survivable.
+    ["censer", "censer", "cherub", "cherub", "scribe"],
+    ["gateWarden", "seraphBlade", "scribe", "choir"],
+    ["cherub", "cherub", "cherub", "censer", "gateWarden", "choir"],
+    ["seraphBlade", "seraphBlade", "scribe", "gateWarden", "choir"]
+
+];
+
+// Which squad this wave fields. Boss waves never reach here, so
+// the list is walked in order across the non-boss waves of each
+// band, wrapping if the campaign is extended.
+function squadForWave(wave) {
+
+    const angels = wave >= WAVES.STORM_START;
+
+    const start = angels ? WAVES.STORM_START : WAVES.GARDEN_START;
+    const list = angels ? ANGEL_SQUADS : GARDEN_SQUADS;
+
+    const bandIndex = wave - start;
+    const bossesPassed = Math.floor(bandIndex / WAVES.BOSS_WAVE);
+
+    const index = bandIndex - bossesPassed;
+
+    return list[index % list.length];
+
+}
+
+// A spot inside the arena to erupt from - in cover if there is
+// any, and never on top of the player.
+function emergencePoint() {
+
+    const margin = 70;
+
+    // Bushes and hedges first: a squad coming out of the planting
+    // is the whole fiction, and the garden arenas are full of it.
+    const cover = (Arena.props ?? []).filter(p => p.kind === "bush");
+
+    for (let attempt = 0; attempt < 24; attempt++) {
+
+        let x;
+        let y;
+
+        if (cover.length > 0 && attempt < 16) {
+
+            const p = cover[Math.floor(Math.random() * cover.length)];
+
+            x = p.x + (Math.random() - 0.5) * 60;
+            y = p.y + (Math.random() - 0.5) * 60;
+
+        } else {
+
+            x = margin + Math.random() * (canvas.width - margin * 2);
+            y = margin + Math.random() * (canvas.height - margin * 2);
+
+        }
+
+        x = Math.max(margin, Math.min(canvas.width - margin, x));
+        y = Math.max(margin, Math.min(canvas.height - margin, y));
+
+        const d = Math.hypot(
+            (player.x + player.size / 2) - x,
+            (player.y + player.size / 2) - y
+        );
+
+        if (d >= GARDEN.EMERGE_MIN_PLAYER_DIST)
+            return { x, y };
+
+    }
+
+    // Nowhere far enough from the player - push to the opposite
+    // corner rather than giving up and erupting in their lap.
+    return {
+        x: player.x < canvas.width / 2 ? canvas.width - margin : margin,
+        y: player.y < canvas.height / 2 ? canvas.height - margin : margin
+    };
+
+}
+
+function spawnSquad(types) {
+
+    Game.enemiesRemaining = types.length;
+    Game.eliteEligibleLeft = types.filter(t => !NO_ELITE.has(t)).length;
+
+    const token = Game.runToken;
+
+    types.forEach(type => {
+
+        const at = emergencePoint();
+        const size = getEnemySize(type);
+
+        // The warning marker IS the arrival window - reusing the
+        // same telegraph the necromancer's skeletons and the
+        // King's reinforcements already use, so an eruption reads
+        // exactly like every other "something is about to appear
+        // here" in the game.
+        //
+        // Nothing exists to be shot at until it fires, which is
+        // the cleanest possible version of "you cannot delete the
+        // wave before it arrives": not an invulnerable enemy, no
+        // enemy.
+        Game.spawnTelegraphs.push(new SpawnWarning(
+            at.x, at.y, size, GARDEN.EMERGE_MS,
+            () => {
+
+                if (Game.runToken !== token || !isRunActive())
+                    return;
+
+                spawnEnemyAt(type, at.x - size / 2, at.y - size / 2);
+
+            }
+        ));
+
+    });
+
+    // Every telegraph is already queued, so nothing else is
+    // coming - the wave is "done spawning" even though the units
+    // themselves land a beat later.
+    Game.waveSpawning = false;
+
+}
+
+// =====================================
+// Act II / III Boss Waves
+// =====================================
+
+function startSoloBossWave(type) {
+
+    Game.enemiesRemaining = 1;
+
+    const token = Game.runToken;
+
+    setTimeout(() => {
+
+        if (Game.runToken !== token || !isRunActive())
+            return;
+
+        spawnEnemyAt(
+            type,
+            canvas.width / 2 - getEnemySize(type) / 2,
+            canvas.height * 0.22
+        );
+
+        Game.waveSpawning = false;
+
+    }, 400);
+
+}
+
+function startMatronWave() {
+
+    startSoloBossWave("thornMatron");
+
+}
+
+function startGreenwardenWave() {
+
+    startSoloBossWave("greenwarden");
+
+}
+
+function startHeartwoodWave() {
+
+    // The Heartwood never moves, so it is placed dead centre -
+    // the arena is the fight, and it is the middle of it.
+    Game.enemiesRemaining = 1;
+
+    const token = Game.runToken;
+
+    setTimeout(() => {
+
+        if (Game.runToken !== token || !isRunActive())
+            return;
+
+        spawnEnemyAt("heartwood", canvas.width / 2 - 65, canvas.height / 2 - 65);
+
+        Game.waveSpawning = false;
+
+    }, 400);
+
+}
+
+function startHeraldWave() {
+
+    startSoloBossWave("herald");
+
+}
+
 function startNormalWave() {
+
+    // Act II fields squads instead of streams - see spawnSquad.
+    if (Game.wave >= WAVES.GARDEN_START && Game.wave < WAVES.STORM_START) {
+
+        spawnSquad(squadForWave(Game.wave));
+
+        return;
+
+    }
+
+    // Act III and the final band keep the garden roster and add
+    // the castle's back in for the recap, so the last stretch is
+    // everything the run has fought.
+    if (Game.wave >= WAVES.STORM_START) {
+
+        const squad = squadForWave(Game.wave).slice();
+
+        // The last band is the recap: castle, garden and angels
+        // all at once, so the run ends against everything it has
+        // taught you.
+        if (Game.wave >= WAVES.ARENA_FINAL_START)
+            squad.push(
+                "tank", "lancer", "shade", "bloodCleric",
+                "boar", "rootHulk", "pollenDrone"
+            );
+
+        spawnSquad(squad);
+
+        return;
+
+    }
 
     const set1 = getSet1Counts();
     const set2 = getSet2Counts();
@@ -738,6 +1086,21 @@ function spawnWaveEnemies(counts) {
 
 function getEnemySize(type) {
 
+    // Act II / III units all declare SIZE in one place.
+    if (GARDEN[type])
+        return GARDEN[type].SIZE;
+
+    if (ANGELS[type])
+        return ANGELS[type].SIZE;
+
+    if (type === "wisp")
+        return GARDEN.wispSwarm.SIZE;
+
+    if (type === "thornMatron") return 82;
+    if (type === "greenwarden") return 96;
+    if (type === "heartwood") return 130;
+    if (type === "herald") return 76;
+
     if (type === "boss")
         return BOSS.SIZE;
 
@@ -792,6 +1155,18 @@ function spawnEnemy(type = "grunt") {
 
     }
 
+    return spawnEnemyAt(type, x, y);
+
+}
+
+// Place one enemy at an exact point, with all the elite-budget
+// and boss-flourish bookkeeping spawnEnemy used to do inline.
+//
+// Split out because the garden squads erupt INSIDE the arena
+// rather than walking in from an edge (see spawnSquad); the edge
+// picker above is now just one caller of this.
+function spawnEnemyAt(type, x, y) {
+
     const EnemyClass = ENEMY_CLASSES[type] || Grunt;
     const enemy = new EnemyClass(x, y);
 
@@ -828,6 +1203,8 @@ function spawnEnemy(type = "grunt") {
         triggerArenaFlourish();
 
     Game.enemies.push(enemy);
+
+    return enemy;
 
 }
 
@@ -871,10 +1248,12 @@ function updateWave() {
         if (Game.runToken !== token || !isRunActive())
             return;
 
-        // Boss Rush jumps a full 5-wave cycle at a time so the
-        // next wave lands on the next boss instead of a filler
-        // wave.
-        Game.wave += Game.bossRush ? WAVES.BOSS_WAVE : 1;
+        // Boss Rush jumps straight to the next wave that actually
+        // has a boss on it, rather than adding a fixed five - see
+        // nextBossWave.
+        Game.wave = Game.bossRush
+            ? nextBossWave(Game.wave)
+            : Game.wave + 1;
 
         startWave();
 
