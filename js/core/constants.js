@@ -2424,7 +2424,7 @@ const GARDEN = {
     // four more things in the pile.
     //
     // Like the Lancer, its body is harmless. Everything it can do
-    // to you happens along the lance or in the thorns it plants,
+    // to you happens under the scythe or in the thorns it plants,
     // both of which are drawn before they land. Four units with
     // always-on contact damage in a one-hit-death game would be a
     // different and much worse thing.
@@ -2438,12 +2438,18 @@ const GARDEN = {
         GUARD_PETALS: 3,
         GUARD_REGROW_MS: 5200,
 
-        // Thrust: plant, brace, run the lance out.
-        THRUST_RANGE: 140,
-        THRUST_WIDTH: 36,
-        THRUST_WINDUP_MS: 520,
-        THRUST_MS: 240,
-        THRUST_COOLDOWN: 2100,
+        // Cleave: plant, wind the scythe back, then sweep it
+        // through. An arc rather than a line - the reach is
+        // shorter than a lance's but it covers a whole quadrant,
+        // so backing straight off no longer answers it.
+        CLEAVE_RANGE: 132,
+        CLEAVE_ARC: 1.9,
+        // How wide the blade itself is as it travels through
+        // that arc - the same idea as the Warrior's 0.5.
+        CLEAVE_BLADE: 0.44,
+        CLEAVE_WINDUP_MS: 520,
+        CLEAVE_MS: 300,
+        CLEAVE_COOLDOWN: 2100,
 
         // Charge: the thrust always flows into it, and it lays
         // thorns the whole way.
@@ -2454,7 +2460,7 @@ const GARDEN = {
         TRAIL_EVERY_PX: 46,
         TRAIL_MS: 5200,
 
-        LANCE_LENGTH: 52
+        SCYTHE_LENGTH: 54
     }
 
 };
@@ -4118,7 +4124,7 @@ const BESTIARY = {
         name: "Rose Knight", color: GARDEN.roseKnight.COLOR, size: GARDEN.roseKnight.SIZE,
         isBoss: false,
         desc: "The garden keeps its own knights.",
-        behavior: `Four hold the corners of every wave from the hedge maze on, arriving alongside whatever else the wave fields. Braces and runs a ${GARDEN.roseKnight.THRUST_RANGE}px lance out, then flows straight into a charge that lays thorns the whole way. Its body is harmless - only the lance and the thorns are not. Behind a guard of ${GARDEN.roseKnight.GUARD_PETALS} petals that eats whole hits and grows one back every ${(GARDEN.roseKnight.GUARD_REGROW_MS / 1000).toFixed(1)}s, so chipping at it between fights gets you nowhere.`,
+        behavior: `Four hold the corners of every wave from the hedge maze on, arriving alongside whatever else the wave fields. Plants its feet, winds the scythe back, and sweeps it through a wide arc - then flows straight into a charge that lays thorns the whole way. Its body is harmless; only the blade and the thorns are not. Behind a guard of ${GARDEN.roseKnight.GUARD_PETALS} petals that eats whole hits and grows one back every ${(GARDEN.roseKnight.GUARD_REGROW_MS / 1000).toFixed(1)}s, so chipping at it between fights gets you nowhere.`,
         hpAtWave(w) { return gardenBestiaryHp(GARDEN.roseKnight, w); },
         hpScale: `${GARDEN.roseKnight.HP_BASE} HP at wave ${WAVES.GARDEN_START}, gaining 1 every ${GARDEN.roseKnight.HP_EVERY} waves, behind ${GARDEN.roseKnight.GUARD_PETALS} petals`,
         baseSpeed: GARDEN.roseKnight.SPEED
