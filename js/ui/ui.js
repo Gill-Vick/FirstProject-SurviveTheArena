@@ -622,6 +622,10 @@ const SHOP_ITEM_IDS = [
     "wetStone", "circleStrike", "hermesShoes",
     "berserkerMedallion", "forgeSigil",
     "lightningRing", "windrunnerAnklet",
+    "thornGirdle", "matronsSeal",
+    "wardensCleaver", "heartbarkPlate",
+    "heartwoodMaul", "deeprootGreaves",
+    "heraldicBrand", "stormstepSabatons",
     "twinbladeEcho", "siblingsResilience", "kingsBlade",
 
     // Ranger
@@ -629,6 +633,10 @@ const SHOP_ITEM_IDS = [
     "falconQuiver", "swiftdrawGloves",
     "huntersMark", "galeRecurve",
     "stormfletch", "cycloneVeil",
+    "seedshotQuiver", "bramblestride",
+    "severingBroadheads", "secondGrowth",
+    "taprootArrows", "grovewalker",
+    "judgementArrow", "skywardTalons",
     "royalVolley", "princessFavor", "stormpiercer",
 
     // Thief
@@ -636,6 +644,10 @@ const SHOP_ITEM_IDS = [
     "voidEnchant", "masterOfBlade",
     "shadowreachBlades", "pocketWatch",
     "voltaicFang", "leylineSnare",
+    "rosethornEdge", "briarCloak",
+    "limbtaker", "regrowthSigil",
+    "rootfang", "sapwell",
+    "heraldsVerdict", "ascendantCloak",
     "shadowTwin", "mirrorCloak", "moonlightDaggers",
 
     // Mage
@@ -643,6 +655,10 @@ const SHOP_ITEM_IDS = [
     "refraction", "amberlightField",
     "radiantOverload", "elementalPrism",
     "arcaneStep", "corona",
+    "bloomsightPrism", "sporeVeil",
+    "pruningLight", "hedgewardBloom",
+    "corewoodFocus", "rootcage",
+    "pillarOfJudgement", "heraldsWings",
     "twincastPrism", "siblingsGrace", "sovereignScepter",
 
     // Shared

@@ -595,6 +595,8 @@ function onEnemyKilled(enemy) {
     if (enemy.isBoss)
         applyHitStop(HITSTOP.BOSS_KILL_MS);
 
+    player.onKill?.(enemy);
+
     const reward = COINS[enemy.type] ?? COINS.grunt;
 
     Save.addCoins(reward);
@@ -609,6 +611,19 @@ function onEnemyKilled(enemy) {
 
     if (enemy.type === "royalMagus")
         Save.markMagusKilled();
+
+    // The four Act II bosses, each unlocking its own shop tier.
+    if (enemy.type === "thornMatron")
+        Save.markMatronKilled();
+
+    if (enemy.type === "greenwarden")
+        Save.markGreenwardenKilled();
+
+    if (enemy.type === "heartwood")
+        Save.markHeartwoodKilled();
+
+    if (enemy.type === "herald")
+        Save.markHeraldKilled();
 
     if (enemy.type === "prince" || enemy.type === "princess") {
 

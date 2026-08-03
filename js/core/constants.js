@@ -952,6 +952,255 @@ const COINS = {
 // fields in Save instead of a plain inventory flag).
 const STAGED_ITEM_IDS = ["shield", "bow", "cloak", "dagger", "throwingKnife", "bracelet", "halo", "sunburst"];
 
+// =====================================
+// Act II Boss Gear (waves 20 / 25 / 30 / 35)
+// =====================================
+//
+// Four tiers, two items per class each, slotted between the
+// Royal Magus's tier and the Siblings' in every class's list.
+// The shared effects they all reach for live in bossGear.js.
+//
+// Each tier is one idea, answered four different ways:
+//
+//   MATRON       thorns: you leave the ground changed
+//   GREENWARDEN  limbs: you take pieces off, and yours grow back
+//   HEARTWOOD    roots: you are paid for holding your ground
+//   HERALD       judgement: you mark, and the sky answers
+//
+// Numbers here are a first pass and expected to move.
+
+const BOSS_GEAR = {
+
+    // --- Shared control effects (see Enemy.applySap etc.) ---
+    SAP_SLOW_PER_STACK: 0.3,
+    SAP_MAX_STACKS: 3,
+    SAP_CAP_SNARE_MS: 900,
+
+    // --- Thorn bed (Matron tier, five items) ---
+    THORN_RADIUS: 46,
+    THORN_LIFE_MS: 4200,
+    THORN_TICK_MS: 420,
+    THORN_TICK_DAMAGE: 2,
+
+    // --- Pollen burst (Matron tier, Mage) ---
+    POLLEN_RADIUS: 130,
+    POLLEN_LIFE_MS: 2600,
+
+    // --- Grasping root (Heartwood tier) ---
+    ROOT_HOLD_MS: 1400,
+
+    // --- Judgement pillar (Herald tier, three items) ---
+    PILLAR_WARN_MS: 620,
+    PILLAR_FLASH_MS: 260,
+    PILLAR_RADIUS: 92,
+    PILLAR_DAMAGE: 14
+
+};
+
+// ----- Thorn Matron tier -----
+
+// Warrior. Struck enemies sprout thorns that hurt whatever is
+// standing next to them, so a packed wave damages itself.
+const THORN_GIRDLE = {
+    RADIUS: 78,
+    DAMAGE: 3
+};
+
+// Warrior. A blocked hit erupts into a thorn bed underfoot -
+// the shield stops being purely defensive.
+const MATRONS_SEAL = {
+    BEDS: 3,
+    SPREAD: 54
+};
+
+// Ranger. Every Nth arrow is a seed.
+const SEEDSHOT_QUIVER = {
+    EVERY: 4
+};
+
+// Ranger. The dash lays thorns along the line it travelled.
+const BRAMBLESTRIDE = {
+    SPACING_PX: 52
+};
+
+// Thief. A seed planted in the target, blooming on a fuse.
+const ROSETHORN_EDGE = {
+    FUSE_MS: 1100,
+    RADIUS: 74,
+    DAMAGE: 8
+};
+
+// Thief. Briars grow while you hold still and bite what is
+// adjacent - the Thief's one reason ever to stop moving.
+const BRIAR_CLOAK = {
+    GROW_MS: 500,
+    RADIUS: 74,
+    TICK_MS: 400,
+    TICK_DAMAGE: 3
+};
+
+// Mage. Every Sunbeam impact leaves a bed behind it.
+const BLOOMSIGHT_PRISM = {
+    EVERY: 1
+};
+
+// Mage. Enemies dying near you burst into slowing pollen.
+const SPORE_VEIL = {
+    TRIGGER_RADIUS: 200
+};
+
+// ----- Greenwarden tier -----
+
+// Warrior. Three hits on one enemy sever it: staggered, and the
+// next blow lands double.
+const WARDENS_CLEAVER = {
+    HITS_TO_SEVER: 3,
+    STAGGER_MS: 900,
+    NEXT_HIT_MULT: 2
+};
+
+// Warrior. A bark plate on its own clock, independent of the
+// Shield - it regrows whether or not you ever bought one.
+const HEARTBARK_PLATE = {
+    REGROW_MS: 18000,
+    INVULN_MS: 620
+};
+
+// Ranger. Arrows cripple; three stacks and the leg goes.
+const SEVERING_BROADHEADS = {
+    SAP_MS: 2600
+};
+
+// Ranger. A kill regrows a dash charge outright.
+const SECOND_GROWTH = {
+    REFUND_ALL: true
+};
+
+// Thief. Every Nth hit on the same enemy takes a limb.
+const LIMBTAKER = {
+    HITS_TO_TAKE: 5,
+    DISARM_MS: 2200
+};
+
+// Thief. A knife that kills comes straight back.
+const REGROWTH_SIGIL = {
+    REFUND_ALL: true
+};
+
+// Mage. A beam onto something already burning finishes the burn
+// on the spot - the whole remaining DoT, at once.
+const PRUNING_LIGHT = {
+    DAMAGE_PER_TICK_LEFT: 3
+};
+
+// Mage. A broken ward grows back on a timer rather than waiting
+// on the wave counter.
+const HEDGEWARD_BLOOM = {
+    REGROW_MS: 14000
+};
+
+// ----- Heartwood tier -----
+
+// Warrior. The longer you hold your ground, the harder it hits.
+const HEARTWOOD_MAUL = {
+    STEP_MS: 1000,
+    DAMAGE_PER_STEP: 1,
+    MAX_STEPS: 4
+};
+
+// Warrior. Stand still and the ground takes hold: nothing shifts
+// you, and everything near you wades.
+const DEEPROOT_GREAVES = {
+    ROOT_MS: 600,
+    RADIUS: 170
+};
+
+// Ranger. Arrows root what they hit.
+const TAPROOT_ARROWS = {
+    SNARE_MS: 700
+};
+
+// Ranger. Held ground buys one arrow that goes through
+// everything (see Projectile.pierce).
+const GROVEWALKER = {
+    ROOT_MS: 1000
+};
+
+// Thief. Anything pinned takes double - the payoff for a kit
+// that is already covered in slows and stuns.
+const ROOTFANG = {
+    DAMAGE_MULT: 2
+};
+
+// Thief. A root comes up under you on a beat and grabs whatever
+// is closest.
+const SAPWELL = {
+    INTERVAL_MS: 8000,
+    RANGE: 320
+};
+
+// Mage. Cast twice from the same spot and the second lands as
+// something much larger.
+const COREWOOD_FOCUS = {
+    MOVE_TOLERANCE: 26,
+    DAMAGE_MULT: 2.2,
+    RADIUS_MULT: 1.7
+};
+
+// Mage. The Sunburst orb drags roots behind it.
+const ROOTCAGE = {
+    SNARE_MS: 900
+};
+
+// ----- Herald tier -----
+
+// Warrior. Brands stack on one target; the third calls the sky.
+const HERALDIC_BRAND = {
+    BRANDS_TO_CALL: 3,
+    BRAND_MS: 5000
+};
+
+// Warrior. The dash lands like the Herald's own descent.
+const STORMSTEP_SABATONS = {
+    RADIUS: 150,
+    DAMAGE: 6,
+    KNOCKBACK: 13
+};
+
+// Ranger. Every Nth arrow calls a pillar where it lands.
+const JUDGEMENT_ARROW = {
+    EVERY: 6
+};
+
+// Ranger. The dash carries you over the ground entirely - no
+// hazard, no slow, no root touches you while you are up.
+const SKYWARD_TALONS = {
+    AIRBORNE_MS: 700
+};
+
+// Thief. A kill passes judgement to the next thing along.
+const HERALDS_VERDICT = {
+    CHAIN_RANGE: 420
+};
+
+// Thief. Come down out of a dash and the first blow is certain.
+const ASCENDANT_CLOAK = {
+    WINDOW_MS: 1400
+};
+
+// Mage. Every Nth Sunbeam arrives as a pillar instead: slower,
+// far bigger, and telegraphed.
+const PILLAR_OF_JUDGEMENT = {
+    EVERY: 4,
+    DAMAGE: 26,
+    RADIUS: 128
+};
+
+// Mage. A second Arcane Step charge.
+const HERALDS_WINGS = {
+    CHARGES: 2
+};
+
 const SHOP_ITEMS = {
 
     // ----- Warrior -----
@@ -1033,6 +1282,78 @@ const SHOP_ITEMS = {
         name: "Forgemaster's Sigil",
         desc: "A broken shield reforges itself after ~11.4s",
         requiresKnightKilled: true,
+        equippable: true
+    },
+
+    thornGirdle: {
+        classId: "warrior",
+        price: 440,
+        name: "Thorn Girdle",
+        desc: "Struck enemies sprout thorns that damage everything crowding them",
+        requiresMatronKilled: true,
+        equippable: true
+    },
+
+    matronsSeal: {
+        classId: "warrior",
+        price: 420,
+        name: "Matron's Seal",
+        desc: "A blocked hit erupts into a bed of thorns underfoot",
+        requiresMatronKilled: true,
+        equippable: true
+    },
+
+    wardensCleaver: {
+        classId: "warrior",
+        price: 480,
+        name: "Warden's Cleaver",
+        desc: "3 hits on one foe sever it - staggered, and your next blow lands double",
+        requiresGreenwardenKilled: true,
+        equippable: true
+    },
+
+    heartbarkPlate: {
+        classId: "warrior",
+        price: 460,
+        name: "Heartbark Plate",
+        desc: "A bark plate that soaks one hit and regrows every 18s, on its own",
+        requiresGreenwardenKilled: true,
+        equippable: true
+    },
+
+    heartwoodMaul: {
+        classId: "warrior",
+        price: 520,
+        name: "Heartwood Maul",
+        desc: "+1 sword damage for every second you hold your ground, up to +4",
+        requiresHeartwoodKilled: true,
+        equippable: true
+    },
+
+    deeprootGreaves: {
+        classId: "warrior",
+        price: 500,
+        name: "Deeproot Greaves",
+        desc: "Stand still and you can't be moved - and everything near you wades",
+        requiresHeartwoodKilled: true,
+        equippable: true
+    },
+
+    heraldicBrand: {
+        classId: "warrior",
+        price: 560,
+        name: "Heraldic Brand",
+        desc: "Sword hits brand; the 3rd brand calls a pillar of light onto the target",
+        requiresHeraldKilled: true,
+        equippable: true
+    },
+
+    stormstepSabatons: {
+        classId: "warrior",
+        price: 540,
+        name: "Stormstep Sabatons",
+        desc: "Your dash lands like a descent - damage and knockback where you arrive",
+        requiresHeraldKilled: true,
         equippable: true
     },
 
@@ -1181,6 +1502,78 @@ const SHOP_ITEMS = {
         equippable: true
     },
 
+    seedshotQuiver: {
+        classId: "ranger",
+        price: 440,
+        name: "Seedshot Quiver",
+        desc: "Every 4th arrow is a seed - it plants a bed of thorns where it lands",
+        requiresMatronKilled: true,
+        equippable: true
+    },
+
+    bramblestride: {
+        classId: "ranger",
+        price: 420,
+        name: "Bramblestride",
+        desc: "Your dash lays a trail of thorns along the ground you crossed",
+        requiresMatronKilled: true,
+        equippable: true
+    },
+
+    severingBroadheads: {
+        classId: "ranger",
+        price: 480,
+        name: "Severing Broadheads",
+        desc: "Arrows cripple. Three stacks and the leg goes - the target is rooted",
+        requiresGreenwardenKilled: true,
+        equippable: true
+    },
+
+    secondGrowth: {
+        classId: "ranger",
+        price: 460,
+        name: "Second Growth",
+        desc: "Every kill regrows a dash charge outright",
+        requiresGreenwardenKilled: true,
+        equippable: true
+    },
+
+    taprootArrows: {
+        classId: "ranger",
+        price: 520,
+        name: "Taproot Arrows",
+        desc: "Every arrow roots what it hits in place for a moment",
+        requiresHeartwoodKilled: true,
+        equippable: true
+    },
+
+    grovewalker: {
+        classId: "ranger",
+        price: 500,
+        name: "Grovewalker",
+        desc: "Hold your ground 1s and your next arrow pierces everything in its path",
+        requiresHeartwoodKilled: true,
+        equippable: true
+    },
+
+    judgementArrow: {
+        classId: "ranger",
+        price: 560,
+        name: "Judgement Arrow",
+        desc: "Every 6th arrow calls a pillar of light down where it lands",
+        requiresHeraldKilled: true,
+        equippable: true
+    },
+
+    skywardTalons: {
+        classId: "ranger",
+        price: 540,
+        name: "Skyward Talons",
+        desc: "Your dash carries you above the ground - no hazard, slow or root touches you",
+        requiresHeraldKilled: true,
+        equippable: true
+    },
+
     royalVolley: {
         classId: "ranger",
         price: 620,
@@ -1308,6 +1701,78 @@ const SHOP_ITEMS = {
         equippable: true
     },
 
+    rosethornEdge: {
+        classId: "thief",
+        price: 440,
+        name: "Rosethorn Edge",
+        desc: "Dagger hits plant a seed that blooms for heavy damage around the target",
+        requiresMatronKilled: true,
+        equippable: true
+    },
+
+    briarCloak: {
+        classId: "thief",
+        price: 420,
+        name: "Briar Cloak",
+        desc: "Hold still and briars grow around you, biting anything adjacent",
+        requiresMatronKilled: true,
+        equippable: true
+    },
+
+    limbtaker: {
+        classId: "thief",
+        price: 480,
+        name: "Limbtaker",
+        desc: "Every 5th hit on a foe takes a limb - it can't attack for 2.2s",
+        requiresGreenwardenKilled: true,
+        equippable: true
+    },
+
+    regrowthSigil: {
+        classId: "thief",
+        price: 460,
+        name: "Regrowth Sigil",
+        desc: "A knife that kills comes straight back - the cooldown resets",
+        requiresGreenwardenKilled: true,
+        equippable: true
+    },
+
+    rootfang: {
+        classId: "thief",
+        price: 520,
+        name: "Rootfang",
+        desc: "Dagger hits land double against anything rooted, slowed, chilled or stunned",
+        requiresHeartwoodKilled: true,
+        equippable: true
+    },
+
+    sapwell: {
+        classId: "thief",
+        price: 500,
+        name: "Sapwell",
+        desc: "Every 8s a root comes up under you and grabs the nearest enemy",
+        requiresHeartwoodKilled: true,
+        equippable: true
+    },
+
+    heraldsVerdict: {
+        classId: "thief",
+        price: 560,
+        name: "Herald's Verdict",
+        desc: "Every kill passes judgement - a pillar falls on the next foe along",
+        requiresHeraldKilled: true,
+        equippable: true
+    },
+
+    ascendantCloak: {
+        classId: "thief",
+        price: 540,
+        name: "Ascendant Cloak",
+        desc: "Come out of a dash and your next strike is a guaranteed critical",
+        requiresHeraldKilled: true,
+        equippable: true
+    },
+
     shadowTwin: {
         classId: "thief",
         price: 620,
@@ -1432,6 +1897,78 @@ const SHOP_ITEMS = {
         name: "Corona",
         desc: "A radiant aura burns enemies that close in on you (keep-away)",
         requiresMagusKilled: true,
+        equippable: true
+    },
+
+    bloomsightPrism: {
+        classId: "mage",
+        price: 440,
+        name: "Bloomsight Prism",
+        desc: "Every Sunbeam impact leaves a bed of thorns behind it",
+        requiresMatronKilled: true,
+        equippable: true
+    },
+
+    sporeVeil: {
+        classId: "mage",
+        price: 420,
+        name: "Spore Veil",
+        desc: "Enemies dying near you burst into pollen that slows everything caught",
+        requiresMatronKilled: true,
+        equippable: true
+    },
+
+    pruningLight: {
+        classId: "mage",
+        price: 480,
+        name: "Pruning Light",
+        desc: "A beam onto a burning foe finishes the burn on the spot, all at once",
+        requiresGreenwardenKilled: true,
+        equippable: true
+    },
+
+    hedgewardBloom: {
+        classId: "mage",
+        price: 460,
+        name: "Hedgeward Bloom",
+        desc: "A broken ward grows back after 14s instead of waiting on the wave",
+        requiresGreenwardenKilled: true,
+        equippable: true
+    },
+
+    corewoodFocus: {
+        classId: "mage",
+        price: 520,
+        name: "Corewood Focus",
+        desc: "Cast twice from the same spot and the second lands far larger",
+        requiresHeartwoodKilled: true,
+        equippable: true
+    },
+
+    rootcage: {
+        classId: "mage",
+        price: 500,
+        name: "Rootcage",
+        desc: "Your Sunburst orb drags roots behind it, pinning everything it passes",
+        requiresHeartwoodKilled: true,
+        equippable: true
+    },
+
+    pillarOfJudgement: {
+        classId: "mage",
+        price: 560,
+        name: "Pillar of Judgement",
+        desc: "Every 4th Sunbeam arrives as a telegraphed pillar - slower, far bigger",
+        requiresHeraldKilled: true,
+        equippable: true
+    },
+
+    heraldsWings: {
+        classId: "mage",
+        price: 540,
+        name: "Herald's Wings",
+        desc: "Arcane Step gains a second charge",
+        requiresHeraldKilled: true,
         equippable: true
     },
 

@@ -150,6 +150,26 @@ class Enemy {
         // once the enemy walks clear. See update().
         this.chillTimer = 0;
 
+        // The three control effects the Act II boss gear deals
+        // in (see bossGear.js). All self-expiring, all applied
+        // through the methods below, and all deliberately
+        // routed through the same stunImmune opt-out a boss
+        // already uses - a late-game item should not be able to
+        // lock down a boss any more than the Lightning Ring can.
+        //
+        //   snare    rooted: cannot move, can still fight
+        //   sap      crippled: moves at a fraction of its speed
+        //   disarm   limb taken: moves, cannot attack
+        //
+        // Snare and sap scale the distance actually travelled,
+        // in the same place chill does, so they work on every
+        // mover - chases, kites, charges, lancer dashes - with
+        // no subclass knowing they exist.
+        this.snareTimer = 0;
+        this.sapTimer = 0;
+        this.sapStacks = 0;
+        this.disarmTimer = 0;
+
         // Flat damage-absorption pool (see the Prince's Guard
         // ability in prince.js) - distinct from wardShield's
         // all-or-nothing 1-hit block: this eats damage up to the
@@ -243,6 +263,23 @@ class Enemy {
         if (this.chillTimer > 0)
             this.chillTimer -= Game.dt;
 
+        if (this.snareTimer > 0)
+            this.snareTimer -= Game.dt;
+
+        if (this.disarmTimer > 0)
+            this.disarmTimer -= Game.dt;
+
+        if (this.sapTimer > 0) {
+
+            this.sapTimer -= Game.dt;
+
+            // Stacks lapse with the timer rather than draining
+            // one at a time - the timer IS the stack's life.
+            if (this.sapTimer <= 0)
+                this.sapStacks = 0;
+
+        }
+
         // Pollen Drone aura - re-asserted every frame by the
         // drone, so it lapses on its own the moment the drone
         // dies or this enemy walks out of range. Same
@@ -302,7 +339,28 @@ class Enemy {
 
             }
 
-            this.attack();
+            // Sap scales what is left; a snare takes all of it.
+            // Applied last so they beat any haste rather than
+            // being multiplied away by it.
+            if (this.sapTimer > 0) {
+
+                const m = Math.max(0, 1 - this.sapStacks * BOSS_GEAR.SAP_SLOW_PER_STACK);
+
+                this.x = preX + (this.x - preX) * m;
+                this.y = preY + (this.y - preY) * m;
+
+            }
+
+            if (this.snareTimer > 0) {
+
+                this.x = preX;
+                this.y = preY;
+
+            }
+
+            // A taken limb stops the attack, not the walk.
+            if (this.disarmTimer <= 0)
+                this.attack();
 
             this.checkPlayerCollision();
 
@@ -321,6 +379,54 @@ class Enemy {
             return;
 
         this.stunTimer = Math.max(this.stunTimer, durationMs);
+
+    }
+
+    // Rooted in place. Refreshing re-arms the timer rather than
+    // stacking it, same as every other control here.
+    applySnare(durationMs) {
+
+        if (this.stunImmune)
+            return;
+
+        this.snareTimer = Math.max(this.snareTimer, durationMs);
+
+    }
+
+    // Crippled. Stacks up to a cap, and tips into a full snare
+    // at the cap - which is the Ranger's Severing Broadheads
+    // premise: keep hitting the same leg and it stops walking.
+    applySap(durationMs, maxStacks = BOSS_GEAR.SAP_MAX_STACKS) {
+
+        if (this.stunImmune)
+            return;
+
+        this.sapTimer = Math.max(this.sapTimer, durationMs);
+        this.sapStacks = Math.min(maxStacks, this.sapStacks + 1);
+
+        if (this.sapStacks >= maxStacks)
+            this.applySnare(BOSS_GEAR.SAP_CAP_SNARE_MS);
+
+    }
+
+    applyDisarm(durationMs) {
+
+        if (this.stunImmune)
+            return;
+
+        this.disarmTimer = Math.max(this.disarmTimer, durationMs);
+
+    }
+
+    // True for anything the Thief's Rootfang counts as pinned -
+    // one predicate so "held down" means the same thing to every
+    // item that asks.
+    isHeld() {
+
+        return this.snareTimer > 0 ||
+               this.sapTimer > 0 ||
+               this.chillTimer > 0 ||
+               this.stunTimer > 0;
 
     }
 

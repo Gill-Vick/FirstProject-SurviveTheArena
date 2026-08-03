@@ -98,6 +98,26 @@ class Mage extends Player {
         // Corona aura tick.
         this.coronaTimer = 0;
 
+        // Act II boss gear.
+        //
+        // Arcane Step's cooldown is a single number everywhere
+        // else in this file; Herald's Wings turns it into
+        // CHARGES, so a second slot lives alongside it and
+        // dash() takes whichever is free. blinkCooldown stays
+        // the first slot, so nothing that reads it breaks.
+        this.blinkCooldown2 = 0;
+
+        // Corewood Focus - where the last Sunbeam was cast from.
+        this.lastCastX = null;
+        this.lastCastY = null;
+
+        // Hedgeward Bloom - a broken ward's own regrowth clock,
+        // running in parallel with the wave counter.
+        this.wardRegrowTimer = 0;
+
+        // Pillar of Judgement counts its own casts.
+        this.pillarCastCount = 0;
+
         // Sovereign's Scepter barrage.
         this.scepterCooldown = 0;
         this.scepterFlashTimer = 0;
@@ -125,10 +145,22 @@ class Mage extends Player {
     // touching the shared Player.dash()/input.js at all.
     dash() {
 
-        if (!Save.isEquipped("arcaneStep") || this.blinkCooldown > 0)
+        if (!Save.isEquipped("arcaneStep"))
             return;
 
         if (this.rootTimer > 0)
+            return;
+
+        // Herald's Wings adds a second charge. Whichever slot is
+        // free goes first; without the item only slot one exists.
+        const wings = Save.isEquipped("heraldsWings");
+
+        const slot =
+            this.blinkCooldown <= 0 ? 1
+            : (wings && this.blinkCooldown2 <= 0) ? 2
+            : 0;
+
+        if (slot === 0)
             return;
 
         const startX = this.x;
@@ -140,7 +172,13 @@ class Mage extends Player {
         this.keepOnScreen();
 
         this.invulnTimer = Math.max(this.invulnTimer, DASH.GRACE_MS);
-        this.blinkCooldown = ARCANE_STEP.COOLDOWN;
+
+        if (slot === 1)
+            this.blinkCooldown = ARCANE_STEP.COOLDOWN;
+        else
+            this.blinkCooldown2 = ARCANE_STEP.COOLDOWN;
+
+        this.stillTimer = 0;
 
         DashAfterimage.createTrail(
             startX, startY,
@@ -257,6 +295,11 @@ class Mage extends Player {
         if (this.blinkCooldown > 0)
             this.blinkCooldown -= Game.dt;
 
+        if (this.blinkCooldown2 > 0)
+            this.blinkCooldown2 -= Game.dt;
+
+        this.updateHedgeward();
+
         // Elemental Prism burn stacks.
         this.updateBurns();
 
@@ -371,6 +414,145 @@ class Mage extends Player {
 
     }
 
+    // =====================================
+    // Act II boss gear
+    // =====================================
+
+    // Hedgeward Bloom - a broken ward grows back on its own
+    // clock. The wave-counter recharge still runs alongside it;
+    // whichever comes first wins.
+    updateHedgeward() {
+
+        if (!Save.isEquipped("hedgewardBloom") || !Save.isEquipped("halo"))
+            return;
+
+        if (this.wardReady) {
+
+            this.wardRegrowTimer = HEDGEWARD_BLOOM.REGROW_MS;
+            return;
+
+        }
+
+        this.wardRegrowTimer -= Game.dt;
+
+        if (this.wardRegrowTimer > 0)
+            return;
+
+        this.wardRegrowTimer = HEDGEWARD_BLOOM.REGROW_MS;
+
+        this.wardReady = true;
+        this.wardCharges = this.getMaxWardCharges();
+        this.wardWavesLeft = 0;
+
+    }
+
+    // Arcane Step charges currently ready. One without Herald's
+    // Wings, two with it - the HUD reads off this so a second
+    // charge is actually visible rather than a silent extra.
+    getStepCharges() {
+
+        let ready = this.blinkCooldown <= 0 ? 1 : 0;
+
+        if (Save.isEquipped("heraldsWings") && this.blinkCooldown2 <= 0)
+            ready++;
+
+        return ready;
+
+    }
+
+    getStepStatus() {
+
+        const ready = this.getStepCharges();
+
+        if (ready > 0) {
+
+            return Save.isEquipped("heraldsWings")
+                ? `${ready}/${HERALDS_WINGS.CHARGES} [DASH]`
+                : "READY [DASH]";
+
+        }
+
+        // Nothing up: show whichever charge comes back first.
+        const soonest = Save.isEquipped("heraldsWings")
+            ? Math.min(this.blinkCooldown, this.blinkCooldown2)
+            : this.blinkCooldown;
+
+        return (soonest / 1000).toFixed(1) + "s";
+
+    }
+
+    // Spore Veil - anything dying near the Mage bursts, and what
+    // it leaves behind slows the rest of the wave down.
+    onKill(enemy) {
+
+        if (!Save.isEquipped("sporeVeil"))
+            return;
+
+        const ex = enemy.x + enemy.size / 2;
+        const ey = enemy.y + enemy.size / 2;
+
+        const d = Math.hypot(
+            ex - (this.x + this.size / 2),
+            ey - (this.y + this.size / 2)
+        );
+
+        if (d > SPORE_VEIL.TRIGGER_RADIUS)
+            return;
+
+        Game.hazards.push(new PollenBurst(ex, ey));
+
+    }
+
+    // Corewood Focus - true when this cast leaves from the same
+    // spot the last one did. Immobility is the Mage's whole
+    // posture already; this pays for committing to it.
+    isCorewoodStacked() {
+
+        if (!Save.isEquipped("corewoodFocus") || this.lastCastX === null)
+            return false;
+
+        return Math.hypot(
+            this.x - this.lastCastX,
+            this.y - this.lastCastY
+        ) <= COREWOOD_FOCUS.MOVE_TOLERANCE;
+
+    }
+
+    // Pruning Light - a beam onto something already burning
+    // finishes the burn there and then, for everything it had
+    // left. Rewards re-hitting a target the Prism already lit.
+    pruneBurns(x, y, radius) {
+
+        if (!Save.isEquipped("pruningLight"))
+            return;
+
+        this.burns = this.burns.filter(burn => {
+
+            if (burn.enemy.isDead())
+                return false;
+
+            const ex = burn.enemy.x + burn.enemy.size / 2;
+            const ey = burn.enemy.y + burn.enemy.size / 2;
+
+            if (Math.hypot(ex - x, ey - y) > radius)
+                return true;
+
+            const damage =
+                burn.ticksLeft * PRUNING_LIGHT.DAMAGE_PER_TICK_LEFT;
+
+            burn.enemy.takeDamage(mageDamageTo(burn.enemy, damage));
+
+            Particle.createHitBurst(ex, ey);
+
+            if (burn.enemy.isDead())
+                onEnemyKilled(burn.enemy);
+
+            return false;
+
+        });
+
+    }
+
     castSunbeam() {
 
         const slots = this.getSunbeamChargeCount();
@@ -397,7 +579,34 @@ class Mage extends Player {
             Save.isEquipped("radiantOverload") &&
             (this.sunbeamCastCount % RADIANT_OVERLOAD.EVERY === 0);
 
-        this.fireSunbeamAt(t.x, t.y, overloaded);
+        // Pillar of Judgement - every Nth cast arrives from
+        // above instead: telegraphed, slower, far bigger. It
+        // REPLACES the beam rather than adding to it, so the
+        // trade is real.
+        this.pillarCastCount++;
+
+        const pillar =
+            Save.isEquipped("pillarOfJudgement") &&
+            this.pillarCastCount % PILLAR_OF_JUDGEMENT.EVERY === 0;
+
+        if (pillar) {
+
+            Game.hazards.push(new JudgementPillar(
+                t.x, t.y,
+                PILLAR_OF_JUDGEMENT.DAMAGE,
+                PILLAR_OF_JUDGEMENT.RADIUS
+            ));
+
+        } else {
+
+            this.fireSunbeamAt(t.x, t.y, overloaded);
+
+        }
+
+        // Corewood Focus reads the position this cast left from,
+        // so it is set AFTER the strike that consumed it.
+        this.lastCastX = this.x;
+        this.lastCastY = this.y;
 
         // Twincast Prism - every 3rd cast also fires a second
         // beam at the point mirrored through the caster.
@@ -419,14 +628,21 @@ class Mage extends Player {
 
     fireSunbeamAt(tx, ty, overloaded) {
 
-        const dmg = this.getSunbeamDamage() * (overloaded ? RADIANT_OVERLOAD.DAMAGE_MULT : 1);
-        const rad = this.getSunbeamRadius() * (overloaded ? RADIANT_OVERLOAD.RADIUS_MULT : 1);
+        const stacked = this.isCorewoodStacked();
+
+        const dmg = this.getSunbeamDamage() *
+            (overloaded ? RADIANT_OVERLOAD.DAMAGE_MULT : 1) *
+            (stacked ? COREWOOD_FOCUS.DAMAGE_MULT : 1);
+
+        const rad = this.getSunbeamRadius() *
+            (overloaded ? RADIANT_OVERLOAD.RADIUS_MULT : 1) *
+            (stacked ? COREWOOD_FOCUS.RADIUS_MULT : 1);
 
         // Elemental Prism splits the light into fire and ice on
         // alternating casts (null = plain radiant strike when
         // the Prism isn't equipped). castElement() is decided
         // per cast in castSunbeam().
-        this.strikeAt(tx, ty, dmg, rad, overloaded, this.castElement);
+        this.strikeAt(tx, ty, dmg, rad, overloaded || stacked, this.castElement);
 
     }
 
@@ -447,6 +663,11 @@ class Mage extends Player {
     // Elemental Prism's payload on top - a burn on everything
     // caught (fire), or a lingering field on the ground (ice).
     strikeAt(x, y, damage, radius, big, element = null) {
+
+        // Pruning Light runs BEFORE the strike, so a burn
+        // detonating is the reason a target dies rather than a
+        // consolation after the beam already killed it.
+        this.pruneBurns(x, y, radius);
 
         const crit = Math.random() < Save.getEquippedCritChance();
         const dealt = Math.max(1, Math.round(crit ? damage * 2 : damage));
@@ -482,6 +703,11 @@ class Mage extends Player {
         });
 
         Game.hazards.push(new SunbeamStrike(x, y, radius, big, element));
+
+        // Bloomsight Prism - the light leaves something growing
+        // where it landed.
+        if (Save.isEquipped("bloomsightPrism"))
+            Game.hazards.push(new ThornBed(x, y));
 
         // Ice: the ground itself freezes over, denying the
         // space and dragging anything in it to a crawl.
@@ -700,10 +926,8 @@ class Mage extends Player {
         if (Save.isEquipped("arcaneStep")) {
 
             lines.push({
-                text: `Step: ${this.blinkCooldown > 0
-                    ? (this.blinkCooldown / 1000).toFixed(1) + "s"
-                    : "READY [DASH]"}`,
-                color: this.blinkCooldown > 0 ? "#888" : "white"
+                text: `Step: ${this.getStepStatus()}`,
+                color: this.getStepCharges() > 0 ? "white" : "#888"
             });
 
         }
@@ -1073,6 +1297,11 @@ class SunburstOrb {
             // casters, bosses) are knockback-immune and ignore
             // it, same as every other knockback in the game.
             enemy.applyKnockback(this.tx, this.ty, SUNBURST.KNOCKBACK);
+
+            // Rootcage - the orb drags roots behind it, so the
+            // shove becomes a hold instead of just space.
+            if (Save.isEquipped("rootcage"))
+                enemy.applySnare(ROOTCAGE.SNARE_MS);
 
             if (enemy.isDead())
                 onEnemyKilled(enemy);

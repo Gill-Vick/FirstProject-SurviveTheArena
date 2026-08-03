@@ -18,6 +18,18 @@ const Save = {
 
     magusKilled: false,
 
+    // The four Act II bosses, each gating its own two-item tier
+    // per class. Ordered as the campaign meets them: Matron 20,
+    // Greenwarden 25, Heartwood 30, Herald 35 - all of them
+    // before the Siblings at 40 and the King at 50.
+    matronKilled: false,
+
+    greenwardenKilled: false,
+
+    heartwoodKilled: false,
+
+    heraldKilled: false,
+
     siblingsKilled: false,
 
     kingKilled: false,
@@ -86,6 +98,14 @@ const Save = {
         circleStrike: false,
         berserkerMedallion: false,
         forgeSigil: false,
+        thornGirdle: false,
+        matronsSeal: false,
+        wardensCleaver: false,
+        heartbarkPlate: false,
+        heartwoodMaul: false,
+        deeprootGreaves: false,
+        heraldicBrand: false,
+        stormstepSabatons: false,
         twinbladeEcho: false,
         siblingsResilience: false,
         kingsBlade: false,
@@ -100,6 +120,14 @@ const Save = {
         galeRecurve: false,
         stormfletch: false,
         cycloneVeil: false,
+        seedshotQuiver: false,
+        bramblestride: false,
+        severingBroadheads: false,
+        secondGrowth: false,
+        taprootArrows: false,
+        grovewalker: false,
+        judgementArrow: false,
+        skywardTalons: false,
         royalVolley: false,
         princessFavor: false,
         stormpiercer: false,
@@ -112,6 +140,14 @@ const Save = {
         pocketWatch: false,
         voltaicFang: false,
         leylineSnare: false,
+        rosethornEdge: false,
+        briarCloak: false,
+        limbtaker: false,
+        regrowthSigil: false,
+        rootfang: false,
+        sapwell: false,
+        heraldsVerdict: false,
+        ascendantCloak: false,
         shadowTwin: false,
         mirrorCloak: false,
         moonlightDaggers: false,
@@ -124,6 +160,14 @@ const Save = {
         elementalPrism: false,
         arcaneStep: false,
         corona: false,
+        bloomsightPrism: false,
+        sporeVeil: false,
+        pruningLight: false,
+        hedgewardBloom: false,
+        corewoodFocus: false,
+        rootcage: false,
+        pillarOfJudgement: false,
+        heraldsWings: false,
         twincastPrism: false,
         siblingsGrace: false,
         sovereignScepter: false
@@ -137,6 +181,14 @@ const Save = {
         circleStrike: false,
         berserkerMedallion: false,
         forgeSigil: false,
+        thornGirdle: false,
+        matronsSeal: false,
+        wardensCleaver: false,
+        heartbarkPlate: false,
+        heartwoodMaul: false,
+        deeprootGreaves: false,
+        heraldicBrand: false,
+        stormstepSabatons: false,
         twinbladeEcho: false,
         siblingsResilience: false,
         kingsBlade: false,
@@ -151,6 +203,14 @@ const Save = {
         galeRecurve: false,
         stormfletch: false,
         cycloneVeil: false,
+        seedshotQuiver: false,
+        bramblestride: false,
+        severingBroadheads: false,
+        secondGrowth: false,
+        taprootArrows: false,
+        grovewalker: false,
+        judgementArrow: false,
+        skywardTalons: false,
         royalVolley: false,
         princessFavor: false,
         stormpiercer: false,
@@ -163,6 +223,14 @@ const Save = {
         pocketWatch: false,
         voltaicFang: false,
         leylineSnare: false,
+        rosethornEdge: false,
+        briarCloak: false,
+        limbtaker: false,
+        regrowthSigil: false,
+        rootfang: false,
+        sapwell: false,
+        heraldsVerdict: false,
+        ascendantCloak: false,
         shadowTwin: false,
         mirrorCloak: false,
         moonlightDaggers: false,
@@ -175,6 +243,14 @@ const Save = {
         elementalPrism: false,
         arcaneStep: false,
         corona: false,
+        bloomsightPrism: false,
+        sporeVeil: false,
+        pruningLight: false,
+        hedgewardBloom: false,
+        corewoodFocus: false,
+        rootcage: false,
+        pillarOfJudgement: false,
+        heraldsWings: false,
         twincastPrism: false,
         siblingsGrace: false,
         sovereignScepter: false
@@ -203,6 +279,10 @@ const Save = {
             this.firstBossKilled = !!data.firstBossKilled;
             this.knightKilled = !!data.knightKilled;
             this.magusKilled = !!data.magusKilled;
+            this.matronKilled = !!data.matronKilled;
+            this.greenwardenKilled = !!data.greenwardenKilled;
+            this.heartwoodKilled = !!data.heartwoodKilled;
+            this.heraldKilled = !!data.heraldKilled;
             this.siblingsKilled = !!data.siblingsKilled;
             this.kingKilled = !!data.kingKilled;
             this.bestEndlessWave = data.bestEndlessWave ?? 0;
@@ -302,6 +382,10 @@ const Save = {
             firstBossKilled: this.firstBossKilled,
             knightKilled: this.knightKilled,
             magusKilled: this.magusKilled,
+            matronKilled: this.matronKilled,
+            greenwardenKilled: this.greenwardenKilled,
+            heartwoodKilled: this.heartwoodKilled,
+            heraldKilled: this.heraldKilled,
             siblingsKilled: this.siblingsKilled,
             kingKilled: this.kingKilled,
             bestEndlessWave: this.bestEndlessWave,
@@ -505,6 +589,18 @@ const Save = {
 
         if (item.requiresMagusKilled && !this.magusKilled)
             return "Defeat the Royal Magus";
+
+        if (item.requiresMatronKilled && !this.matronKilled)
+            return "Defeat the Thorn Matron";
+
+        if (item.requiresGreenwardenKilled && !this.greenwardenKilled)
+            return "Defeat the Greenwarden";
+
+        if (item.requiresHeartwoodKilled && !this.heartwoodKilled)
+            return "Defeat the Heartwood";
+
+        if (item.requiresHeraldKilled && !this.heraldKilled)
+            return "Defeat the Herald";
 
         if (item.requiresSiblingsKilled && !this.siblingsKilled)
             return "Defeat the Siblings";
@@ -788,6 +884,46 @@ const Save = {
             return;
 
         this.magusKilled = true;
+        this.persist();
+
+    },
+
+    markMatronKilled() {
+
+        if (this.matronKilled)
+            return;
+
+        this.matronKilled = true;
+        this.persist();
+
+    },
+
+    markGreenwardenKilled() {
+
+        if (this.greenwardenKilled)
+            return;
+
+        this.greenwardenKilled = true;
+        this.persist();
+
+    },
+
+    markHeartwoodKilled() {
+
+        if (this.heartwoodKilled)
+            return;
+
+        this.heartwoodKilled = true;
+        this.persist();
+
+    },
+
+    markHeraldKilled() {
+
+        if (this.heraldKilled)
+            return;
+
+        this.heraldKilled = true;
         this.persist();
 
     },

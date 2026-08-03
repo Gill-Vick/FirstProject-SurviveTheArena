@@ -60,6 +60,12 @@ class Warrior extends Player {
         this.kingsBladeLaserTimer = 0;
         this.kingsBladeLaserAngle = 0;
 
+        // Heartbark Plate - a bark layer on its own clock,
+        // entirely independent of the Shield (you can carry both,
+        // or this without ever having bought one).
+        this.barkReady = true;
+        this.barkTimer = 0;
+
     }
 
     // =====================================
@@ -98,6 +104,10 @@ class Warrior extends Player {
 
         this.updateReforge();
 
+        this.updateBark();
+
+        this.updateDeeproot();
+
         if (this.empowerTimer > 0)
             this.empowerTimer -= Game.dt;
 
@@ -123,6 +133,37 @@ class Warrior extends Player {
     }
 
     onDash(dx, dy, startX, startY) {
+
+        // Stormstep Sabatons - the LANDING is the attack, so it
+        // fires from where the dash ended rather than along it.
+        if (Save.isEquipped("stormstepSabatons")) {
+
+            const cx = this.x + this.size / 2;
+            const cy = this.y + this.size / 2;
+
+            Game.enemies.forEach(enemy => {
+
+                if (enemy.isDead())
+                    return;
+
+                const ex = enemy.x + enemy.size / 2;
+                const ey = enemy.y + enemy.size / 2;
+
+                if (Math.hypot(ex - cx, ey - cy) > STORMSTEP_SABATONS.RADIUS)
+                    return;
+
+                enemy.takeDamage(STORMSTEP_SABATONS.DAMAGE);
+                enemy.applyKnockback(cx, cy, STORMSTEP_SABATONS.KNOCKBACK);
+
+                if (enemy.isDead())
+                    onEnemyKilled(enemy);
+
+            });
+
+            Game.screenShake = Math.max(Game.screenShake ?? 0, 10);
+            Game.hazards.push(new TwinbladeEchoFx(cx, cy));
+
+        }
 
         if (!Save.isEquipped("lightningRing"))
             return;
@@ -238,7 +279,13 @@ class Warrior extends Player {
     absorbHit() {
 
         if (!this.shieldActive)
-            return false;
+            return this.absorbWithBark();
+
+        // Matron's Seal - the block itself plants. Fired before
+        // the charge is spent so it lands on every block, not
+        // only the ones that leave a charge behind.
+        if (Save.isEquipped("matronsSeal"))
+            this.plantSealBeds();
 
         if (Save.getOnyxShieldActive()) {
             this.triggerNuke();
@@ -332,6 +379,170 @@ class Warrior extends Player {
 
     }
 
+    // =====================================
+    // Act II boss gear
+    // =====================================
+
+    // Matron's Seal - a ring of thorn beds around the block.
+    plantSealBeds() {
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        for (let i = 0; i < MATRONS_SEAL.BEDS; i++) {
+
+            const a = (i / MATRONS_SEAL.BEDS) * Math.PI * 2;
+
+            Game.hazards.push(new ThornBed(
+                cx + Math.cos(a) * MATRONS_SEAL.SPREAD,
+                cy + Math.sin(a) * MATRONS_SEAL.SPREAD
+            ));
+
+        }
+
+    }
+
+    // Heartbark Plate - the second, slower line of defence. Only
+    // consulted once the Shield has nothing left (see absorbHit).
+    absorbWithBark() {
+
+        if (!Save.isEquipped("heartbarkPlate") || !this.barkReady)
+            return false;
+
+        this.barkReady = false;
+        this.barkTimer = HEARTBARK_PLATE.REGROW_MS;
+
+        this.invulnTimer = Math.max(this.invulnTimer, HEARTBARK_PLATE.INVULN_MS);
+
+        Game.screenShake = EFFECTS.SHAKE_ON_KILL;
+        Particle.createHitBurst(this.x + this.size / 2, this.y + this.size / 2);
+
+        Sound.play("shieldBlock");
+
+        return true;
+
+    }
+
+    updateBark() {
+
+        if (this.barkReady || !Save.isEquipped("heartbarkPlate"))
+            return;
+
+        this.barkTimer -= Game.dt;
+
+        if (this.barkTimer <= 0)
+            this.barkReady = true;
+
+    }
+
+    // Deeproot Greaves - hold your ground and the ground holds
+    // back: nothing shifts you, and everything near you wades.
+    updateDeeproot() {
+
+        if (!Save.isEquipped("deeprootGreaves"))
+            return;
+
+        if (!isPlayerRooted(this, DEEPROOT_GREAVES.ROOT_MS))
+            return;
+
+        // Rooted by choice beats rooted by a boss.
+        this.rootTimer = 0;
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        Game.enemies.forEach(enemy => {
+
+            if (enemy.isDead())
+                return;
+
+            const ex = enemy.x + enemy.size / 2;
+            const ey = enemy.y + enemy.size / 2;
+
+            if (Math.hypot(ex - cx, ey - cy) > DEEPROOT_GREAVES.RADIUS)
+                return;
+
+            // Re-asserted every frame and never stacked past 1,
+            // so it lapses the moment they leave or you move.
+            enemy.sapTimer = Math.max(enemy.sapTimer, 200);
+            enemy.sapStacks = Math.max(enemy.sapStacks, 1);
+
+        });
+
+    }
+
+    // Heartwood Maul - flat damage for held ground, stepped so
+    // the payoff is countable rather than a smooth ramp.
+    getHeartwoodBonus() {
+
+        if (!Save.isEquipped("heartwoodMaul"))
+            return 0;
+
+        const steps = Math.min(
+            HEARTWOOD_MAUL.MAX_STEPS,
+            Math.floor(this.stillTimer / HEARTWOOD_MAUL.STEP_MS)
+        );
+
+        return steps * HEARTWOOD_MAUL.DAMAGE_PER_STEP;
+
+    }
+
+    // Everything the new gear does to an enemy the sword just
+    // hit. Kept out of attackEnemies so the hit loop stays
+    // readable.
+    onSwordHit(enemy) {
+
+        const ex = enemy.x + enemy.size / 2;
+        const ey = enemy.y + enemy.size / 2;
+
+        // Thorn Girdle - the struck enemy sprouts, and its
+        // NEIGHBOURS pay for it. Skips the target itself, so it
+        // is a reward for a packed wave rather than extra
+        // single-target damage.
+        if (Save.isEquipped("thornGirdle"))
+            bossGearBurst(ex, ey, THORN_GIRDLE.RADIUS, THORN_GIRDLE.DAMAGE, enemy);
+
+        // Warden's Cleaver - three blows to the same foe take a
+        // limb off it: staggered, and primed for a double.
+        if (Save.isEquipped("wardensCleaver")) {
+
+            enemy.cleaverHits = (enemy.cleaverHits ?? 0) + 1;
+
+            if (enemy.cleaverHits % WARDENS_CLEAVER.HITS_TO_SEVER === 0) {
+
+                enemy.applyStun(WARDENS_CLEAVER.STAGGER_MS);
+                enemy.cleaverPrimed = true;
+
+                Particle.createHitBurst(ex, ey);
+
+            }
+
+        }
+
+        // Heraldic Brand - three brands and the sky answers.
+        if (Save.isEquipped("heraldicBrand")) {
+
+            const now = Game.elapsedTime;
+
+            // Brands lapse if you leave the target alone, so
+            // this rewards focus rather than total hits taken.
+            if ((enemy.brandUntil ?? 0) < now)
+                enemy.brandCount = 0;
+
+            enemy.brandCount = (enemy.brandCount ?? 0) + 1;
+            enemy.brandUntil = now + HERALDIC_BRAND.BRAND_MS;
+
+            if (enemy.brandCount >= HERALDIC_BRAND.BRANDS_TO_CALL) {
+
+                enemy.brandCount = 0;
+                Game.hazards.push(new JudgementPillar(ex, ey));
+
+            }
+
+        }
+
+    }
+
     getSwordDamage() {
 
         const base = Save.isEquipped("kingsBlade")
@@ -346,7 +557,8 @@ class Warrior extends Player {
             ? SIBLINGS_RESILIENCE.EMPOWER_DAMAGE_BONUS
             : 0;
 
-        return base + wetstoneBonus + this.getRageBonus() + empowerBonus;
+        return base + wetstoneBonus + this.getRageBonus() + empowerBonus +
+               this.getHeartwoodBonus();
 
     }
 
@@ -674,7 +886,15 @@ class Warrior extends Player {
             if (angleDifference < 0.5) {
                 const critical = Math.random() < Save.getEquippedCritChance();
                 const base = this.getSwordDamage();
-                const damage = critical ? base * 2 : base;
+                let damage = critical ? base * 2 : base;
+
+                // A severed foe eats the next blow double (see
+                // onSwordHit / Warden's Cleaver). Consumed here
+                // so it is spent on ONE swing rather than held.
+                if (enemy.cleaverPrimed) {
+                    damage *= WARDENS_CLEAVER.NEXT_HIT_MULT;
+                    enemy.cleaverPrimed = false;
+                }
 
                 enemy.takeDamage(damage, critical);
 
@@ -685,6 +905,8 @@ class Warrior extends Player {
                 );
 
                 enemy.hitThisSwing = true;
+
+                this.onSwordHit(enemy);
 
                 this.gainRage();
 

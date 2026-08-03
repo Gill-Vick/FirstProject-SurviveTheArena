@@ -40,6 +40,14 @@ class Player {
         // from a ground slow (which only saps speed).
         this.rootTimer = 0;
 
+        // Milliseconds the player has held their ground without
+        // moving. The Heartwood tier's whole premise (see
+        // bossGear.js) - three of its items pay out for standing
+        // still, and they all have to be measuring the same
+        // thing, so it is counted once here rather than three
+        // times in three class files.
+        this.stillTimer = 0;
+
     }
 
     // =====================================
@@ -100,6 +108,12 @@ class Player {
     // for hooks that need to track it (e.g. the Thief's Void
     // Enchant).
     onProjectileHit(enemy, damage) {}
+
+    // Something the player killed just died. Fired from
+    // onEnemyKilled (game.js) for every kill in the game, by
+    // any means - Second Growth, Herald's Verdict and Spore
+    // Veil all hang off this.
+    onKill(enemy) {}
 
     // Damage multiplier applied to player-owned projectiles
     // against this specific enemy (e.g. Hunter's Mark).
@@ -305,6 +319,15 @@ class Player {
 
         }
 
+        // Held ground, measured on INPUT rather than on the
+        // position delta: being shoved by a knockback, or walking
+        // into a wall, should not read as standing still. A dash
+        // resets it too (see dash()).
+        if (dx === 0 && dy === 0)
+            this.stillTimer += Game.dt;
+        else
+            this.stillTimer = 0;
+
         this.x += dx * speed * Game.timeScale;
         this.y += dy * speed * Game.timeScale;
 
@@ -450,6 +473,10 @@ class Player {
             this.y += dy * dashDistance;
 
             this.dashCooldowns[i] = this.getDashCooldown();
+
+            // Crossing the arena is the opposite of holding
+            // ground (see stillTimer).
+            this.stillTimer = 0;
 
             // A hair of grace on every dash - dashing INTO a
             // projectile you were dodging shouldn't be a death.

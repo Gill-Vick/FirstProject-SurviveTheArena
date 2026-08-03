@@ -67,11 +67,30 @@ class Thief extends Player {
         // swing while equipped.
         this.flameTrails = [];
 
+        this.initBossGear();
+
     }
 
     // =====================================
     // Class Hooks
     // =====================================
+
+    // Act II boss gear state. Split out of the constructor
+    // (which calls it) purely so the block reads as one unit.
+    initBossGear() {
+
+        // Rosethorn Edge - seeds on a fuse, one per target.
+        this.rosethorns = [];
+
+        // Briar Cloak / Sapwell - their own beats.
+        this.briarTick = 0;
+        this.sapwellTimer = SAPWELL.INTERVAL_MS;
+
+        // Ascendant Cloak - milliseconds of guaranteed crit
+        // left after coming out of a dash.
+        this.ascendantTimer = 0;
+
+    }
 
     getCurrentSpeed() {
 
@@ -111,6 +130,8 @@ class Thief extends Player {
     }
 
     updateAbilities() {
+
+        this.updateBossGear();
 
         if (this.knifeCooldown > 0)
             this.knifeCooldown -= Game.dt;
@@ -238,6 +259,11 @@ class Thief extends Player {
             }
 
         }
+
+        // Ascendant Cloak - come down out of the dash and the
+        // next blow is certain.
+        if (Save.isEquipped("ascendantCloak"))
+            this.ascendantTimer = ASCENDANT_CLOAK.WINDOW_MS;
 
         // Mirror Cloak - an independent item, not a Cloak stage:
         // every dash also leaves a decoy at the start point (see
@@ -391,9 +417,22 @@ class Thief extends Player {
             if (angleDifference > THIEF_DAGGER.ARC / 2)
                 return;
 
-            const critical = Math.random() < Save.getEquippedCritChance();
+            // Ascendant Cloak - the first blow off a dash is
+            // certain. Consumed by the swing, not by the enemy,
+            // so a flurry doesn't get four guaranteed crits.
+            const ascendant = this.ascendantTimer > 0;
+
+            const critical = ascendant ||
+                Math.random() < Save.getEquippedCritChance();
+
             const base = this.getDaggerDamage();
-            const damage = critical ? base * 2 : base;
+
+            const damage = this.bossGearDamage(
+                enemy, critical ? base * 2 : base
+            );
+
+            if (ascendant)
+                this.ascendantTimer = 0;
 
             enemy.takeDamage(damage, critical);
 
@@ -545,6 +584,16 @@ class Thief extends Player {
         if (this.pendingTeleport)
             this.armTeleport(x, y, enemy);
 
+        // Regrowth Sigil - a knife that killed comes straight
+        // back. Checked on resolve, which is the one place that
+        // knows both "this was the knife" and "what it hit".
+        if (
+            Save.isEquipped("regrowthSigil") &&
+            enemy && enemy.isDead()
+        ) {
+            this.knifeCooldown = 0;
+        }
+
         if (Save.isEquipped("leylineSnare")) {
 
             const vx = enemy ? enemy.x + enemy.size / 2 : x;
@@ -626,9 +675,184 @@ class Thief extends Player {
     // lands (dagger swings, storm bursts, knives) - keeps the
     // Wit refresh and Void Enchant marking in one place.
 
+    // =====================================
+    // Act II boss gear
+    // =====================================
+
+    updateBossGear() {
+
+        if (this.ascendantTimer > 0)
+            this.ascendantTimer -= Game.dt;
+
+        this.updateRosethorns();
+        this.updateBriars();
+        this.updateSapwell();
+
+    }
+
+    // Rosethorn Edge - a seed left in the target that opens a
+    // beat later, around wherever it has got to by then. The
+    // delay is the item: it pays out on a foe that stayed in the
+    // crowd, and misses on one that ran.
+    updateRosethorns() {
+
+        this.rosethorns = this.rosethorns.filter(seed => {
+
+            if (seed.enemy.isDead())
+                return false;
+
+            seed.fuse -= Game.dt;
+
+            if (seed.fuse > 0)
+                return true;
+
+            const ex = seed.enemy.x + seed.enemy.size / 2;
+            const ey = seed.enemy.y + seed.enemy.size / 2;
+
+            bossGearBurst(ex, ey, ROSETHORN_EDGE.RADIUS, ROSETHORN_EDGE.DAMAGE);
+
+            Particle.createHitBurst(ex, ey);
+
+            return false;
+
+        });
+
+    }
+
+    // Briar Cloak - the Thief's one reason to ever stand still.
+    updateBriars() {
+
+        if (!Save.isEquipped("briarCloak"))
+            return;
+
+        if (!isPlayerRooted(this, BRIAR_CLOAK.GROW_MS)) {
+
+            this.briarTick = 0;
+            return;
+
+        }
+
+        this.briarTick -= Game.dt;
+
+        if (this.briarTick > 0)
+            return;
+
+        this.briarTick = BRIAR_CLOAK.TICK_MS;
+
+        bossGearBurst(
+            this.x + this.size / 2,
+            this.y + this.size / 2,
+            BRIAR_CLOAK.RADIUS,
+            BRIAR_CLOAK.TICK_DAMAGE
+        );
+
+    }
+
+    // Sapwell - a root on a fixed beat, grabbing whatever is
+    // nearest. Free control the Thief doesn't have to aim.
+    updateSapwell() {
+
+        if (!Save.isEquipped("sapwell"))
+            return;
+
+        this.sapwellTimer -= Game.dt;
+
+        if (this.sapwellTimer > 0)
+            return;
+
+        this.sapwellTimer = SAPWELL.INTERVAL_MS;
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        const target = nearestEnemyTo(cx, cy);
+
+        if (!target)
+            return;
+
+        const d = Math.hypot(
+            target.x + target.size / 2 - cx,
+            target.y + target.size / 2 - cy
+        );
+
+        if (d > SAPWELL.RANGE)
+            return;
+
+        Game.hazards.push(new GraspingRoot(cx, cy, target));
+
+    }
+
+    // Rootfang - double against anything already pinned. Asked
+    // BEFORE the hit lands, so a hit that itself applies the
+    // control doesn't get to benefit from it in the same frame.
+    bossGearDamage(enemy, damage) {
+
+        return Save.isEquipped("rootfang") && enemy.isHeld()
+            ? damage * ROOTFANG.DAMAGE_MULT
+            : damage;
+
+    }
+
+    // Herald's Verdict - every kill passes sentence along.
+    onKill(enemy) {
+
+        if (!Save.isEquipped("heraldsVerdict"))
+            return;
+
+        const ex = enemy.x + enemy.size / 2;
+        const ey = enemy.y + enemy.size / 2;
+
+        const next = nearestEnemyTo(ex, ey, enemy);
+
+        if (!next)
+            return;
+
+        const nx = next.x + next.size / 2;
+        const ny = next.y + next.size / 2;
+
+        if (Math.hypot(nx - ex, ny - ey) > HERALDS_VERDICT.CHAIN_RANGE)
+            return;
+
+        Game.hazards.push(new JudgementPillar(nx, ny));
+
+    }
+
     onHitLanded(enemy, damage) {
 
         this.refreshWit();
+
+        // Rosethorn Edge - one live seed per target, refreshed
+        // rather than stacked, so a flurry doesn't detonate six
+        // blooms on one enemy.
+        if (Save.isEquipped("rosethornEdge")) {
+
+            const existing = this.rosethorns.find(seed => seed.enemy === enemy);
+
+            if (existing)
+                existing.fuse = ROSETHORN_EDGE.FUSE_MS;
+            else
+                this.rosethorns.push({ enemy, fuse: ROSETHORN_EDGE.FUSE_MS });
+
+        }
+
+        // Limbtaker - keep hitting the same thing and eventually
+        // a limb comes off with it.
+        if (Save.isEquipped("limbtaker")) {
+
+            enemy.limbHits = (enemy.limbHits ?? 0) + 1;
+
+            if (enemy.limbHits % LIMBTAKER.HITS_TO_TAKE === 0) {
+
+                enemy.applyDisarm(LIMBTAKER.DISARM_MS);
+                Particle.createHitBurst(
+                    enemy.x + enemy.size / 2,
+                    enemy.y + enemy.size / 2
+                );
+
+            }
+
+        }
+
 
         if (Save.isEquipped("voidEnchant"))
             this.addVoidDamage(enemy, damage);

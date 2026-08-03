@@ -51,13 +51,28 @@ class Ranger extends Player {
         // Royal Volley - every completed shot increments this.
         this.bowShotCount = 0;
 
+        // Act II boss gear. Seed and judgement arrows are
+        // counted per LANDED arrow (see onArrowLanded), on their
+        // own counters so equipping both doesn't sync them.
+        this.seedCount = 0;
+        this.judgementCount = 0;
+
+        // Skyward Talons - milliseconds still off the ground.
+        this.airborneTimer = 0;
+
     }
 
     // =====================================
     // Class Hooks
     // =====================================
 
+    // Skyward Talons lifts the Ranger clear of the ground
+    // entirely for a moment after a dash - nothing that works
+    // through the floor reaches them up there.
     getSlowResistance() {
+
+        if (this.airborneTimer > 0)
+            return 1;
 
         return Save.isEquipped("princessFavor")
             ? PRINCESS_FAVOR.SLOW_RESIST
@@ -65,7 +80,62 @@ class Ranger extends Player {
 
     }
 
+    // Arrows that plant, root, cripple or call the sky. Counted
+    // per HIT rather than per shot: an arrow that sails past
+    // hasn't landed anywhere for a seed to grow in.
+    onArrowLanded(enemy) {
+
+        const ex = enemy.x + enemy.size / 2;
+        const ey = enemy.y + enemy.size / 2;
+
+        if (Save.isEquipped("severingBroadheads"))
+            enemy.applySap(SEVERING_BROADHEADS.SAP_MS);
+
+        if (Save.isEquipped("taprootArrows"))
+            enemy.applySnare(TAPROOT_ARROWS.SNARE_MS);
+
+        if (Save.isEquipped("seedshotQuiver")) {
+
+            this.seedCount++;
+
+            if (this.seedCount % SEEDSHOT_QUIVER.EVERY === 0)
+                Game.hazards.push(new ThornBed(ex, ey));
+
+        }
+
+        if (Save.isEquipped("judgementArrow")) {
+
+            this.judgementCount++;
+
+            if (this.judgementCount % JUDGEMENT_ARROW.EVERY === 0)
+                Game.hazards.push(new JudgementPillar(ex, ey));
+
+        }
+
+    }
+
+    // Second Growth - a kill hands a dash charge straight back.
+    onKill(enemy) {
+
+        if (!Save.isEquipped("secondGrowth"))
+            return;
+
+        for (let i = 0; i < this.dashCooldowns.length; i++)
+            this.dashCooldowns[i] = 0;
+
+    }
+
     updateAbilities() {
+
+        if (this.airborneTimer > 0) {
+
+            this.airborneTimer -= Game.dt;
+
+            // Nothing on the floor reaches you up here - a root
+            // landed a frame before the dash included.
+            this.rootTimer = 0;
+
+        }
 
         if (this.bowCooldown > 0)
             this.bowCooldown -= Game.dt;
@@ -115,6 +185,31 @@ class Ranger extends Player {
     // so heavy/anchored foes ignore it). Pure disengage, no
     // damage.
     onDash(dx, dy, startX, startY) {
+
+        // Bramblestride - thorns laid along the line actually
+        // travelled, spaced by distance so the trail is the same
+        // density however far the dash went.
+        if (Save.isEquipped("bramblestride")) {
+
+            const span = Math.hypot(this.x - startX, this.y - startY);
+            const beds = Math.max(1, Math.floor(span / BRAMBLESTRIDE.SPACING_PX));
+
+            for (let i = 0; i <= beds; i++) {
+
+                const t = i / beds;
+
+                Game.hazards.push(new ThornBed(
+                    startX + (this.x - startX) * t + this.size / 2,
+                    startY + (this.y - startY) * t + this.size / 2
+                ));
+
+            }
+
+        }
+
+        // Skyward Talons - briefly off the ground entirely.
+        if (Save.isEquipped("skywardTalons"))
+            this.airborneTimer = SKYWARD_TALONS.AIRBORNE_MS;
 
         if (!Save.isEquipped("cycloneVeil"))
             return;
@@ -166,6 +261,8 @@ class Ranger extends Player {
 
         if (Save.isEquipped("stormfletch"))
             this.stormfletchProc(enemy);
+
+        this.onArrowLanded(enemy);
 
     }
 
@@ -274,9 +371,23 @@ class Ranger extends Player {
             ? STORMPIERCER.BASE_DAMAGE
             : RANGER_BOW.DAMAGE;
 
-        const pierce = Save.isEquipped("falconQuiver")
+        let pierce = Save.isEquipped("falconQuiver")
             ? FALCON_QUIVER.PIERCE
             : 1;
+
+        // Grovewalker - held ground buys one arrow that goes
+        // through everything. Spent on the shot that fires it,
+        // so it is a reward for planting your feet rather than
+        // something you can bank.
+        if (
+            Save.isEquipped("grovewalker") &&
+            isPlayerRooted(this, GROVEWALKER.ROOT_MS)
+        ) {
+
+            pierce = 99;
+            this.stillTimer = 0;
+
+        }
 
         for (let i = 0; i < arrowCount; i++) {
 
