@@ -13,23 +13,25 @@
 //            get inside it or out of it
 //   GUARD    petals that eat whole hits AND grow back, so the
 //            shield is a window rather than a one-time tax
-//   GROUND   the charge lays bramble the whole way, which is the
-//            garden's whole thesis: the danger is where it has
-//            been, not just where it is
+//   GROUND   Thornrise: it drives the blade into the earth and
+//            grows rings of bramble outward across the field,
+//            which is the garden's whole thesis - the danger is
+//            the ground, not the body standing on it
 //
-// State machine:
+// Two abilities on two independent cooldowns:
 //
-//   idle -> cleaveWindup -> cleaving -> chargeWindup -> charging -> idle
+//   idle -> cleaveWindup -> cleaving   -> idle    (in melee only)
+//   idle -> thornWindup   -> thornRise -> idle    (at ANY range)
 //
-// The cleave ALWAYS flows into the charge, guard up or not. That
-// is the main thing that makes it a harder unit than the Lancer,
-// which only chains once its shield is gone.
+// Splitting them rather than chaining is what makes the unit
+// work without a gap-closer: a knight on the far side of the
+// arena is still doing something to you, and simply outranging
+// it is no longer an answer.
 //
-// Its body never damages the player. Only the blade, mid-cleave
-// or mid-charge, and the thorns it plants - all drawn before
-// they can land. Four of these arrive at once (see
-// cornerGuardsForWave in wave.js); four bodies that hurt to touch
-// would be a different game.
+// Its body never damages the player. Only the blade mid-cleave,
+// and the thorns - which sprout visibly before they bite. Four
+// of these arrive at once (see cornerGuardsForWave in wave.js);
+// four bodies that hurt to touch would be a different game.
 
 class RoseKnight extends Enemy {
 
@@ -50,7 +52,7 @@ class RoseKnight extends Enemy {
         this.petals = this.maxPetals();
         this.regrow = this.regrowTime();
 
-        // "idle" | "cleaveWindup" | "cleaving" | "chargeWindup" | "charging"
+        // "idle" | "cleaveWindup" | "cleaving" | "thornWindup" | "thornRise"
         this.state = "idle";
         this.stateTimer = 0;
 
@@ -65,9 +67,9 @@ class RoseKnight extends Enemy {
         this.swingProgress = 0;
         this.hitThisAttack = false;
 
-        this.chargeDX = 0;
-        this.chargeDY = 0;
-        this.sinceTrail = 0;
+        // Thornrise runs on its own clock, staggered the same
+        // way, so four knights don't carpet the arena in one go.
+        this.thornCooldown = cfg.THORN_COOLDOWN * Math.random();
 
     }
 
@@ -120,19 +122,11 @@ class RoseKnight extends Enemy {
     // Movement
     // =====================================
     //
-    // Travels under its own speed while idling, and under the
-    // charge's speed while charging. Every bracing phase holds it
-    // planted - the telegraph is only honest if the thing cannot
-    // walk out from under it.
+    // Only ever travels while idling. Every windup and every
+    // strike holds it planted - a telegraph is only honest if
+    // the thing cannot walk out from under it.
 
     move() {
-
-        if (this.state === "charging") {
-
-            this.advanceCharge();
-            return;
-
-        }
 
         if (this.state !== "idle")
             return;
@@ -141,43 +135,12 @@ class RoseKnight extends Enemy {
 
     }
 
-    advanceCharge() {
-
-        const cfg = GARDEN.roseKnight;
-        const step = Game.timeScale;
-
-        this.x += this.chargeDX * step;
-        this.y += this.chargeDY * step;
-
-        // Thorns laid per distance travelled rather than per
-        // frame, so the trail has the same density at any frame
-        // rate. Same rule the boar's trail follows.
-        this.sinceTrail += Math.hypot(this.chargeDX, this.chargeDY) * step;
-
-        if (this.sinceTrail >= cfg.TRAIL_EVERY_PX) {
-
-            this.sinceTrail = 0;
-            this.plantThorn(this.x + this.size / 2, this.y + this.size / 2);
-
-        }
-
-        // Stops dead at the wall rather than sliding along it.
-        const hitEdge =
-            this.x <= 0 || this.y <= 0 ||
-            this.x + this.size >= canvas.width ||
-            this.y + this.size >= canvas.height;
-
-        if (hitEdge)
-            this.endCharge();
-
-    }
-
     plantThorn(x, y) {
 
         Game.hazards.push(new BramblePatch(
             Math.max(16, Math.min(canvas.width - 16, x)),
             Math.max(16, Math.min(canvas.height - 16, y)),
-            GARDEN.roseKnight.TRAIL_MS,
+            GARDEN.roseKnight.THORN_LIFE_MS,
             ACT2_BOSSES.matron.THORN_SPROUT_MS
         ));
 
@@ -205,12 +168,12 @@ class RoseKnight extends Enemy {
                 this.updateCleaving();
                 break;
 
-            case "chargeWindup":
-                this.updateChargeWindup();
+            case "thornWindup":
+                this.updateThornWindup();
                 break;
 
-            case "charging":
-                this.updateCharging();
+            case "thornRise":
+                this.updateThornRise();
                 break;
 
         }
@@ -235,9 +198,7 @@ class RoseKnight extends Enemy {
     updateIdle() {
 
         this.cleaveCooldown -= Game.dt;
-
-        if (this.cleaveCooldown > 0)
-            return;
+        this.thornCooldown -= Game.dt;
 
         const cx = this.x + this.size / 2;
         const cy = this.y + this.size / 2;
@@ -246,12 +207,30 @@ class RoseKnight extends Enemy {
         const dx = (target.x + target.size / 2) - cx;
         const dy = (target.y + target.size / 2) - cy;
 
-        if (Math.hypot(dx, dy) > GARDEN.roseKnight.CLEAVE_RANGE)
+        // The blade first when it can reach - Thornrise is the
+        // fallback for a player who won't come inside the arc,
+        // and it would be a strange knight that seeded the
+        // ground while something stood next to it.
+        if (
+            this.cleaveCooldown <= 0 &&
+            Math.hypot(dx, dy) <= GARDEN.roseKnight.CLEAVE_RANGE
+        ) {
+
+            this.attackAngle = Math.atan2(dy, dx);
+            this.state = "cleaveWindup";
+            this.stateTimer = GARDEN.roseKnight.CLEAVE_WINDUP_MS;
+
             return;
 
+        }
+
+        if (this.thornCooldown > 0)
+            return;
+
+        // No range check at all: this is the whole point of it.
         this.attackAngle = Math.atan2(dy, dx);
-        this.state = "cleaveWindup";
-        this.stateTimer = GARDEN.roseKnight.CLEAVE_WINDUP_MS;
+        this.state = "thornWindup";
+        this.stateTimer = GARDEN.roseKnight.THORN_WINDUP_MS;
 
     }
 
@@ -287,81 +266,100 @@ class RoseKnight extends Enemy {
         if (this.stateTimer > 0)
             return;
 
-        // Always chains, guard or no guard. The Lancer waits for
-        // a broken shield; this does not.
-        const target = getAggroSource(this);
-
-        this.attackAngle = Math.atan2(
-            (target.y + target.size / 2) - (this.y + this.size / 2),
-            (target.x + target.size / 2) - (this.x + this.size / 2)
-        );
-
-        this.state = "chargeWindup";
-        this.stateTimer = cfg.CHARGE_WINDUP_MS;
+        this.state = "idle";
+        this.cleaveCooldown = cfg.CLEAVE_COOLDOWN;
 
     }
 
-    updateChargeWindup() {
+    // =====================================
+    // Thornrise
+    // =====================================
+    //
+    // Drives the scythe into the earth and grows bramble outward
+    // in rings. The windup is long and drawn as an expanding
+    // ring on the floor, so the ground it is about to claim is
+    // readable before any of it exists - and the patches
+    // themselves still sprout harmlessly for a beat after that
+    // (see BramblePatch's sprout phase), which is what stops a
+    // ring landing under your feet from being an unavoidable
+    // hit.
 
-        const cfg = GARDEN.roseKnight;
+    updateThornWindup() {
 
         this.stateTimer -= Game.dt;
 
         if (this.stateTimer > 0)
             return;
 
-        this.state = "charging";
-        this.stateTimer = cfg.CHARGE_MS;
-        this.hitThisAttack = false;
-        this.sinceTrail = 0;
+        this.state = "thornRise";
+        this.stateTimer = GARDEN.roseKnight.THORN_WINDUP_MS * 0.35;
 
-        this.chargeDX = Math.cos(this.attackAngle) * cfg.CHARGE_SPEED;
-        this.chargeDY = Math.sin(this.attackAngle) * cfg.CHARGE_SPEED;
+        this.growThorns();
 
     }
 
-    updateCharging() {
+    updateThornRise() {
 
         this.stateTimer -= Game.dt;
 
-        // The charge keeps a straight box: the blade is held out
-        // ahead rather than swung, so a rectangle is the honest
-        // shape for it.
-        this.checkChargeHit();
-
-        if (this.stateTimer <= 0)
-            this.endCharge();
-
-    }
-
-    endCharge() {
-
-        // An elite finishes by bursting into a ring of thorns, so
-        // the spot it stopped in punishes anyone who chased it.
-        if (this.isElite)
-            this.bloomThorns();
+        if (this.stateTimer > 0)
+            return;
 
         this.state = "idle";
-        this.cleaveCooldown = GARDEN.roseKnight.CLEAVE_COOLDOWN;
+        this.thornCooldown = GARDEN.roseKnight.THORN_COOLDOWN;
 
     }
 
-    bloomThorns() {
+    // Every ring the cast plants, elite bonus included. One
+    // place, so the windup telegraph can size itself off exactly
+    // what is coming rather than a number kept in step by hand.
+    thornRings() {
 
-        const count = GARDEN_ELITE.KNIGHT_BLOOM_THORNS;
+        const rings = GARDEN.roseKnight.THORN_RINGS;
+
+        return this.isElite
+            ? rings.concat(GARDEN_ELITE.KNIGHT_THORN_EXTRA_RING)
+            : rings;
+
+    }
+
+    thornReach() {
+
+        return Math.max(...this.thornRings().map(r => r.radius));
+
+    }
+
+    growThorns() {
+
+        const cfg = GARDEN.roseKnight;
+
         const cx = this.x + this.size / 2;
         const cy = this.y + this.size / 2;
 
-        for (let i = 0; i < count; i++) {
+        Game.screenShake = Math.max(Game.screenShake ?? 0, 7);
+        Particle.createHitBurst(cx, cy);
 
-            const a = (i / count) * Math.PI * 2;
+        this.thornRings().forEach((ring, index) => {
 
-            this.plantThorn(
-                cx + Math.cos(a) * GARDEN_ELITE.KNIGHT_BLOOM_RADIUS,
-                cy + Math.sin(a) * GARDEN_ELITE.KNIGHT_BLOOM_RADIUS
-            );
+            // Each ring is rotated off the last so the patches
+            // don't line up into spokes.
+            const offset = index * 0.4;
 
-        }
+            for (let i = 0; i < ring.count; i++) {
+
+                const a = offset + (i / ring.count) * Math.PI * 2;
+
+                const r = ring.radius +
+                    (Math.random() - 0.5) * cfg.THORN_JITTER;
+
+                this.plantThorn(
+                    cx + Math.cos(a) * r,
+                    cy + Math.sin(a) * r
+                );
+
+            }
+
+        });
 
     }
 
@@ -369,12 +367,9 @@ class RoseKnight extends Enemy {
     // Hitbox
     // =====================================
     //
-    // Two shapes, because the knight does two different things:
-    // the cleave is an arc the blade sweeps through, and the
-    // charge is a straight box with the blade held out ahead.
-    // Both are drawn with the same numbers they are checked
-    // with - what you see is what can hit you. Each fires at
-    // most once per attack.
+    // One shape: the arc the blade sweeps through. Drawn with
+    // the same numbers it is checked with - what you see is what
+    // can hit you - and it fires at most once per swing.
 
     // Where the blade is right now: it travels from one edge of
     // the arc to the other across the swing. Shared by the hit
@@ -420,40 +415,10 @@ class RoseKnight extends Enemy {
 
     }
 
-    checkChargeHit() {
-
-        if (this.hitThisAttack)
-            return;
-
-        const cx = this.x + this.size / 2;
-        const cy = this.y + this.size / 2;
-
-        const dx = (player.x + player.size / 2) - cx;
-        const dy = (player.y + player.size / 2) - cy;
-
-        const cos = Math.cos(-this.attackAngle);
-        const sin = Math.sin(-this.attackAngle);
-
-        const localX = dx * cos - dy * sin;
-        const localY = dx * sin + dy * cos;
-
-        const pad = player.size / 2;
-        const width = GARDEN.roseKnight.CHARGE_WIDTH;
-
-        if (
-            localX >= -pad &&
-            localX <= this.size + pad &&
-            Math.abs(localY) <= width / 2 + pad
-        ) {
-
-            player.takeHit(ENEMY_LABELS.roseKnight);
-            this.hitThisAttack = true;
-
-        }
-
-    }
-
-    // Body contact is harmless - see the header.
+    // Body contact is harmless - see the header. Thornrise has
+    // no hitbox of its own either: everything it does to you is
+    // done by the bramble it leaves, which sprouts in plain
+    // sight first.
     checkPlayerCollision() {}
 
     // =====================================
@@ -477,24 +442,6 @@ class RoseKnight extends Enemy {
     drawTelegraphs(cx, cy) {
 
         const cfg = GARDEN.roseKnight;
-
-        // The charge is still a straight box - it travels in a
-        // line, so a line is the honest warning for it.
-        const box = (length, alpha) => {
-
-            ctx.save();
-            ctx.translate(cx, cy);
-            ctx.rotate(this.attackAngle);
-
-            drawPixelRectZone(length, cfg.CHARGE_WIDTH, {
-                color: "rgb(214, 51, 92)",
-                alpha,
-                unit: Math.max(3, Math.round(cfg.CHARGE_WIDTH * 0.12))
-            });
-
-            ctx.restore();
-
-        };
 
         if (this.state === "cleaveWindup") {
 
@@ -538,28 +485,56 @@ class RoseKnight extends Enemy {
 
         }
 
-        if (this.state === "chargeWindup") {
+        // Thornrise: a ring on the floor growing out to exactly
+        // the reach the cast will cover, so the ground it is
+        // about to claim is legible before any of it exists.
+        // Sized off thornReach(), which is the same list the
+        // cast itself plants from - elite third ring included.
+        if (this.state === "thornWindup") {
 
-            const reach = cfg.CHARGE_SPEED * (cfg.CHARGE_MS / 16.7) + this.size;
-            const pulse = 0.34 + Math.sin(Date.now() / 60) * 0.14;
+            const t = 1 - this.stateTimer / cfg.THORN_WINDUP_MS;
+            const reach = this.thornReach();
 
-            box(reach, pulse);
+            drawPixelDashedRing(cx, cy, reach * t, {
+                color: "rgb(255, 95, 162)",
+                alpha: 0.25 + t * 0.45,
+                unit: 5
+            });
+
+            // A second, inner ring so the pattern reads as
+            // rings rather than one expanding circle.
+            if (t > 0.4) {
+
+                drawPixelDashedRing(cx, cy, cfg.THORN_RINGS[0].radius * t, {
+                    color: "rgb(255, 95, 162)",
+                    alpha: 0.3,
+                    unit: 5
+                });
+
+            }
 
         }
 
-        if (this.state === "charging") {
+        // The moment it lands: a flash out to full reach.
+        if (this.state === "thornRise") {
 
-            // Shrinks with the charge's remaining travel, so it
-            // reads as "how much further this is still coming".
-            box(cfg.CHARGE_SPEED * (this.stateTimer / 16.7) + this.size, 0.42);
+            drawPixelRing(cx, cy, this.thornReach(), {
+                color: "rgb(255, 111, 146)",
+                alpha: 0.4 * (this.stateTimer / (cfg.THORN_WINDUP_MS * 0.35)),
+                thickness: 6,
+                unit: 5
+            });
 
         }
 
     }
 
-    // A gardener's scythe - a long thorned haft with the blade
-    // running out off the end, and a rose bound where the two
-    // meet.
+    // A war scythe - the blade turned up to run IN LINE with the
+    // haft rather than hooked off it at a right angle, which is
+    // the whole difference between a farm tool and a polearm.
+    // A long single-edged blade continuing the line of the shaft,
+    // with only a slight forward curve, and the rose bound at the
+    // collar where the two are lashed together.
     //
     // Only drawn while it is actually being used: the knight
     // carries it slung out of sight and brings it up to strike,
@@ -589,23 +564,32 @@ class RoseKnight extends Enemy {
                 ? this.attackAngle - cfg.CLEAVE_ARC / 2
             : this.attackAngle;
 
+        // Thornrise drives the blade into the earth: the whole
+        // weapon is pulled back toward the knight as it plants,
+        // rather than held out at reach.
+        const planted =
+            this.state === "thornWindup" || this.state === "thornRise";
+
         ctx.save();
         ctx.translate(Math.round(cx), Math.round(cy));
         ctx.rotate(angle);
+
+        if (planted)
+            ctx.scale(0.66, 0.66);
 
         const len = cfg.SCYTHE_LENGTH;
 
         // Haft: a dark cut stem rather than a steel pole.
         ctx.fillStyle = "#3a2a1c";
-        ctx.fillRect(-10, -3, len + 10, 5);
+        ctx.fillRect(-14, -3, len + 14, 5);
 
         ctx.fillStyle = "#5a4229";
-        ctx.fillRect(-10, -3, len + 10, 2);
+        ctx.fillRect(-14, -3, len + 14, 2);
 
         // Thorns down the haft, alternating sides.
         ctx.fillStyle = "#2c4a24";
 
-        for (let i = 1; i * 13 < len - 8; i++) {
+        for (let i = 1; i * 13 < len - 10; i++) {
 
             const tx = i * 13;
 
@@ -613,27 +597,23 @@ class RoseKnight extends Enemy {
 
         }
 
-        // The rose bound at the collar where blade meets haft.
-        ctx.fillStyle = "#7d1d33";
-        ctx.fillRect(len - 8, -7, 10, 14);
-        ctx.fillStyle = "#d6335c";
-        ctx.fillRect(len - 6, -5, 6, 10);
-        ctx.fillStyle = "#ff6f92";
-        ctx.fillRect(len - 4, -2, 3, 4);
-
-        // Blade: long reach out past the haft with only a gentle
-        // lean into the swing, drawn as stepped pixel blocks so
-        // it keeps the game's look instead of a smooth curve.
-        // [x, y, w, h] in blade-local space, running outward and
-        // bending toward +y - the direction of travel.
+        // Blade: carries straight on from the haft, broad at the
+        // collar and tapering to a point, drifting a little
+        // toward +y so it leans into the swing. [x, y, w, h] in
+        // blade-local space.
+        //
+        // It runs out to exactly CLEAVE_RANGE from the knight's
+        // centre, so the drawn weapon is honest about the reach
+        // the hitbox actually checks.
         const blade = [
-            [len - 2,  -3, 13, 12],
-            [len + 10,  0, 13, 12],
-            [len + 22,  4, 12, 12],
-            [len + 33,  9, 12, 12],
-            [len + 43, 16, 11, 11],
-            [len + 51, 24, 10, 10],
-            [len + 57, 33, 9, 9]
+            [len - 2,  -7, 14, 15],
+            [len + 11, -6, 14, 14],
+            [len + 24, -5, 13, 13],
+            [len + 36, -3, 13, 12],
+            [len + 47, -1, 12, 11],
+            [len + 57,  2, 11,  9],
+            [len + 66,  5,  8,  7],
+            [len + 72,  8,  6,  5]
         ];
 
         ctx.fillStyle = "#8d99a0";
@@ -647,6 +627,16 @@ class RoseKnight extends Enemy {
         // Dark spine along the back.
         ctx.fillStyle = "#4a5459";
         blade.forEach(b => ctx.fillRect(b[0], b[1], b[2], 2));
+
+        // The rose bound at the collar, over the lashing - drawn
+        // last so it sits on top of the join rather than under
+        // the blade's root.
+        ctx.fillStyle = "#7d1d33";
+        ctx.fillRect(len - 10, -8, 11, 16);
+        ctx.fillStyle = "#d6335c";
+        ctx.fillRect(len - 8, -6, 7, 12);
+        ctx.fillStyle = "#ff6f92";
+        ctx.fillRect(len - 6, -2, 4, 4);
 
         ctx.restore();
 

@@ -2451,14 +2451,25 @@ const GARDEN = {
         CLEAVE_MS: 300,
         CLEAVE_COOLDOWN: 2100,
 
-        // Charge: the thrust always flows into it, and it lays
-        // thorns the whole way.
-        CHARGE_WINDUP_MS: 420,
-        CHARGE_MS: 380,
-        CHARGE_SPEED: 9.4,
-        CHARGE_WIDTH: 46,
-        TRAIL_EVERY_PX: 46,
-        TRAIL_MS: 5200,
+        // Thornrise. It plants the scythe and grows bramble
+        // outward in rings from where it stood.
+        //
+        // Usable at ANY range, unlike the cleave - it is the
+        // knight's answer to a player who simply stays away
+        // from the blade, and the reason losing the old charge
+        // costs it nothing. Runs on its own cooldown rather
+        // than chaining off the cleave, so a knight across the
+        // arena is still doing something to you.
+        THORN_WINDUP_MS: 760,
+        THORN_COOLDOWN: 6200,
+        THORN_RINGS: [
+            { radius: 98, count: 5 },
+            { radius: 188, count: 8 }
+        ],
+        // Rings placed exactly would read as a machine. Each
+        // patch is nudged by up to this much.
+        THORN_JITTER: 28,
+        THORN_LIFE_MS: 6000,
 
         SCYTHE_LENGTH: 54
     }
@@ -2532,13 +2543,12 @@ const GARDEN_ELITE = {
     // Rose Knight: the guard is the fight, so the elite's guard
     // grows back faster than an unfocused player can break it -
     // you have to burst it down inside one window or you never
-    // get through at all. And its charge finishes by bursting
-    // into a ring of thorns, so the place it stopped is not
-    // somewhere you want to have followed it to.
+    // get through at all. And its Thornrise throws a third ring
+    // further out again, so there is no standing at the edge of
+    // the pattern waiting for it to finish.
     KNIGHT_GUARD_PETALS: 5,
     KNIGHT_GUARD_REGROW_MULT: 0.42,
-    KNIGHT_BLOOM_THORNS: 8,
-    KNIGHT_BLOOM_RADIUS: 74,
+    KNIGHT_THORN_EXTRA_RING: { radius: 282, count: 11 },
     // Four knights arrive every wave. Four of them with guards
     // that outpace your damage is not a harder wave, it is a
     // wall - so at most this many of the four roll elite.
@@ -4124,7 +4134,7 @@ const BESTIARY = {
         name: "Rose Knight", color: GARDEN.roseKnight.COLOR, size: GARDEN.roseKnight.SIZE,
         isBoss: false,
         desc: "The garden keeps its own knights.",
-        behavior: `Four hold the corners of every wave from the hedge maze on, arriving alongside whatever else the wave fields. Plants its feet, winds the scythe back, and sweeps it through a wide arc - then flows straight into a charge that lays thorns the whole way. Its body is harmless; only the blade and the thorns are not. Behind a guard of ${GARDEN.roseKnight.GUARD_PETALS} petals that eats whole hits and grows one back every ${(GARDEN.roseKnight.GUARD_REGROW_MS / 1000).toFixed(1)}s, so chipping at it between fights gets you nowhere.`,
+        behavior: `Four hold the corners of every wave from the hedge maze on, arriving alongside whatever else the wave fields. Plants its feet, winds the war scythe back and sweeps it through a wide arc. Separately, and from anywhere on the map, it drives the blade into the ground and grows rings of bramble outward across the field - so keeping your distance stops being an answer. Its body is harmless; only the blade and the thorns are not. Behind a guard of ${GARDEN.roseKnight.GUARD_PETALS} petals that eats whole hits and grows one back every ${(GARDEN.roseKnight.GUARD_REGROW_MS / 1000).toFixed(1)}s, so chipping at it between fights gets you nowhere.`,
         hpAtWave(w) { return gardenBestiaryHp(GARDEN.roseKnight, w); },
         hpScale: `${GARDEN.roseKnight.HP_BASE} HP at wave ${WAVES.GARDEN_START}, gaining 1 every ${GARDEN.roseKnight.HP_EVERY} waves, behind ${GARDEN.roseKnight.GUARD_PETALS} petals`,
         baseSpeed: GARDEN.roseKnight.SPEED
@@ -4364,7 +4374,7 @@ const BESTIARY_ELITE_TWISTS = {
 
     roseKnight: {
         desc: "The guard grows back faster than you can break it.",
-        behavior: `Carries ${GARDEN_ELITE.KNIGHT_GUARD_PETALS} petals instead of ${GARDEN.roseKnight.GUARD_PETALS}, and regrows them well over twice as fast - chip damage never gets through, so it has to come down inside one window. Its charge ends by bursting into a ring of thorns.`
+        behavior: `Carries ${GARDEN_ELITE.KNIGHT_GUARD_PETALS} petals instead of ${GARDEN.roseKnight.GUARD_PETALS}, and regrows them well over twice as fast - chip damage never gets through, so it has to come down inside one window. Its Thornrise adds a third ring further out again, so backing off to the edge of the pattern no longer clears it.`
     },
 
     // --- Act III ---
