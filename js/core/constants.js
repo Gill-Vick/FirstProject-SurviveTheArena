@@ -2633,11 +2633,46 @@ const ACT2_BOSSES = {
         // never do.
         BLOOM_WARN_MS: 750,
         THORN_SPROUT_MS: 650,
-        // Spawn telegraphs draw under the cast, so the wisps go
-        // out on an arc wide enough to clear her own body -
-        // otherwise she stands on top of her own warning.
-        BLOOM_ARC_RADIUS: 118,
-        BLOOM_ARC_SPREAD: 1.15,
+
+        // Seeds ring the PLAYER, not her.
+        //
+        // Ringing herself meant a Ranger or Mage stood at the
+        // far wall and the entire ability landed on empty
+        // paving - "run away and it's easy" was literally true.
+        // Centred on you instead, distance stops being cover:
+        // a melee player standing on her gets much the same
+        // pattern they always did, and a kiter gets all of it.
+        //
+        // A hole in the middle, so it cuts your escape routes
+        // rather than materialising under your feet.
+        SEED_RING_MIN: 120,
+        SEED_RING_MAX: 300,
+
+        // Wisps ring the player too, and for the same reason:
+        // fanned out in front of HER they arrived stacked on her
+        // own body, in the exact line a Ranger or Mage was
+        // already firing down, and died to the shots aimed at
+        // the boss. Around you they have to be turned to face.
+        BLOOM_RING_RADIUS: 250,
+        BLOOM_RING_JITTER: 70,
+
+        // The first set always arrives - she opens on a short
+        // fuse rather than the full cooldown, so no class can
+        // kill her before the fight has actually started.
+        BLOOM_OPENING_MS: 2000,
+
+        // Health gates that force a bloom regardless of the
+        // cooldown, as fractions of max HP.
+        //
+        // This is the anti-burst valve. Crossing a gate RESETS
+        // the bloom cooldown rather than adding to it, so a long
+        // fight (Warrior) barely notices - the gates land while
+        // the timer was part-way anyway and just reshuffle it -
+        // while a fifteen-second Thief kill is forced through
+        // all four sets it would otherwise have skipped
+        // entirely. Same boss, priced by how fast you burn her.
+        BLOOM_HP_GATES: [0.8, 0.6, 0.4, 0.2],
+
         // Below half: the fan doubles up and the thorns come
         // thicker.
         PHASE2_COOLDOWN_MULT: 0.62,

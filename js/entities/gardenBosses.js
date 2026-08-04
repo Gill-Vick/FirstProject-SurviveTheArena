@@ -94,6 +94,42 @@ function drawBossTelegraph(x, y, radius, progress, rgb) {
 // damage while she does. The fight is a loop: let her plant, punish
 // the planting, clear the ground, repeat.
 
+// A point on a ring around (cx, cy) that is actually inside the
+// arena.
+//
+// Both of the Matron's ring abilities are centred on the PLAYER,
+// and a player hugging a wall would otherwise have half the
+// pattern clamped into a heap in the scenery behind them - which
+// turned cornering yourself into a way of DEFUSING her. Bouncing
+// the angle to the opposite side of the ring keeps every point
+// near the player and on playable ground, so the pattern stays
+// worth the same wherever you stand.
+//
+// Returns null only if the ring cannot fit anywhere, which it
+// always can at these radii.
+function ringPointInArena(cx, cy, angle, radius, margin = 24) {
+
+    const inside = (x, y) =>
+        x >= margin && y >= margin &&
+        x <= canvas.width - margin && y <= canvas.height - margin;
+
+    for (const a of [angle, angle + Math.PI, angle + Math.PI / 2, angle - Math.PI / 2]) {
+
+        const x = cx + Math.cos(a) * radius;
+        const y = cy + Math.sin(a) * radius;
+
+        if (inside(x, y))
+            return { x, y };
+
+    }
+
+    return {
+        x: Math.max(margin, Math.min(canvas.width - margin, cx + Math.cos(angle) * radius)),
+        y: Math.max(margin, Math.min(canvas.height - margin, cy + Math.sin(angle) * radius))
+    };
+
+}
+
 class ThornMatron extends Enemy {
 
     constructor(x, y) {
@@ -116,7 +152,19 @@ class ThornMatron extends Enemy {
 
         this.seedCooldown = cfg.SEED_COOLDOWN;
         this.lashCooldown = cfg.LASH_COOLDOWN;
-        this.bloomCooldown = cfg.BLOOM_COOLDOWN;
+
+        // Short fuse on the first set - see BLOOM_OPENING_MS.
+        this.bloomCooldown = cfg.BLOOM_OPENING_MS;
+
+        // Health gates still ahead of her, highest first. Shifted
+        // off as they are crossed, so each fires exactly once.
+        this.bloomGates = cfg.BLOOM_HP_GATES.slice();
+
+        // How many sets she has actually put out. The gates
+        // compare against this rather than firing blind, which
+        // is what keeps them a FLOOR instead of a bonus - see
+        // the gate check in attack().
+        this.bloomsFired = 0;
 
         this.kneeling = 0;
 
@@ -175,6 +223,41 @@ class ThornMatron extends Enemy {
         this.lashCooldown -= Game.dt;
         this.bloomCooldown -= Game.dt;
 
+        // Burst valve.
+        //
+        // The gates are a FLOOR on how many sets a given chunk of
+        // her health is worth, not a bonus on top of the timer.
+        // Crossing one only blooms if the clock hasn't already
+        // paid out that many - so a long fight, where the
+        // cooldown is firing steadily anyway, never triggers a
+        // single gate, and a burst kill that would have outrun
+        // the timer entirely gets dragged back up to the same
+        // number of sets.
+        //
+        // Wisps end up priced in HER HEALTH rather than in
+        // seconds, which is the whole point: killing her faster
+        // stops being a way to skip the fight.
+        if (
+            this.bloomGates.length > 0 &&
+            this.hp / this.maxHp <= this.bloomGates[0]
+        ) {
+
+            const crossed = cfg.BLOOM_HP_GATES.length - this.bloomGates.length + 1;
+
+            this.bloomGates.shift();
+
+            // +1 for the opening set every fight gets.
+            if (this.bloomsFired < crossed + 1) {
+
+                this.bloomCooldown = cfg.BLOOM_COOLDOWN * rate;
+                this.bloom();
+
+                return;
+
+            }
+
+        }
+
         if (this.seedCooldown <= 0) {
 
             this.seedCooldown = cfg.SEED_COOLDOWN * rate;
@@ -216,21 +299,31 @@ class ThornMatron extends Enemy {
 
     }
 
+    // She seeds the ground around YOU, wherever that is (see
+    // SEED_RING_MIN/MAX). A ring rather than a disc, so it takes
+    // away the ground you were about to run to rather than the
+    // ground you are already standing on.
     reseed() {
 
+        const cfg = ACT2_BOSSES.matron;
+
         const count = 4 + Math.floor(this.overgrowth() * 3) +
-                      (bossPhase(this) === 2 ? ACT2_BOSSES.matron.PHASE2_SEED_BONUS : 0);
+                      (bossPhase(this) === 2 ? cfg.PHASE2_SEED_BONUS : 0);
+
+        const px = player.x + player.size / 2;
+        const py = player.y + player.size / 2;
+
+        const band = cfg.SEED_RING_MAX - cfg.SEED_RING_MIN;
 
         for (let i = 0; i < count; i++) {
 
             const a = (i / count) * Math.PI * 2 + Math.random();
-            const r = 110 + Math.random() * 230;
+            const r = cfg.SEED_RING_MIN + Math.random() * band;
+
+            const at = ringPointInArena(px, py, a, r);
 
             Game.hazards.push(new BramblePatch(
-                Math.max(20, Math.min(canvas.width - 20, this.x + Math.cos(a) * r)),
-                Math.max(20, Math.min(canvas.height - 20, this.y + Math.sin(a) * r)),
-                8500,
-                ACT2_BOSSES.matron.THORN_SPROUT_MS
+                at.x, at.y, 8500, cfg.THORN_SPROUT_MS
             ));
 
         }
@@ -243,23 +336,33 @@ class ThornMatron extends Enemy {
         const count = cfg.BLOOM_COUNT;
         const size = GARDEN.wispSwarm.SIZE;
 
-        // Fanned out in front of her, toward the player, rather
-        // than in a row at her feet.
-        const facing = Math.atan2(
-            player.y - this.y,
-            player.x - this.x
-        );
+        this.bloomsFired++;
+
+        const px = player.x + player.size / 2;
+        const py = player.y + player.size / 2;
+
+        // Ringed around the PLAYER, evenly, with the ring itself
+        // rotated at random so the openings are never in the
+        // same place twice.
+        //
+        // They used to fan out in front of HER, which put them
+        // stacked on her own body in the exact line a ranged
+        // player was already firing down - so they died to the
+        // shots aimed at the boss and never became a threat.
+        // Out here they have to be turned to face.
+        const spin = Math.random() * Math.PI * 2;
 
         for (let i = 0; i < count; i++) {
 
-            const a = facing + (i - (count - 1) / 2) *
-                      (cfg.BLOOM_ARC_SPREAD / Math.max(1, count - 1));
+            const a = spin + (i / count) * Math.PI * 2;
 
-            const x = Math.max(10, Math.min(canvas.width - size - 10,
-                this.x + Math.cos(a) * cfg.BLOOM_ARC_RADIUS));
+            const r = cfg.BLOOM_RING_RADIUS +
+                (Math.random() - 0.5) * cfg.BLOOM_RING_JITTER;
 
-            const y = Math.max(10, Math.min(canvas.height - size - 10,
-                this.y + Math.sin(a) * cfg.BLOOM_ARC_RADIUS));
+            const at = ringPointInArena(px, py, a, r, size + 24);
+
+            const x = at.x - size / 2;
+            const y = at.y - size / 2;
 
             // Warned first, exactly like the necromancer's
             // skeletons and the King's reinforcements. Nothing
