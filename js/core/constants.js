@@ -2372,7 +2372,14 @@ const GARDEN = {
         SPEED_PER_LOSS: 0.16,
         MEMBERS: 8,
         // How hard they weave across their own approach line.
-        SWAY: 1.35
+        SWAY: 1.35,
+        // A beat of stillness on arrival before the drift
+        // starts. They are the fastest thing in the roster and
+        // they arrive in numbers, so landing already at full
+        // speed gave no frame to react in. Movement only - a
+        // held wisp is still perfectly killable, unlike an
+        // emerging one.
+        SPAWN_HOLD_MS: 400
     },
 
     pollenDrone: {
@@ -2539,6 +2546,27 @@ const GARDEN_ELITE = {
     // The web spans the arena, so a hit-per-frame-per-vine would
     // be several hits for one step into it.
     WEAVER_VINE_HIT_COOLDOWN: 900,
+
+    // ...but permanently live vines spanning the whole arena is
+    // not a mechanic, it is a wall - and next to an elite Wisp
+    // (which splits on death, so the web keeps gaining ends)
+    // there was no floor left to stand on.
+    //
+    // So the web PULSES. It sits dormant most of the cycle,
+    // beeps and turns amber as it charges, and is only lethal
+    // during the short red window at the end. Crossing it is now
+    // a timing problem you can read and solve rather than a
+    // permanent no-go zone.
+    WEAVER_PULSE_PERIOD_MS: 4200,
+    WEAVER_PULSE_WARN_MS: 800,
+    WEAVER_PULSE_LIVE_MS: 700,
+    // Guaranteed quiet on arrival. The clock starts at a random
+    // point so a squad's weavers don't discharge in unison, but
+    // that random point is picked from the dormant stretch ONLY,
+    // and never within this much of the first beep - a weaver
+    // that erupted onto the field with the web already red gave
+    // you nothing to read.
+    WEAVER_PULSE_SPAWN_GRACE_MS: 1200,
 
     // Rose Knight: the guard is the fight, so the elite's guard
     // grows back faster than an unfocused player can break it -
@@ -4368,8 +4396,8 @@ const BESTIARY_ELITE_TWISTS = {
     },
 
     vineWeaver: {
-        desc: "The web itself bites.",
-        behavior: "Binds the field exactly as any weaver does, and the vines themselves hurt to cross."
+        desc: "The web itself bites - but only in bursts.",
+        behavior: `Binds the field exactly as any weaver does, and the vines themselves charge up and discharge on a ${(GARDEN_ELITE.WEAVER_PULSE_PERIOD_MS / 1000).toFixed(1)}s cycle. They beep and glow amber for ${(GARDEN_ELITE.WEAVER_PULSE_WARN_MS / 1000).toFixed(1)}s, then flash red and are lethal for ${(GARDEN_ELITE.WEAVER_PULSE_LIVE_MS / 1000).toFixed(1)}s. Dormant the rest of the time - cross them on the beat.`
     },
 
     roseKnight: {

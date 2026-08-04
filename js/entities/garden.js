@@ -732,11 +732,25 @@ class Wisp extends Enemy {
         this.baseSpeed = this.speed;
         this.wobble = Math.random() * Math.PI * 2;
 
+        // Hangs where it appeared for a beat before it starts
+        // drifting (see SPAWN_HOLD_MS). Deliberately NOT the
+        // emerge timer: this only stops it moving, so it can be
+        // shot out of the air during the hold.
+        this.spawnHold = GARDEN.wispSwarm.SPAWN_HOLD_MS;
+
     }
 
     move() {
 
         const cfg = GARDEN.wispSwarm;
+
+        if (this.spawnHold > 0) {
+
+            this.spawnHold -= Game.dt;
+
+            return;
+
+        }
 
         // Every wisp already dead makes the survivors quicker.
         const alive = Game.enemies.filter(e => e.type === "wisp" && !e.isDead()).length;
@@ -1107,6 +1121,29 @@ class VineWeaver extends Enemy {
         this.tethered = [];
         this.vineHitCooldown = 0;
 
+        // Elite pulse clock. Counts DOWN across one full cycle
+        // and re-arms; the phase is read off how much is left
+        // (see vinePhase), so there is one number to reason
+        // about rather than a little state machine.
+        //
+        // Started at a random point so several weavers in a
+        // squad don't discharge in unison - four webs going live
+        // on the same frame is one unreadable event.
+        //
+        // Rolled from the DORMANT stretch only, and never inside
+        // the spawn grace, so a weaver can never arrive with its
+        // web already armed or live. Rolling across the whole
+        // period could drop one straight into the red.
+        const floor =
+            GARDEN_ELITE.WEAVER_PULSE_LIVE_MS +
+            GARDEN_ELITE.WEAVER_PULSE_WARN_MS +
+            GARDEN_ELITE.WEAVER_PULSE_SPAWN_GRACE_MS;
+
+        this.pulseTimer = floor + Math.random() *
+            Math.max(0, GARDEN_ELITE.WEAVER_PULSE_PERIOD_MS - floor);
+
+        this.beeped = false;
+
     }
 
     move() {
@@ -1135,19 +1172,77 @@ class VineWeaver extends Enemy {
         // the others without knowing anything about weavers.
         this.tethered.forEach(a => { a.tetherSource = this; });
 
+        this.tickVinePulse();
+
         this.burnPlayerOnVines();
 
     }
 
-    // An elite's vines hurt to cross.
+    // =====================================
+    // Elite vine pulse
+    // =====================================
     //
-    // This was declared in GARDEN_ELITE and then never actually
-    // implemented - the constant was read nowhere, so the elite's
-    // whole signature did nothing. The web was drawn and that was
-    // all it did.
-    burnPlayerOnVines() {
+    // "dormant" -> "arming" -> "live" -> "dormant"
+    //
+    // Only the live window can hurt anyone. The beep fires once
+    // on entering "arming", which is the whole point of the
+    // rework: the web announces itself before it bites, so
+    // crossing it is a timing problem rather than a wall.
+
+    vinePhase() {
 
         if (!this.isElite || !GARDEN_ELITE.WEAVER_VINE_DAMAGE)
+            return "dormant";
+
+        const live = GARDEN_ELITE.WEAVER_PULSE_LIVE_MS;
+        const warn = GARDEN_ELITE.WEAVER_PULSE_WARN_MS;
+
+        if (this.pulseTimer <= live)
+            return "live";
+
+        if (this.pulseTimer <= live + warn)
+            return "arming";
+
+        return "dormant";
+
+    }
+
+    tickVinePulse() {
+
+        if (!this.isElite || !GARDEN_ELITE.WEAVER_VINE_DAMAGE)
+            return;
+
+        this.pulseTimer -= Game.dt;
+
+        if (this.pulseTimer <= 0) {
+
+            this.pulseTimer += GARDEN_ELITE.WEAVER_PULSE_PERIOD_MS;
+            this.beeped = false;
+
+            return;
+
+        }
+
+        // One beep per cycle, on the frame the charge starts.
+        if (!this.beeped && this.vinePhase() === "arming") {
+
+            this.beeped = true;
+
+            Sound.playAt(
+                "telegraph",
+                this.x + this.size / 2,
+                this.y + this.size / 2
+            );
+
+        }
+
+    }
+
+    // An elite's vines hurt to cross - during the live window
+    // of the pulse, and only then.
+    burnPlayerOnVines() {
+
+        if (this.vinePhase() !== "live")
             return;
 
         if (this.vineHitCooldown > 0) {
@@ -1238,9 +1333,51 @@ class VineWeaver extends Enemy {
 
     }
 
-    draw() {
+    // Colour and weight of the web this frame. The pulse has to
+    // be legible from across the arena and at a glance - green
+    // is safe, amber is charging, red is lethal - so the phase
+    // drives both, and the live phase is unmistakably thicker.
+    vineStyle() {
 
         const now = Date.now();
+
+        if (!this.isElite)
+            return { color: "rgba(80, 160, 120, 0.5)", width: 2.5 };
+
+        const phase = this.vinePhase();
+
+        if (phase === "live") {
+
+            // Hard strobe, so the lethal window reads as an
+            // alarm rather than a colour change.
+            const strobe = 0.75 + Math.sin(now / 45) * 0.25;
+
+            return { color: `rgba(255, 60, 60, ${strobe})`, width: 7 };
+
+        }
+
+        if (phase === "arming") {
+
+            // Blinks faster the closer it gets to going live -
+            // the visual half of the beep.
+            const t = 1 - (this.pulseTimer - GARDEN_ELITE.WEAVER_PULSE_LIVE_MS) /
+                          GARDEN_ELITE.WEAVER_PULSE_WARN_MS;
+
+            const blink = 0.45 + Math.abs(Math.sin(now / (150 - t * 90))) * 0.4;
+
+            return { color: `rgba(255, 176, 64, ${blink})`, width: 4 + t * 2 };
+
+        }
+
+        // Dormant: harmless, and deliberately close to a normal
+        // weaver's web so "safe" looks like "safe".
+        return { color: "rgba(120, 200, 140, 0.42)", width: 3 };
+
+    }
+
+    draw() {
+
+        const style = this.vineStyle();
 
         this.tethered.forEach(a => {
 
@@ -1248,10 +1385,8 @@ class VineWeaver extends Enemy {
                 return;
 
             ctx.save();
-            ctx.strokeStyle = this.isElite
-                ? `rgba(120, 220, 150, ${0.55 + Math.sin(now / 200) * 0.15})`
-                : "rgba(80, 160, 120, 0.5)";
-            ctx.lineWidth = this.isElite ? 4 : 2.5;
+            ctx.strokeStyle = style.color;
+            ctx.lineWidth = style.width;
 
             ctx.beginPath();
             ctx.moveTo(this.x + this.size / 2, this.y + this.size / 2);
