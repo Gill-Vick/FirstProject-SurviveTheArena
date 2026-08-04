@@ -261,7 +261,9 @@ class ThornbackBoar extends Enemy {
             Game.hazards.push(new BramblePatch(
                 this.x + this.size / 2,
                 this.y + this.size / 2,
-                cfg.TRAIL_MS
+                cfg.TRAIL_MS,
+                0,
+                ENEMY_LABELS[this.type]
             ));
 
         }

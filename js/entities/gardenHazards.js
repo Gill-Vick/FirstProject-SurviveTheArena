@@ -80,12 +80,21 @@ class GardenGroundHazard {
 
 class BramblePatch extends GardenGroundHazard {
 
-    constructor(x, y, life, sproutMs = 0) {
+    constructor(x, y, life, sproutMs = 0, source = null) {
 
         super(x, y, life);
 
         this.radius = 26;
-        this.label = "a bramble";
+
+        // Who planted it. Captured at plant time rather than
+        // looked up on death, so the credit survives the
+        // planter dying - the Matron's thorns are still the
+        // Matron's thorns after she has gone.
+        //
+        // "YOU WERE SLAIN BY A BRAMBLE" told the player nothing
+        // they could act on; every one of these has an author,
+        // and it is the author that is worth naming.
+        this.label = source ?? "a bramble";
 
         // Rolled once so the patch doesn't crawl frame to frame.
         this.seed = Math.random() * 1000;
@@ -234,7 +243,7 @@ class RootRing extends GardenGroundHazard {
 
         this.inner = inner;
         this.outer = outer;
-        this.label = "a root hulk";
+        this.label = ENEMY_LABELS.rootHulk;
 
     }
 

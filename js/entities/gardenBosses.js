@@ -323,7 +323,8 @@ class ThornMatron extends Enemy {
             const at = ringPointInArena(px, py, a, r);
 
             Game.hazards.push(new BramblePatch(
-                at.x, at.y, 8500, cfg.THORN_SPROUT_MS
+                at.x, at.y, 8500, cfg.THORN_SPROUT_MS,
+                ENEMY_LABELS[this.type]
             ));
 
         }
@@ -824,7 +825,9 @@ class Heartwood extends Enemy {
                 Game.hazards.push(new BramblePatch(
                     this.x + this.size / 2 + Math.cos(a) * r,
                     this.y + this.size / 2 + Math.sin(a) * r,
-                    4800
+                    4800,
+                    0,
+                    ENEMY_LABELS[this.type]
                 ));
 
             }

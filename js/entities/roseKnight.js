@@ -141,7 +141,8 @@ class RoseKnight extends Enemy {
             Math.max(16, Math.min(canvas.width - 16, x)),
             Math.max(16, Math.min(canvas.height - 16, y)),
             GARDEN.roseKnight.THORN_LIFE_MS,
-            ACT2_BOSSES.matron.THORN_SPROUT_MS
+            ACT2_BOSSES.matron.THORN_SPROUT_MS,
+            ENEMY_LABELS[this.type]
         ));
 
     }
