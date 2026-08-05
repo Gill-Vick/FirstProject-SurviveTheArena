@@ -66,6 +66,14 @@ class Warrior extends Player {
         this.barkReady = true;
         this.barkTimer = 0;
 
+        // Rose Tinted Blade plants once per connecting swing.
+        this.plantedThisSwing = false;
+
+        // Where the blade was drawn last frame, for motion blur
+        // (see drawSwingBlur). null = no previous frame to blur
+        // from, which is the case on the swing's first frame.
+        this.lastSwordAngle = null;
+
     }
 
     // =====================================
@@ -495,12 +503,19 @@ class Warrior extends Player {
         const ex = enemy.x + enemy.size / 2;
         const ey = enemy.y + enemy.size / 2;
 
-        // Thorn Girdle - the struck enemy sprouts, and its
-        // NEIGHBOURS pay for it. Skips the target itself, so it
-        // is a reward for a packed wave rather than extra
-        // single-target damage.
-        if (Save.isEquipped("thornGirdle"))
-            bossGearBurst(ex, ey, THORN_GIRDLE.RADIUS, THORN_GIRDLE.DAMAGE, enemy);
+        // Rose Tinted Blade - thorns actually sprout where the
+        // blade landed.
+        //
+        // Guarded to once per swing rather than once per enemy:
+        // a wide arc through a crowd would otherwise carpet the
+        // floor in a single action, and the beds already overlap
+        // at this radius.
+        if (Save.isEquipped("roseTintedBlade") && !this.plantedThisSwing) {
+
+            this.plantedThisSwing = true;
+            Game.hazards.push(new ThornBed(ex, ey));
+
+        }
 
         // Warden's Cleaver - three blows to the same foe take a
         // limb off it: staggered, and primed for a double.
@@ -806,6 +821,13 @@ class Warrior extends Player {
         Sound.play("swordSwing");
 
         this.rageGainedThisSwing = false;
+        this.plantedThisSwing = false;
+
+        // A fresh swing has no previous frame to smear from -
+        // without this it would blur across from wherever the
+        // last swing happened to finish.
+        this.lastSwordAngle = null;
+
         this.swordSwingCount++;
 
         Game.enemies.forEach(enemy => {
@@ -823,8 +845,22 @@ class Warrior extends Player {
 
         this.swordTimer -= Game.timeScale;
 
-        this.swingProgress =
-            1 - (this.swordTimer / SWORD.DURATION);
+        // Eased rather than linear.
+        //
+        // A constant-rate sweep is the other half of "clunky" -
+        // a real swing loads, whips through the middle and
+        // settles. This is a smoothstep on the raw timer, so the
+        // blade accelerates into the arc and eases out of it.
+        //
+        // The HITBOX reads the same eased value (see
+        // attackEnemies), so what you see is still exactly what
+        // hits: same arc, same coverage, just not at a
+        // metronome's pace. Peak rate stays well inside the hit
+        // test's angular tolerance, so nothing can be swept past
+        // between frames.
+        const raw = Math.max(0, Math.min(1, 1 - this.swordTimer / SWORD.DURATION));
+
+        this.swingProgress = raw * raw * (3 - 2 * raw);
 
         this.attackEnemies();
 
@@ -1009,7 +1045,11 @@ class Warrior extends Player {
             this.y + this.size / 2
         );
 
-        const trailLag = 0.15;
+        // Shorter tail than it used to carry. The old 0.15 of the
+        // arc was ~32 degrees of solid smear hanging off the
+        // blade, which read as a lump being dragged rather than
+        // as a swing.
+        const trailLag = 0.11;
         const prevProgress = Math.max(0, this.swingProgress - trailLag);
 
         const arc = this.getSwordArc();
@@ -1021,38 +1061,33 @@ class Warrior extends Player {
         const kingsBlade = Save.isEquipped("kingsBlade");
 
         // =====================================
-        // 1. THE SHARP TRAIL
+        // 1. THE SLASH ARC
         // =====================================
+        //
+        // A single ribbon that hugs the blade's outer edge and
+        // TAPERS to nothing behind it, rather than the old filled
+        // pie wedge anchored at the player's feet.
+        //
+        // The wedge was the "clunky" part: a wide slab of colour
+        // that stayed the same thickness all the way back to the
+        // hilt, so every frame of the swing looked like a
+        // duplicate of the blade left behind it. A ribbon that
+        // thins as it trails reads as one continuous motion -
+        // which is what a swing actually is.
         if (angleDiff > 0) {
+
             ctx.save();
             ctx.rotate(currentAngle);
 
-            // Gradient for the trail so it fades out smoothly into the past
-            let trailGrad = ctx.createRadialGradient(0, 0, bladeLength * 0.4, 0, 0, bladeLength);
+            this.drawSlashArc(bladeLength, angleDiff, kingsBlade);
 
-            if (kingsBlade) {
-
-                trailGrad.addColorStop(0, "rgba(255, 204, 0, 0)");
-                trailGrad.addColorStop(0.85, "rgba(255, 204, 0, 0.18)");
-                trailGrad.addColorStop(1, "rgba(255, 240, 200, 0.4)");
-
-            } else {
-
-                trailGrad.addColorStop(0, "rgba(0, 255, 255, 0)");
-                trailGrad.addColorStop(0.85, "rgba(0, 255, 255, 0.15)");
-                trailGrad.addColorStop(1, "rgba(255, 255, 255, 0.4)");
-
-            }
-
-            ctx.fillStyle = trailGrad;
-            ctx.beginPath();
-            ctx.moveTo(bladeLength - 5, 0);
-            ctx.arc(0, 0, bladeLength - 5, 0, -angleDiff, true);
-            ctx.lineTo(bladeLength - 35, 0);
-            ctx.closePath();
-            ctx.fill();
             ctx.restore();
+
         }
+
+        // Fill in the gap the blade crossed since last frame,
+        // BEFORE the solid blade goes down on top.
+        this.drawSwingBlur(bladeLength, currentAngle, kingsBlade);
 
         // Rotate to current angle for the physical sword
         ctx.rotate(currentAngle);
@@ -1063,18 +1098,257 @@ class Warrior extends Player {
             this.drawBaseSwordBlade(bladeLength);
 
         ctx.restore();
+
+        this.lastSwordAngle = currentAngle;
+    }
+
+    // Motion blur across the gap between frames.
+    //
+    // The swing covers 216 degrees in about 21 frames, so the
+    // blade jumps 10-15 degrees between one frame and the next.
+    // A thin bright object teleporting that far reads as several
+    // separate swords at once - which is the "afterimages" that
+    // survived deleting every trailing effect, because it was
+    // never a drawn effect at all. It is the eye filling in a
+    // strobe.
+    //
+    // The fix is the opposite of removing things: draw the blade
+    // at small steps ACROSS that gap so there is no gap left to
+    // strobe. Copies 15 degrees apart at full alpha are ghosts;
+    // the same blade at 2-degree steps and a tenth of the alpha
+    // is one continuous blur. Same reason a film camera's
+    // shutter smears a fast object instead of stuttering it.
+    //
+    // Silhouettes only - no gradients, no glow, no hilt - so the
+    // whole thing costs a handful of flat polygons, and so the
+    // blur reads as a shape rather than as legible sword sprites.
+    drawSwingBlur(bladeLength, currentAngle, kingsBlade) {
+
+        if (this.lastSwordAngle === null)
+            return;
+
+        const gap = currentAngle - this.lastSwordAngle;
+
+        // Nothing meaningful to fill on a near-still frame.
+        if (Math.abs(gap) < 0.02)
+            return;
+
+        // One sample per ~2 degrees, so the step is always small
+        // regardless of how fast this particular frame moved.
+        const steps = Math.min(14, Math.max(3, Math.round(Math.abs(gap) / 0.035)));
+
+        ctx.save();
+
+        ctx.fillStyle =
+            Save.isEquipped("roseTintedBlade") ? "rgba(255, 190, 215, 0.085)"
+            : kingsBlade ? "rgba(255, 226, 140, 0.085)"
+            : "rgba(210, 240, 245, 0.085)";
+
+        for (let i = 0; i < steps; i++) {
+
+            // Skip i = steps (that is where the solid blade
+            // lands), and start just off the previous frame's
+            // position so the two frames' blurs butt together
+            // rather than double up.
+            const f = (i + 0.5) / steps;
+
+            ctx.save();
+            ctx.rotate(this.lastSwordAngle + gap * f);
+
+            ctx.beginPath();
+            ctx.moveTo(20, -4);
+            ctx.lineTo(bladeLength - 14, -2);
+            ctx.lineTo(bladeLength, 0);
+            ctx.lineTo(bladeLength - 14, 2);
+            ctx.lineTo(20, 4);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+
+        }
+
+        ctx.restore();
+
+    }
+
+    // The slash: air displaced along the WHOLE blade.
+    //
+    // Two things were wrong before this.
+    //
+    // The wind sat at 1.00/0.90/0.79 of the blade's reach - the
+    // outer fifth - so it clung to the tip while the rest of the
+    // blade cut nothing. Every point along an edge displaces air
+    // as it sweeps; the wake is a fan down the whole length, not
+    // a tuft on the end.
+    //
+    // And it was far too solid. Stacked layers peaking at 0.85
+    // made a painted-on shape instead of a suggestion of speed.
+    //
+    // So: streaks spanning hilt to tip, each one's LENGTH and
+    // OPACITY scaled by how far out it sits - because a point
+    // near the hilt travels a fraction of the distance the tip
+    // does in the same instant, and so disturbs far less air.
+    // That gradient is the whole reason it reads as a swing
+    // rather than a decal.
+    //
+    // Nothing here is ever a copy of the blade; every mark is a
+    // single continuous stroke.
+    drawSlashArc(bladeLength, angleDiff, kingsBlade) {
+
+        const outer = bladeLength - 4;
+
+        // Alpha at the leading edge, fading to nothing along
+        // whatever span this particular streak covers.
+        // Rose Tinted Blade turns the whole wake pink and carries
+        // petals on it. Gated on the item, so the stock sword is
+        // untouched cyan and the King's Blade untouched gold.
+        const rose = Save.isEquipped("roseTintedBlade");
+
+        const grad = (peak, span) => {
+
+            const g = ctx.createLinearGradient(
+                outer, 0,
+                Math.cos(-angleDiff * span) * outer,
+                Math.sin(-angleDiff * span) * outer
+            );
+
+            if (rose) {
+                g.addColorStop(0, `rgba(255, 214, 232, ${peak})`);
+                g.addColorStop(0.4, `rgba(255, 122, 172, ${peak * 0.55})`);
+                g.addColorStop(1, "rgba(214, 51, 92, 0)");
+            } else if (kingsBlade) {
+                g.addColorStop(0, `rgba(255, 244, 214, ${peak})`);
+                g.addColorStop(0.4, `rgba(255, 204, 0, ${peak * 0.5})`);
+                g.addColorStop(1, "rgba(255, 204, 0, 0)");
+            } else {
+                g.addColorStop(0, `rgba(235, 255, 255, ${peak})`);
+                g.addColorStop(0.4, `rgba(120, 245, 255, ${peak * 0.5})`);
+                g.addColorStop(1, "rgba(0, 235, 255, 0)");
+            }
+
+            return g;
+
+        };
+
+        ctx.save();
+        ctx.lineCap = "round";
+
+        // Seven streaks from just past the crossguard out to the
+        // tip. Inner ones are short, faint and thin; outer ones
+        // run long and a little brighter.
+        const COUNT = 7;
+
+        for (let i = 0; i < COUNT; i++) {
+
+            // 0 at the hilt end of the sweep, 1 at the tip.
+            const f = i / (COUNT - 1);
+
+            const r = outer * (0.22 + f * 0.76);
+
+            const span = 0.35 + f * 1.45;
+            const peak = 0.05 + f * 0.13;
+
+            ctx.strokeStyle = grad(peak, span);
+            ctx.lineWidth = 1 + f * 1.6;
+
+            ctx.beginPath();
+            ctx.arc(0, 0, r, 0, -angleDiff * span, true);
+            ctx.stroke();
+
+            // Petals riding this particular gust.
+            //
+            // Pinned TO the streak - same radius, along its
+            // length - so they travel with the wind rather than
+            // floating loose behind the blade. That is the whole
+            // difference between petals and the ghost-sword
+            // scatter this replaced: these are small, they are
+            // on the airflow, and there are never two at the
+            // same radius to line up into a false silhouette.
+            if (rose && i % 2 === 1)
+                this.drawWindPetals(r, angleDiff * span, f);
+
+        }
+
+        // One edge highlight along the tip's path - the brightest
+        // thing in the wake, and still well under half opaque so
+        // it stays a glint rather than a painted band.
+        ctx.strokeStyle = grad(0.3, 1.0);
+        ctx.lineWidth = 6;
+
+        ctx.beginPath();
+        ctx.arc(0, 0, outer - 3, 0, -angleDiff, true);
+        ctx.stroke();
+
+        ctx.restore();
+
+    }
+
+    // Two small blooms carried along one gust of the wake.
+    //
+    // Drawn as a four-petal cross rather than a square blob, so
+    // at this size they still read as flowers instead of as
+    // pixels of a sword. Alpha follows the streak they sit on,
+    // which means the ones near the hilt are barely there and
+    // the ones out by the tip carry the look.
+    drawWindPetals(radius, span, along) {
+
+        // Rolled off the swing counter so a given swing is
+        // stable, and successive swings differ.
+        const jitter = ((this.swordSwingCount * 41) % 17) / 17;
+
+        for (let n = 0; n < 2; n++) {
+
+            const t = 0.25 + n * 0.42 + jitter * 0.2;
+
+            if (t > 1)
+                continue;
+
+            const a = -span * t;
+
+            const px = Math.round(Math.cos(a) * radius);
+            const py = Math.round(Math.sin(a) * radius);
+
+            // Fades along the gust, and the whole set is fainter
+            // near the hilt where the air barely moves.
+            ctx.globalAlpha = (0.25 + along * 0.5) * (1 - t * 0.7);
+
+            // Leaf-green pip on the trailing one, rose on the
+            // rest - a garden's worth of colour rather than one
+            // flat pink.
+            const green = n === 1 && along < 0.7;
+
+            ctx.fillStyle = green ? "#79b25a" : "#d6335c";
+
+            ctx.fillRect(px - 3, py - 1, 6, 2);
+            ctx.fillRect(px - 1, py - 3, 2, 6);
+
+            ctx.fillStyle = green ? "#a8d98a" : "#ffc2d4";
+            ctx.fillRect(px - 1, py - 1, 2, 2);
+
+        }
+
+        ctx.globalAlpha = 1;
+
     }
 
     // The original sword: cyan energy-core shortsword.
     drawBaseSwordBlade(bladeLength) {
+
+        // Rose Tinted Blade lives ON the weapon rather than in
+        // its wake. It used to shed petals along the arc, which
+        // is precisely the ghosting the trail rewrite existed to
+        // get rid of - so the flourish moved onto the blade,
+        // where it travels with the sword and cannot smear.
+        const rose = Save.isEquipped("roseTintedBlade");
 
         // =====================================
         // 2. THE ENERGY GLOW (Rendered underneath)
         // =====================================
         ctx.save();
         ctx.shadowBlur = 15;
-        ctx.shadowColor = "#00ffff";
-        ctx.fillStyle = "rgba(0, 255, 255, 0.8)";
+        ctx.shadowColor = rose ? "#ff5f8f" : "#00ffff";
+        ctx.fillStyle = rose ? "rgba(255, 110, 150, 0.8)" : "rgba(0, 255, 255, 0.8)";
         ctx.beginPath();
         // A sleek, thin energy core running down the blade
         ctx.moveTo(20, -1);
@@ -1130,6 +1404,32 @@ class Warrior extends Player {
         ctx.beginPath();
         ctx.arc(0, 0, 4, 0, Math.PI * 2);
         ctx.fill();
+
+        // Rose Tinted Blade: a bloom bound at the crossguard and
+        // a couple of leaves climbing the first stretch of the
+        // blade. Static parts of the weapon, so they move with
+        // it and never trail.
+        if (rose) {
+
+            ctx.fillStyle = "#2c4a24";
+            ctx.fillRect(26, -2, 22, 4);
+
+            [34, 44].forEach((lx, i) => {
+
+                const up = i % 2 === 0;
+                ctx.fillStyle = "#3f6b32";
+                ctx.fillRect(lx, up ? -7 : 3, 6, 4);
+
+            });
+
+            ctx.fillStyle = "#7d1d33";
+            ctx.fillRect(15, -9, 12, 18);
+            ctx.fillStyle = "#d6335c";
+            ctx.fillRect(17, -7, 8, 14);
+            ctx.fillStyle = "#ff9ab4";
+            ctx.fillRect(19, -3, 4, 6);
+
+        }
 
     }
 

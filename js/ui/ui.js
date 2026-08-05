@@ -622,7 +622,7 @@ const SHOP_ITEM_IDS = [
     "wetStone", "circleStrike", "hermesShoes",
     "berserkerMedallion", "forgeSigil",
     "lightningRing", "windrunnerAnklet",
-    "thornGirdle", "matronsSeal",
+    "roseTintedBlade", "matronsSeal",
     "wardensCleaver", "heartbarkPlate",
     "heartwoodMaul", "deeprootGreaves",
     "heraldicBrand", "stormstepSabatons",

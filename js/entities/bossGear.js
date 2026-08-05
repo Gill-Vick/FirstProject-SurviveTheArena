@@ -89,9 +89,12 @@ class ThornBed {
         ctx.save();
         ctx.globalAlpha = 0.9 * fade;
 
-        // Six blooms around the ring plus one in the middle, in
-        // the Matron's own pink-and-gold, so the player's thorns
-        // read as hers without being mistaken for a hazard.
+        // Six blooms around the ring plus one in the middle.
+        //
+        // Cold blue, against the garden's pink-and-gold - see
+        // BOSS_GEAR.THORN_*. Player thorns and enemy thorns end
+        // up on the same floor constantly, and telling them
+        // apart has to be instant.
         for (let i = 0; i < 7; i++) {
 
             const a = (i / 6) * Math.PI * 2 + this.seed;
@@ -100,13 +103,13 @@ class ThornBed {
             const px = Math.round(this.x + Math.cos(a) * r);
             const py = Math.round(this.y + Math.sin(a) * r);
 
-            ctx.fillStyle = "#2c4a24";
+            ctx.fillStyle = BOSS_GEAR.THORN_STEM;
             ctx.fillRect(px - 4, py - 4, 8, 8);
 
-            ctx.fillStyle = "#ff5fa2";
+            ctx.fillStyle = BOSS_GEAR.THORN_PETAL;
             ctx.fillRect(px - 3, py - 3, 6, 6);
 
-            ctx.fillStyle = "#ffe066";
+            ctx.fillStyle = BOSS_GEAR.THORN_CENTRE;
             ctx.fillRect(px - 1, py - 1, 2, 2);
 
         }
