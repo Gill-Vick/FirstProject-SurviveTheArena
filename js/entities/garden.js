@@ -431,15 +431,46 @@ class RootHulk extends Enemy {
         this.stompCooldown = cfg.STOMP_COOLDOWN * Math.random();
         this.telegraph = 0;
 
+        // Which half an elite has committed to, locked in the
+        // moment the windup starts (see startStomp). Held on the
+        // Hulk rather than decided at eruption time so the
+        // telegraph and the eruption can never disagree - the
+        // player spends two seconds reading this, and it would
+        // be indefensible for it to move.
+        this.stompSide = null;
+
     }
 
-    // Elites wind up much longer, because what follows covers the
-    // whole arena.
+    halfStomp() {
+
+        return this.isElite && GARDEN_ELITE.HULK_HALF_ARENA;
+
+    }
+
+    // Elites wind up much longer, because what follows covers
+    // half the arena.
     telegraphMs() {
 
-        return this.isElite && GARDEN_ELITE.HULK_FULL_ARENA
-            ? GARDEN_ELITE.HULK_FULL_TELEGRAPH_MS
+        return this.halfStomp()
+            ? GARDEN_ELITE.HULK_HALF_TELEGRAPH_MS
             : GARDEN.rootHulk.STOMP_TELEGRAPH_MS;
+
+    }
+
+    // The half the player is standing in right now.
+    //
+    // Axis is rolled per stomp so it varies between left/right
+    // and top/bottom, but the SIDE is always theirs - the attack
+    // has to be worth reacting to. Dodging it is a walk across
+    // one line, which is the whole nerf.
+    pickStompSide() {
+
+        const px = player.x + player.size / 2;
+        const py = player.y + player.size / 2;
+
+        return Math.random() < 0.5
+            ? (px < canvas.width / 2 ? "left" : "right")
+            : (py < canvas.height / 2 ? "top" : "bottom");
 
     }
 
@@ -471,8 +502,12 @@ class RootHulk extends Enemy {
         this.stompCooldown -= Game.dt;
 
         if (this.stompCooldown <= 0) {
+
             this.telegraph = this.telegraphMs();
             this.stompCooldown = cfg.STOMP_COOLDOWN;
+
+            this.stompSide = this.halfStomp() ? this.pickStompSide() : null;
+
         }
 
     }
@@ -484,17 +519,12 @@ class RootHulk extends Enemy {
         const cx = this.x + this.size / 2;
         const cy = this.y + this.size / 2;
 
-        // The elite's stomp takes the ENTIRE arena bar a wide
-        // pocket at its own feet. It completely inverts the
-        // fight: for a moment the safest place on the map is
-        // pressed up against the thing that's attacking.
-        if (this.isElite && GARDEN_ELITE.HULK_FULL_ARENA) {
+        // The elite's stomp takes one whole HALF of the arena -
+        // the half the player was standing in when it committed.
+        // The other half stays completely clear.
+        if (this.halfStomp() && this.stompSide) {
 
-            Game.hazards.push(new RootRing(
-                cx, cy,
-                GARDEN_ELITE.HULK_SAFE_RADIUS,
-                canvas.width + canvas.height
-            ));
+            Game.hazards.push(new RootHalf(this.stompSide));
 
             return;
 
@@ -516,27 +546,33 @@ class RootHulk extends Enemy {
             const cx = this.x + this.size / 2;
             const cy = this.y + this.size / 2;
 
-            const full = this.isElite && GARDEN_ELITE.HULK_FULL_ARENA;
-
             ctx.save();
 
-            if (full) {
+            if (this.halfStomp() && this.stompSide) {
 
-                // Shade everything that is about to erupt, and
-                // leave the safe pocket clear. With the whole
-                // arena going up, showing the DANGER is useless -
-                // the player needs to see the one place to stand.
-                ctx.fillStyle = `rgba(150, 60, 30, ${0.1 + t * 0.22})`;
-                ctx.beginPath();
-                ctx.rect(0, 0, canvas.width, canvas.height);
-                ctx.arc(cx, cy, GARDEN_ELITE.HULK_SAFE_RADIUS, 0, Math.PI * 2, true);
-                ctx.fill();
+                // Shade the doomed half and leave the safe half
+                // completely clear, with a hard line down the
+                // split. One boundary to read, and the whole
+                // windup to walk across it.
+                const w = canvas.width;
+                const h = canvas.height;
 
-                ctx.strokeStyle = `rgba(160, 255, 150, ${0.5 + t * 0.45})`;
-                ctx.lineWidth = 5;
-                ctx.beginPath();
-                ctx.arc(cx, cy, GARDEN_ELITE.HULK_SAFE_RADIUS, 0, Math.PI * 2);
-                ctx.stroke();
+                const b =
+                    this.stompSide === "left"   ? [0,     0,     w / 2, h]
+                  : this.stompSide === "right"  ? [w / 2, 0,     w / 2, h]
+                  : this.stompSide === "top"    ? [0,     0,     w,     h / 2]
+                                                : [0,     h / 2, w,     h / 2];
+
+                ctx.fillStyle = `rgba(150, 60, 30, ${0.1 + t * 0.26})`;
+                ctx.fillRect(b[0], b[1], b[2], b[3]);
+
+                // The line brightens as the stomp closes in.
+                ctx.fillStyle = `rgba(255, 170, 80, ${0.45 + t * 0.5})`;
+
+                if (this.stompSide === "left")   ctx.fillRect(w / 2 - 3, 0, 6, h);
+                if (this.stompSide === "right")  ctx.fillRect(w / 2 - 3, 0, 6, h);
+                if (this.stompSide === "top")    ctx.fillRect(0, h / 2 - 3, w, 6);
+                if (this.stompSide === "bottom") ctx.fillRect(0, h / 2 - 3, w, 6);
 
                 ctx.restore();
 

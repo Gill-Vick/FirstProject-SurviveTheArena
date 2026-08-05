@@ -147,8 +147,21 @@ class ThornMatron extends Enemy {
         this.isBoss = true;
 
         this.knockbackImmune = true;
-        this.lightningImmune = true;
         this.stunImmune = true;
+
+        // The one boss lightning CAN touch.
+        //
+        // Set explicitly rather than left off, because every
+        // other boss in the game turns this on and a missing
+        // line here would read as an oversight. It isn't: she is
+        // a garden overgrown with wet green growth, and being
+        // the fight where Stormfletch and the Voltaic Fang
+        // actually pay off gives those items somewhere to shine.
+        //
+        // It only affects lightning DAMAGE and chaining - the
+        // paralyze rides on stunImmune, which stays on, so she
+        // still can't be locked down.
+        this.lightningImmune = false;
 
         this.seedCooldown = cfg.SEED_COOLDOWN;
         this.lashCooldown = cfg.LASH_COOLDOWN;

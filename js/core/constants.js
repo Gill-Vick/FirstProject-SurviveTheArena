@@ -2503,19 +2503,25 @@ const GARDEN_ELITE = {
     // here on purpose.
     WARDEN_SHIELD_ALLIES: 8,
 
-    // Root Hulk: one long windup, then the WHOLE arena erupts
-    // except the ring at its feet. It inverts the fight
-    // completely - the only safe place is right next to it.
+    // Root Hulk: one long windup, then HALF the arena erupts -
+    // left, right, top or bottom, whichever half the player is
+    // standing in when it commits.
     //
-    // Capped at one per wave, because two overlapping
-    // whole-arena stomps leave nowhere to stand at all.
-    HULK_FULL_ARENA: true,
-    HULK_FULL_TELEGRAPH_MS: 2100,
-    // Doubled. The stomp is meant to relocate the player, not to
-    // demand pixel-perfect placement - at half this the pocket
-    // was small enough that reaching it at all was the whole
-    // challenge, rather than deciding to.
-    HULK_SAFE_RADIUS: 300,
+    // It used to take the whole map bar a pocket at its feet.
+    // Clever, but every elite Hulk played out as the same forced
+    // sprint to one spot, and with the pocket moving as the Hulk
+    // moved it was fiddly on top of that. A clean half is far
+    // more room to work with, reads instantly from anywhere, and
+    // leaves you somewhere to fight from rather than somewhere
+    // to survive in.
+    //
+    // Still aimed at YOUR half, so it always demands a move -
+    // it is a relocation, just a much fairer one now.
+    //
+    // Capped at one per wave: two halves on different axes would
+    // between them cover three quarters of the floor.
+    HULK_HALF_ARENA: true,
+    HULK_HALF_TELEGRAPH_MS: 2100,
     HULK_MAX_PER_WAVE: 1,
 
     // Bramble Archer: a missed arrow still snares the ground.
@@ -4401,8 +4407,8 @@ const BESTIARY_ELITE_TWISTS = {
     },
 
     rootHulk: {
-        desc: "The whole arena, all at once.",
-        behavior: "Winds up far longer, then erupts across the ENTIRE map except a wide pocket at its own feet. The only safe place on the floor is pressed right up against it. Never more than one per wave."
+        desc: "Half the arena, all at once.",
+        behavior: "Winds up far longer, then erupts across an entire HALF of the map - left, right, top or bottom, always the half you are standing in. The shaded ground and the bright line down the middle tell you which; you have the whole windup to get across it. Never more than one per wave."
     },
 
     brambleArcher: {

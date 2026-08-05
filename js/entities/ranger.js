@@ -874,7 +874,8 @@ class Ranger extends Player {
 
             Game.enemies.forEach(e => {
 
-                // Bosses are lightning-immune (see boss ctors).
+                // Most bosses are lightning-immune (see boss
+                // ctors) - the Thorn Matron is the exception.
                 if (e.isDead() || e.lightningImmune)
                     return;
 
@@ -907,8 +908,9 @@ class Ranger extends Player {
 
         Game.enemies.forEach(e => {
 
-            // Bosses are lightning-immune, so lightning never
-            // chains to them (see boss ctors).
+            // Lightning never chains to a lightning-immune
+            // target, which is most bosses - but not the Thorn
+            // Matron (see her ctor).
             if (e === hitEnemy || e.isDead() || e.lightningImmune)
                 return;
 

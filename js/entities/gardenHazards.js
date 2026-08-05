@@ -228,6 +228,104 @@ function ringGradient(inner, outer) {
 }
 
 // =====================================
+// Root Half
+// =====================================
+//
+// Half the arena erupts - left, right, top or bottom.
+//
+// This replaced the elite Hulk's whole-arena stomp, which left
+// only a pocket at its own feet: clever, but it turned every
+// elite Hulk into the same forced sprint to one spot. A clean
+// half is far more room, reads instantly from across the map,
+// and leaves the player somewhere to actually fight from.
+//
+// The side is chosen by the Hulk (see RootHulk.erupt) rather
+// than here, so the telegraph and the eruption cannot disagree.
+
+class RootHalf extends GardenGroundHazard {
+
+    constructor(side) {
+
+        // Centre of the half it covers, for the base class.
+        const w = canvas.width;
+        const h = canvas.height;
+
+        const bounds =
+            side === "left"   ? { x0: 0,     y0: 0,     x1: w / 2, y1: h }
+          : side === "right"  ? { x0: w / 2, y0: 0,     x1: w,     y1: h }
+          : side === "top"    ? { x0: 0,     y0: 0,     x1: w,     y1: h / 2 }
+                              : { x0: 0,     y0: h / 2, x1: w,     y1: h };
+
+        super((bounds.x0 + bounds.x1) / 2, (bounds.y0 + bounds.y1) / 2, 520);
+
+        this.side = side;
+        this.bounds = bounds;
+        this.label = ENEMY_LABELS.rootHulk;
+
+    }
+
+    touchesPlayer() {
+
+        const px = player.x + player.size / 2;
+        const py = player.y + player.size / 2;
+
+        const b = this.bounds;
+
+        return px >= b.x0 && px <= b.x1 && py >= b.y0 && py <= b.y1;
+
+    }
+
+    draw() {
+
+        const fade = this.life / this.maxLife;
+        const b = this.bounds;
+
+        const w = b.x1 - b.x0;
+        const h = b.y1 - b.y0;
+
+        ctx.save();
+        ctx.globalAlpha = fade;
+
+        ctx.fillStyle = "rgba(120, 74, 34, 0.5)";
+        ctx.fillRect(b.x0, b.y0, w, h);
+
+        // Roots thrown up across the whole half, on a fixed
+        // lattice rather than at random, so the same eruption
+        // doesn't shimmer as it fades.
+        ctx.fillStyle = "rgba(96, 62, 28, 0.9)";
+
+        const step = 46;
+
+        for (let y = b.y0 + step / 2; y < b.y1; y += step) {
+
+            for (let x = b.x0 + step / 2; x < b.x1; x += step) {
+
+                // Offset every other row so it reads as growth
+                // rather than a grid.
+                const ox = (Math.round((y - b.y0) / step) % 2) * (step / 2);
+
+                ctx.fillRect(Math.round(x + ox) - 5, Math.round(y) - 5, 10, 10);
+
+            }
+
+        }
+
+        // A hard bright edge along the split - the one line the
+        // player actually has to read.
+        ctx.fillStyle = "rgba(190, 120, 55, 0.95)";
+
+        if (this.side === "left")   ctx.fillRect(b.x1 - 4, b.y0, 4, h);
+        if (this.side === "right")  ctx.fillRect(b.x0, b.y0, 4, h);
+        if (this.side === "top")    ctx.fillRect(b.x0, b.y1 - 4, w, 4);
+        if (this.side === "bottom") ctx.fillRect(b.x0, b.y0, w, 4);
+
+        ctx.restore();
+
+    }
+
+}
+
+// =====================================
 // Root Ring
 // =====================================
 //

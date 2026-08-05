@@ -1108,8 +1108,9 @@ class Thief extends Player {
 
             Game.enemies.forEach(e => {
 
-                // Bosses are lightning-immune, so the arc never
-                // hops to them (see boss ctors).
+                // The arc never hops to a lightning-immune
+                // target, which is most bosses - but not the
+                // Thorn Matron (see her ctor).
                 if (visited.has(e) || e.isDead() || e.lightningImmune)
                     return;
 
