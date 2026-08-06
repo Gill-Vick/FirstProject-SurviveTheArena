@@ -66,7 +66,8 @@ class Warrior extends Player {
         this.barkReady = true;
         this.barkTimer = 0;
 
-        // Rose Tinted Blade plants once per connecting swing.
+        // Blessing of Thorns plants once per connecting swing.
+        // Arrows are unguarded - see onProjectileHit.
         this.plantedThisSwing = false;
 
         // Where the blade was drawn last frame, for motion blur
@@ -137,6 +138,30 @@ class Warrior extends Player {
     onSecondaryFire() {
 
         this.fireKingsBladeLaser();
+
+    }
+
+    // An arrow connected. Blessing of Thorns grows a bed where
+    // it landed, exactly as the sword does.
+    //
+    // EVERY arrow plants, including all three of a fan - so the
+    // bow is the item's wide play, laying a spread of ground
+    // across a whole line of enemies in one shot, where the
+    // sword lays one bed on whatever it swung through.
+    //
+    // Deliberately not guarded per volley. A fan that all lands
+    // on one target does stack beds on the same spot, but that
+    // is a fair reward for putting three arrows into one thing
+    // at point-blank rather than a bug to design around.
+    onProjectileHit(enemy, damage) {
+
+        if (!Save.isEquipped("blessingOfThorns"))
+            return;
+
+        Game.hazards.push(new ThornBed(
+            enemy.x + enemy.size / 2,
+            enemy.y + enemy.size / 2
+        ));
 
     }
 
@@ -503,14 +528,14 @@ class Warrior extends Player {
         const ex = enemy.x + enemy.size / 2;
         const ey = enemy.y + enemy.size / 2;
 
-        // Rose Tinted Blade - thorns actually sprout where the
-        // blade landed.
+        // Blessing of Thorns - thorns sprout where the blade
+        // landed.
         //
         // Guarded to once per swing rather than once per enemy:
         // a wide arc through a crowd would otherwise carpet the
         // floor in a single action, and the beds already overlap
         // at this radius.
-        if (Save.isEquipped("roseTintedBlade") && !this.plantedThisSwing) {
+        if (Save.isEquipped("blessingOfThorns") && !this.plantedThisSwing) {
 
             this.plantedThisSwing = true;
             Game.hazards.push(new ThornBed(ex, ey));
@@ -649,9 +674,17 @@ class Warrior extends Player {
 
     getSwordLength() {
 
-        return Save.isEquipped("kingsBlade")
+        const base = Save.isEquipped("kingsBlade")
             ? KINGS_BLADE.LENGTH
             : SWORD.LENGTH;
+
+        // Blessing of Thorns reforges the blade longer. Read here
+        // rather than baked into a constant, so the swing arc,
+        // the hit test, the drawn blade and the slash wake all
+        // pick it up from the one place that already agrees.
+        return base + (Save.isEquipped("blessingOfThorns")
+            ? BLESSING_OF_THORNS.BONUS_LENGTH
+            : 0);
 
     }
 
@@ -1140,7 +1173,7 @@ class Warrior extends Player {
         ctx.save();
 
         ctx.fillStyle =
-            Save.isEquipped("roseTintedBlade") ? "rgba(255, 190, 215, 0.085)"
+            Save.isEquipped("blessingOfThorns") ? "rgba(255, 190, 215, 0.085)"
             : kingsBlade ? "rgba(255, 226, 140, 0.085)"
             : "rgba(210, 240, 245, 0.085)";
 
@@ -1203,7 +1236,7 @@ class Warrior extends Player {
         // Rose Tinted Blade turns the whole wake pink and carries
         // petals on it. Gated on the item, so the stock sword is
         // untouched cyan and the King's Blade untouched gold.
-        const rose = Save.isEquipped("roseTintedBlade");
+        const rose = Save.isEquipped("blessingOfThorns");
 
         const grad = (peak, span) => {
 
@@ -1332,23 +1365,29 @@ class Warrior extends Player {
 
     }
 
-    // The original sword: cyan energy-core shortsword.
+    // The original sword: cyan energy-core shortsword - or, with
+    // Blessing of Thorns equipped, a katana.
     drawBaseSwordBlade(bladeLength) {
 
-        // Rose Tinted Blade lives ON the weapon rather than in
+        // Blessing of Thorns lives ON the weapon rather than in
         // its wake. It used to shed petals along the arc, which
         // is precisely the ghosting the trail rewrite existed to
         // get rid of - so the flourish moved onto the blade,
         // where it travels with the sword and cannot smear.
-        const rose = Save.isEquipped("roseTintedBlade");
+        if (Save.isEquipped("blessingOfThorns")) {
+
+            this.drawThornKatana(bladeLength);
+            return;
+
+        }
 
         // =====================================
         // 2. THE ENERGY GLOW (Rendered underneath)
         // =====================================
         ctx.save();
         ctx.shadowBlur = 15;
-        ctx.shadowColor = rose ? "#ff5f8f" : "#00ffff";
-        ctx.fillStyle = rose ? "rgba(255, 110, 150, 0.8)" : "rgba(0, 255, 255, 0.8)";
+        ctx.shadowColor = "#00ffff";
+        ctx.fillStyle = "rgba(0, 255, 255, 0.8)";
         ctx.beginPath();
         // A sleek, thin energy core running down the blade
         ctx.moveTo(20, -1);
@@ -1405,36 +1444,89 @@ class Warrior extends Player {
         ctx.arc(0, 0, 4, 0, Math.PI * 2);
         ctx.fill();
 
-        // Rose Tinted Blade: a bloom bound at the crossguard and
-        // a couple of leaves climbing the first stretch of the
-        // blade. Static parts of the weapon, so they move with
-        // it and never trail.
-        if (rose) {
+    }
 
-            ctx.fillStyle = "#2c4a24";
-            ctx.fillRect(26, -2, 22, 4);
+    // Blessing of Thorns: a katana rather than a longsword.
+    //
+    // Single-edged and far narrower than the stock blade - a
+    // straight back with the taper carried entirely on the
+    // cutting side, and a long angled tip. It reads as SHARP
+    // where the longsword reads as heavy, which is the point of
+    // reforging it.
+    //
+    // The steel is tinted rose rather than painted pink: the
+    // gradient runs pale-rose to a deep wine in the shadow, so
+    // it still looks like metal that was grown through with
+    // roses instead of a pink crayon.
+    drawThornKatana(bladeLength) {
 
-            [34, 44].forEach((lx, i) => {
+        const wet = Save.isEquipped("wetStone");
 
-                const up = i % 2 === 0;
-                ctx.fillStyle = "#3f6b32";
-                ctx.fillRect(lx, up ? -7 : 3, 6, 4);
+        // --- blade
+        const grad = ctx.createLinearGradient(0, -5, 0, 5);
+        grad.addColorStop(0, wet ? "#ffe6f0" : "#fff2f6");
+        grad.addColorStop(0.35, wet ? "#e5b7c9" : "#f0c6d6");
+        grad.addColorStop(0.62, wet ? "#b07f96" : "#c98fa8");
+        grad.addColorStop(1, wet ? "#5e3243" : "#7d4256");
 
-            });
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(24, -4);                  // back edge, at the guard
+        ctx.lineTo(bladeLength - 20, -5);    // back edge holds its width
+        ctx.lineTo(bladeLength, -1);         // kissaki - the long angled tip
+        ctx.lineTo(bladeLength - 18, 3);     // cutting edge sweeping back
+        ctx.lineTo(24, 3);
+        ctx.closePath();
+        ctx.fill();
 
-            ctx.fillStyle = "#7d1d33";
-            ctx.fillRect(15, -9, 12, 18);
-            ctx.fillStyle = "#d6335c";
-            ctx.fillRect(17, -7, 8, 14);
-            ctx.fillStyle = "#ff9ab4";
-            ctx.fillRect(19, -3, 4, 6);
+        // Hamon: the temper line following the cutting edge. The
+        // single detail that makes a narrow blade read as a
+        // katana rather than as a stick.
+        ctx.strokeStyle = "rgba(255, 235, 245, 0.75)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(28, 1.5);
+        ctx.lineTo(bladeLength - 22, 0.5);
+        ctx.stroke();
 
-        }
+        // A bright line right along the edge itself.
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.55)";
+        ctx.beginPath();
+        ctx.moveTo(26, 3);
+        ctx.lineTo(bladeLength - 18, 3);
+        ctx.stroke();
+
+        // --- tsuba: a small round guard, not a wide crossguard
+        ctx.fillStyle = "#3a2233";
+        ctx.fillRect(20, -7, 4, 14);
+        ctx.fillStyle = "#7d1d33";
+        ctx.fillRect(21, -5, 2, 10);
+
+        // --- tsuka: a longer wrapped grip, in rose cord
+        ctx.fillStyle = "#2c1a24";
+        ctx.fillRect(-2, -3, 22, 6);
+
+        ctx.fillStyle = "#d6335c";
+
+        for (let i = 0; i < 4; i++)
+            ctx.fillRect(1 + i * 5, -3, 2, 6);
+
+        // --- kashira: the end cap
+        ctx.fillStyle = "#7d1d33";
+        ctx.fillRect(-4, -4, 4, 8);
+
+        // One bloom bound at the guard, so the item still reads
+        // as the garden's even at a glance.
+        ctx.fillStyle = "#2c4a24";
+        ctx.fillRect(14, -9, 6, 3);
+
+        ctx.fillStyle = "#d6335c";
+        ctx.fillRect(13, -13, 7, 6);
+        ctx.fillStyle = "#ff9ab4";
+        ctx.fillRect(15, -11, 3, 3);
 
     }
 
-    // King's Blade: same gold-and-crimson greatsword look as
-    // the King's own weapon, just scaled down to human size.
     drawKingsBladeBlade(bladeLength) {
 
         ctx.save();

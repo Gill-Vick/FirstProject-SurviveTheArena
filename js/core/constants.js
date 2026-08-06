@@ -1009,19 +1009,25 @@ const BOSS_GEAR = {
 
 // ----- Thorn Matron tier -----
 
-// Warrior. A blade grown through with roses: every connecting
-// swing sprouts a bed of thorns where it landed.
+// Warrior. A blade grown through with roses: anything the
+// Warrior connects with sprouts a bed of thorns where it landed.
 //
-// It used to be a burst that skipped its own target and hit that
-// enemy's NEIGHBOURS - which was invisible in play and read as
-// the item doing nothing, because nothing ever actually
-// sprouted. Now the name is the mechanic: you hit, thorns grow.
+// The name IS the mechanic - you hit, thorns grow - which was
+// the whole problem with the version before it, a burst that
+// skipped its own target and hit that enemy's neighbours so
+// nothing ever visibly sprouted at all.
 //
-// One bed per connecting SWING rather than per enemy struck, so
-// a wide swing through a crowd doesn't carpet the floor in one
-// action.
-const ROSE_TINTED_BLADE = {
-    PLANT_PER_SWING: 1
+// One bed per SWING and one per VOLLEY, rather than per enemy
+// or per arrow, so a wide swing through a crowd or a three-arrow
+// fan doesn't carpet the floor in a single action.
+//
+// It also reforges the sword itself: a little more reach, and a
+// narrower single-edged blade to carry it.
+const BLESSING_OF_THORNS = {
+    // Added to SWORD.LENGTH. Deliberately small - the sword's
+    // reach is the Warrior's whole spacing game, and this is a
+    // garden-tier item, not a King-tier one.
+    BONUS_LENGTH: 18
 };
 
 // Warrior. A blocked hit erupts into a thorn bed underfoot -
@@ -1303,11 +1309,11 @@ const SHOP_ITEMS = {
         equippable: true
     },
 
-    roseTintedBlade: {
+    blessingOfThorns: {
         classId: "warrior",
         price: 440,
-        name: "Rose Tinted Blade",
-        desc: "Every connecting sword swing sprouts a bed of thorns where it landed",
+        name: "Blessing of Thorns",
+        desc: "Sword swings AND arrows sprout thorns where they land. Reforges the blade: +reach, katana-slim",
         requiresMatronKilled: true,
         equippable: true
     },

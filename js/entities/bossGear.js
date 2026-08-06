@@ -29,6 +29,55 @@
 // player's side of the Matron's brambles, and the shared body
 // of five separate items.
 
+// Cached thorn-bed bitmaps.
+//
+// A bed is seven five-petal flowers, and each flower is a stem,
+// five outlined petals and a centre - about 98 fillRect calls.
+// Drawn live that is fine for one patch and ruinous for sixty:
+// measured at 8.6ms per frame on its own, over half the budget,
+// for something that never animates.
+//
+// So the layout is baked ONCE per variant and blitted. The bed's
+// shape is fixed the moment it is created - only its alpha
+// changes as it fades - which makes it exactly the kind of thing
+// that should be a bitmap. Same rule the pixel-fx primitives
+// carry, and the same mistake that collapsed the frame rate in
+// the King and Magus fights.
+//
+// Seeds are quantised into a fixed set of variants so the cache
+// can never grow without bound; at this scatter, repeats across
+// a floor full of patches are invisible.
+const THORN_BED_CACHE = new Map();
+
+const THORN_BED_VARIANTS = 16;
+
+function thornBedSprite(variant, radius) {
+
+    const key = `${variant}|${radius}`;
+
+    let bmp = THORN_BED_CACHE.get(key);
+
+    if (bmp)
+        return bmp;
+
+    // Padded for the petals and stem that hang past the radius.
+    const pad = 14;
+    const size = Math.ceil(radius * 2 + pad * 2);
+
+    bmp = document.createElement("canvas");
+    bmp.width = size;
+    bmp.height = size;
+
+    const c = bmp.getContext("2d");
+
+    ThornBed.paint(c, size / 2, size / 2, radius, variant / THORN_BED_VARIANTS * 1000);
+
+    THORN_BED_CACHE.set(key, bmp);
+
+    return bmp;
+
+}
+
 class ThornBed {
 
     constructor(x, y, radius = BOSS_GEAR.THORN_RADIUS) {
@@ -40,9 +89,9 @@ class ThornBed {
         this.life = BOSS_GEAR.THORN_LIFE_MS;
         this.tick = 0;
 
-        // Rolled once so the petals don't crawl frame to frame -
-        // same trick the enemy BramblePatch uses.
-        this.seed = Math.random() * 1000;
+        // Which baked layout this patch wears. Rolled once, so
+        // the bed sits still instead of crawling frame to frame.
+        this.variant = Math.floor(Math.random() * THORN_BED_VARIANTS);
 
     }
 
@@ -82,37 +131,111 @@ class ThornBed {
 
     }
 
-    draw() {
+    // Deterministic scatter, rolled off a seed.
+    //
+    // Static, because the painter below runs once at bake time
+    // against a variant seed rather than against any one bed.
+    static hash(seed, n) {
 
-        const fade = Math.min(1, this.life / 700);
+        const v = Math.sin(seed + n * 12.9898) * 43758.5453;
 
-        ctx.save();
-        ctx.globalAlpha = 0.9 * fade;
+        return v - Math.floor(v);
 
-        // Six blooms around the ring plus one in the middle.
-        //
-        // Cold blue, against the garden's pink-and-gold - see
-        // BOSS_GEAR.THORN_*. Player thorns and enemy thorns end
-        // up on the same floor constantly, and telling them
-        // apart has to be instant.
+    }
+
+    // Paints one bed's worth of flowers into `c`, centred on
+    // (cx, cy). Called once per variant when its sprite is baked.
+    static paint(c, cx, cy, radius, seed) {
+
+        // Seven blooms scattered across the patch rather than
+        // pinned to a perfect ring - a ring reads as a UI marker,
+        // a scatter reads as something that grew.
         for (let i = 0; i < 7; i++) {
 
-            const a = (i / 6) * Math.PI * 2 + this.seed;
-            const r = i === 6 ? 0 : this.radius * 0.62;
+            const a = ThornBed.hash(seed, i) * Math.PI * 2;
+            const r = 5 + ThornBed.hash(seed, i + 40) * radius * 0.78;
 
-            const px = Math.round(this.x + Math.cos(a) * r);
-            const py = Math.round(this.y + Math.sin(a) * r);
-
-            ctx.fillStyle = BOSS_GEAR.THORN_STEM;
-            ctx.fillRect(px - 4, py - 4, 8, 8);
-
-            ctx.fillStyle = BOSS_GEAR.THORN_PETAL;
-            ctx.fillRect(px - 3, py - 3, 6, 6);
-
-            ctx.fillStyle = BOSS_GEAR.THORN_CENTRE;
-            ctx.fillRect(px - 1, py - 1, 2, 2);
+            ThornBed.paintBloom(
+                c,
+                Math.round(cx + Math.cos(a) * r),
+                Math.round(cy + Math.sin(a) * r),
+                3 + Math.round(ThornBed.hash(seed, i + 80) * 2),
+                ThornBed.hash(seed, i + 120) * Math.PI * 2
+            );
 
         }
+
+    }
+
+    // One flower: a stem and leaf, five petals round a bright
+    // centre.
+    //
+    // Was three nested squares, which at this size was a square
+    // with a smaller square on it. Five petals on a ring with a
+    // dark outline behind them actually reads as a flower - and
+    // the outline is what keeps it legible against both the pale
+    // castle paving and the dark grove floor.
+    static paintBloom(c, x, y, petal, spin) {
+
+        const reach = petal + 1;
+
+        // Stem down from the bloom, with one leaf off it. Drawn
+        // first so the petals sit on top of where it joins.
+        c.fillStyle = BOSS_GEAR.THORN_STEM;
+        c.fillRect(x - 1, y, 2, petal + 5);
+        c.fillRect(x + 1, y + petal + 2, 3, 2);
+
+        // Dark backing for every petal, laid down as one pass so
+        // neighbouring petals don't outline each other.
+        for (let k = 0; k < 5; k++) {
+
+            const a = spin + (k / 5) * Math.PI * 2;
+
+            const px = Math.round(x + Math.cos(a) * reach);
+            const py = Math.round(y + Math.sin(a) * reach);
+
+            c.fillRect(px - petal / 2 - 1, py - petal / 2 - 1, petal + 2, petal + 2);
+
+        }
+
+        // The petals themselves.
+        c.fillStyle = BOSS_GEAR.THORN_PETAL;
+
+        for (let k = 0; k < 5; k++) {
+
+            const a = spin + (k / 5) * Math.PI * 2;
+
+            const px = Math.round(x + Math.cos(a) * reach);
+            const py = Math.round(y + Math.sin(a) * reach);
+
+            c.fillRect(px - petal / 2, py - petal / 2, petal, petal);
+
+        }
+
+        // Centre: a dark eye with a bright pip in it, so the
+        // flower has a middle rather than a hole.
+        c.fillStyle = BOSS_GEAR.THORN_STEM;
+        c.fillRect(x - 3, y - 3, 6, 6);
+
+        c.fillStyle = BOSS_GEAR.THORN_CENTRE;
+        c.fillRect(x - 2, y - 2, 4, 4);
+
+    }
+
+    // One blit. Everything above happens once per variant, not
+    // once per patch per frame.
+    draw() {
+
+        const bmp = thornBedSprite(this.variant, this.radius);
+
+        ctx.save();
+        ctx.globalAlpha = 0.95 * Math.min(1, this.life / 700);
+
+        ctx.drawImage(
+            bmp,
+            Math.round(this.x - bmp.width / 2),
+            Math.round(this.y - bmp.height / 2)
+        );
 
         ctx.restore();
 
