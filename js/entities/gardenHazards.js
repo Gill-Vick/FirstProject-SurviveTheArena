@@ -228,6 +228,258 @@ function ringGradient(inner, outer) {
 }
 
 // =====================================
+// Warden Sweep
+// =====================================
+//
+// One of the Greenwarden's arms, swung the whole way round.
+//
+// Anchored to the warden rather than to a point on the floor, so
+// it reads as its LIMB rather than as a spell it cast - and it
+// dies with it, because an arm without a body attached is not a
+// thing that should still be swinging.
+//
+// Hits at most once. It is a "get out of the way" attack, not a
+// blender.
+
+class WardenSweep {
+
+    constructor(source, startAngle) {
+
+        this.source = source;
+        this.angle = startAngle;
+
+        this.life = ACT2_BOSSES.greenwarden.SWEEP_MS;
+        this.hit = false;
+
+    }
+
+    centre() {
+
+        return {
+            x: this.source.x + this.source.size / 2,
+            y: this.source.y + this.source.size / 2
+        };
+
+    }
+
+    update() {
+
+        const cfg = ACT2_BOSSES.greenwarden;
+
+        this.life -= Game.dt;
+
+        // One full revolution across its whole life.
+        this.angle += (Math.PI * 2) * (Game.dt / cfg.SWEEP_MS);
+
+        if (this.hit || this.isDead())
+            return;
+
+        const c = this.centre();
+
+        const px = player.x + player.size / 2;
+        const py = player.y + player.size / 2;
+
+        if (Math.hypot(px - c.x, py - c.y) > cfg.SWEEP_RADIUS)
+            return;
+
+        let diff = Math.atan2(py - c.y, px - c.x) - this.angle;
+
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+
+        if (Math.abs(diff) > cfg.SWEEP_HALF_ARC)
+            return;
+
+        this.hit = true;
+        player.takeHit(ENEMY_LABELS.greenwarden);
+
+    }
+
+    isDead() {
+
+        return this.life <= 0 || !this.source || this.source.isDead();
+
+    }
+
+    draw() {
+
+        if (this.isDead())
+            return;
+
+        const cfg = ACT2_BOSSES.greenwarden;
+        const c = this.centre();
+
+        ctx.save();
+        ctx.translate(c.x, c.y);
+        ctx.rotate(this.angle);
+
+        drawPixelSector(0, 0, cfg.SWEEP_RADIUS, 0, cfg.SWEEP_HALF_ARC, {
+            color: "rgb(120, 200, 110)",
+            alpha: 0.42,
+            unit: 6
+        });
+
+        // The arm itself, so the wedge has something throwing it.
+        ctx.fillStyle = "#3f6b32";
+        ctx.fillRect(0, -6, cfg.SWEEP_RADIUS, 12);
+
+        ctx.fillStyle = "#5c8f47";
+        ctx.fillRect(0, -6, cfg.SWEEP_RADIUS, 4);
+
+        ctx.restore();
+
+    }
+
+}
+
+// =====================================
+// Warden Grasp
+// =====================================
+//
+// Hedge hands that close on where the player was standing.
+//
+// Deals NO damage. It pins, and whatever the warden throws next
+// is what kills you - which is why the warning is long and the
+// hold is short. A boss that both roots and hits in the same
+// beat would just be a coin flip.
+//
+// Roots through the standard rootsPlayer/containsPlayer contract
+// rather than by writing to player.rootTimer, so slow-resistance
+// items still count against it.
+
+class WardenGrasp {
+
+    constructor(x, y) {
+
+        this.x = x;
+        this.y = y;
+
+        this.warn = ACT2_BOSSES.greenwarden.GRASP_WARN_MS;
+        this.life = ACT2_BOSSES.greenwarden.GRASP_HOLD_MS;
+
+        this.closed = false;
+
+        Sound.playAt("summon", x, y);
+
+    }
+
+    get rootsPlayer() {
+
+        return this.closed;
+
+    }
+
+    getRadius() {
+
+        return ACT2_BOSSES.greenwarden.GRASP_RADIUS;
+
+    }
+
+    containsPlayer() {
+
+        const px = player.x + player.size / 2;
+        const py = player.y + player.size / 2;
+
+        return Math.hypot(px - this.x, py - this.y) <
+               ACT2_BOSSES.greenwarden.GRASP_RADIUS;
+
+    }
+
+    update() {
+
+        if (!this.closed) {
+
+            this.warn -= Game.dt;
+
+            if (this.warn <= 0)
+                this.closed = true;
+
+            return;
+
+        }
+
+        this.life -= Game.dt;
+
+    }
+
+    isDead() {
+
+        return this.closed && this.life <= 0;
+
+    }
+
+    draw() {
+
+        const cfg = ACT2_BOSSES.greenwarden;
+        const r = cfg.GRASP_RADIUS;
+
+        ctx.save();
+
+        if (!this.closed) {
+
+            // Fingers spread wide and drawing in - the ring
+            // shrinking is the countdown.
+            const t = 1 - this.warn / cfg.GRASP_WARN_MS;
+
+            drawPixelDashedRing(this.x, this.y, r * (1.7 - t * 0.7), {
+                color: "rgb(120, 200, 110)",
+                alpha: 0.35 + t * 0.4,
+                unit: 5
+            });
+
+            ctx.fillStyle = `rgba(90, 150, 80, ${0.15 + t * 0.2})`;
+
+            for (let i = 0; i < 6; i++) {
+
+                const a = (i / 6) * Math.PI * 2;
+                const d = r * (1.7 - t * 0.7);
+
+                ctx.fillRect(
+                    Math.round(this.x + Math.cos(a) * d) - 4,
+                    Math.round(this.y + Math.sin(a) * d) - 4,
+                    8, 8
+                );
+
+            }
+
+            ctx.restore();
+            return;
+
+        }
+
+        // Shut: a fist of hedge holding the ground.
+        const fade = this.life / cfg.GRASP_HOLD_MS;
+
+        ctx.globalAlpha = fade;
+
+        drawPixelRing(this.x, this.y, r, {
+            color: "rgb(80, 140, 70)",
+            alpha: 0.9,
+            thickness: 7,
+            unit: 5
+        });
+
+        ctx.fillStyle = "rgba(63, 107, 50, 0.55)";
+
+        for (let i = 0; i < 6; i++) {
+
+            const a = (i / 6) * Math.PI * 2;
+
+            ctx.fillRect(
+                Math.round(this.x + Math.cos(a) * r * 0.55) - 6,
+                Math.round(this.y + Math.sin(a) * r * 0.55) - 6,
+                12, 12
+            );
+
+        }
+
+        ctx.restore();
+
+    }
+
+}
+
+// =====================================
 // Root Half
 // =====================================
 //

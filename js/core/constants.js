@@ -2719,9 +2719,45 @@ const ACT2_BOSSES = {
         // The stagger survives as a reward, but it is a window
         // now rather than a holiday.
         STAGGER_MS: 1800,
+        // FOUR limbs now, four attacks, plus a core move that
+        // only wakes up once you start breaking them.
+        //
+        // The rake - a fan of root arrows at the player - is
+        // gone. It was the Thorn Matron's lash with a different
+        // name, and back-to-back bosses throwing the same fan
+        // made the second one feel like a reskin. Everything
+        // here is now something only a thing with LIMBS would
+        // do: swing them, grab with them, or drop the whole
+        // hedge on you.
         FLAIL_COOLDOWN: 1900,
-        RAKE_COOLDOWN: 2300,
+        SWEEP_COOLDOWN: 4300,
         SEED_COOLDOWN: 3400,
+        GRASP_COOLDOWN: 5400,
+
+        // Sweep: one arm swung right the way round. Slow enough
+        // to walk away from, wide enough that standing still
+        // isn't an option.
+        SWEEP_RADIUS: 250,
+        SWEEP_HALF_ARC: 0.5,
+        SWEEP_MS: 2100,
+
+        // Grasp: hedge hands close on where you were standing.
+        // They do no damage at all - they PIN you, and what
+        // lands next is the damage. That is the whole idea, so
+        // the warning has to be generous.
+        GRASP_WARN_MS: 950,
+        GRASP_RADIUS: 78,
+        GRASP_HOLD_MS: 950,
+        GRASP_COUNT: 2,
+        PHASE2_GRASP_COUNT: 3,
+
+        // Hedgerow: the core's own move, and it only fires while
+        // the warden is missing a limb. Disarming it used to be
+        // pure profit; now taking an arm off wakes up the body.
+        HEDGE_COOLDOWN: 5800,
+        HEDGE_LIFE_MS: 5200,
+        HEDGE_SPACING: 44,
+        HEDGE_GAP: 150,
         // Below half it regrows limbs in PAIRS, so disarming it
         // completely stops being something you can hold.
         PHASE2_COOLDOWN_MULT: 0.6,
@@ -4314,7 +4350,7 @@ const BESTIARY = {
     greenwarden: {
         name: "Greenwarden", color: "#3f7a3c", size: 96, isBoss: true,
         desc: "A hedge shaped like a guardian, that took the shaping seriously.",
-        behavior: "Three limbs, three attacks. Break a limb and that attack stops - break all three and it staggers. It regrows them quickly, and below half health it grows them back in pairs.",
+        behavior: "Four limbs, four attacks - a flail ring at its feet, one arm swept the whole way round, spore clouds dropped on you, and hedge hands that close and PIN you so the next thing lands. Break a limb and that attack stops; break all four and it staggers. But the body has a move of its own: the moment it is missing an arm it starts growing hedgerows across the arena, so disarming it is no longer free. It regrows limbs quickly, and below half health it grows them back in pairs.",
         lore: "Topiary in the old style: a warden clipped into a hedge at the maze's heart, so that visitors would feel watched and behave. It worked. Season after season it was cut back into the same shape, until the shape stopped needing the shears — until it stepped out of its own outline and went on standing guard over a maze with nothing left in it to protect.",
         hpAtWave(w) { return ACT2_BOSSES.greenwarden.HP_BASE + Math.floor(w / 5) * ACT2_BOSSES.greenwarden.HP_PER_CYCLE; },
         hpScale: `${ACT2_BOSSES.greenwarden.HP_BASE} HP, plus ${ACT2_BOSSES.greenwarden.HP_PER_CYCLE} for every five waves reached`,

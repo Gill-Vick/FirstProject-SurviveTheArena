@@ -487,13 +487,18 @@ class Greenwarden extends Enemy {
         // so the boss bar, x-ray and shadow passes all still work
         // without knowing this fight is different.
         this.limbs = [
-            { name: "flail", hp: cfg.LIMB_HP, max: cfg.LIMB_HP, cd: cfg.FLAIL_COOLDOWN },
-            { name: "rake", hp: cfg.LIMB_HP, max: cfg.LIMB_HP, cd: cfg.RAKE_COOLDOWN },
-            { name: "seeder", hp: cfg.LIMB_HP, max: cfg.LIMB_HP, cd: cfg.SEED_COOLDOWN }
+            { name: "flail",  hp: cfg.LIMB_HP, max: cfg.LIMB_HP, cd: cfg.FLAIL_COOLDOWN },
+            { name: "sweep",  hp: cfg.LIMB_HP, max: cfg.LIMB_HP, cd: cfg.SWEEP_COOLDOWN },
+            { name: "seeder", hp: cfg.LIMB_HP, max: cfg.LIMB_HP, cd: cfg.SEED_COOLDOWN },
+            { name: "grasp",  hp: cfg.LIMB_HP, max: cfg.LIMB_HP, cd: cfg.GRASP_COOLDOWN }
         ];
 
         this.regrowTimer = cfg.REGROW_MS;
         this.stagger = 0;
+
+        // The body's own attack, on its own clock. Only ticks
+        // while a limb is missing - see attack().
+        this.hedgeCooldown = cfg.HEDGE_COOLDOWN;
 
     }
 
@@ -586,6 +591,25 @@ class Greenwarden extends Enemy {
 
         }
 
+        const rate = phaseRate(this, cfg);
+
+        // The core's own move. Dormant while the warden is whole,
+        // so a player who never touches a limb never sees it -
+        // and the moment an arm comes off, the BODY starts
+        // answering. Disarming it used to be pure profit.
+        if (this.livingLimbs().length < this.limbs.length) {
+
+            this.hedgeCooldown -= Game.dt;
+
+            if (this.hedgeCooldown <= 0) {
+
+                this.hedgeCooldown = cfg.HEDGE_COOLDOWN * rate;
+                this.hedgerow();
+
+            }
+
+        }
+
         this.limbs.forEach(limb => {
 
             if (limb.hp <= 0)
@@ -596,17 +620,26 @@ class Greenwarden extends Enemy {
             if (limb.cd > 0)
                 return;
 
-            const rate = phaseRate(this, cfg);
-
             if (limb.name === "flail") {
+
                 limb.cd = cfg.FLAIL_COOLDOWN * rate;
                 this.flail();
-            } else if (limb.name === "rake") {
-                limb.cd = cfg.RAKE_COOLDOWN * rate;
-                this.rake();
-            } else {
+
+            } else if (limb.name === "sweep") {
+
+                limb.cd = cfg.SWEEP_COOLDOWN * rate;
+                this.sweep();
+
+            } else if (limb.name === "seeder") {
+
                 limb.cd = cfg.SEED_COOLDOWN * rate;
                 this.seed();
+
+            } else {
+
+                limb.cd = cfg.GRASP_COOLDOWN * rate;
+                this.grasp();
+
             }
 
         });
@@ -626,24 +659,93 @@ class Greenwarden extends Enemy {
 
     }
 
-    rake() {
+    // One arm, swung the whole way round. Starts pointing AWAY
+    // from the player, so the swing always gives them the length
+    // of the arena to read it rather than opening on top of them.
+    sweep() {
 
         const target = getAggroSource(this);
 
         const cx = this.x + this.size / 2;
         const cy = this.y + this.size / 2;
 
-        const base = Math.atan2(
+        const away = Math.atan2(
             (target.y + target.size / 2) - cy,
             (target.x + target.size / 2) - cx
-        );
+        ) + Math.PI;
 
-        const arms = bossPhase(this) === 2 ? 9 : 6;
+        Game.hazards.push(new WardenSweep(this, away));
 
-        for (let i = 0; i < arms; i++)
-            Game.hazards.push(new RootArrow(
-                cx, cy, base + (i - (arms - 1) / 2) * 0.17, false
+    }
+
+    // Hedge hands closing where the player is standing. They pin
+    // rather than hurt - see WardenGrasp.
+    grasp() {
+
+        const cfg = ACT2_BOSSES.greenwarden;
+
+        const count = bossPhase(this) === 2
+            ? cfg.PHASE2_GRASP_COUNT
+            : cfg.GRASP_COUNT;
+
+        const px = player.x + player.size / 2;
+        const py = player.y + player.size / 2;
+
+        for (let i = 0; i < count; i++) {
+
+            // The first closes on where they ARE; the rest ring
+            // it, covering the obvious ways out.
+            const a = Math.random() * Math.PI * 2;
+            const r = i === 0 ? 0 : cfg.GRASP_RADIUS * 1.5;
+
+            Game.hazards.push(new WardenGrasp(
+                Math.max(30, Math.min(canvas.width - 30, px + Math.cos(a) * r)),
+                Math.max(30, Math.min(canvas.height - 30, py + Math.sin(a) * r))
             ));
+
+        }
+
+    }
+
+    // The body's move: a wall of hedge grown clean across the
+    // arena through where the warden stands, with one gap in it.
+    //
+    // Splits the floor in two, which is what a hedge maze does -
+    // and unlike everything else in this fight it does not care
+    // where the player is. You have to find the gap.
+    hedgerow() {
+
+        const cfg = ACT2_BOSSES.greenwarden;
+
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+
+        // Whichever way splits the arena more usefully from where
+        // it is standing.
+        const vertical = Math.random() < 0.5;
+
+        const span = vertical ? canvas.height : canvas.width;
+
+        // Where the gap sits, kept off the very ends so the wall
+        // is always a real barrier.
+        const gapAt = span * (0.2 + Math.random() * 0.6);
+
+        for (let d = 20; d < span - 20; d += cfg.HEDGE_SPACING) {
+
+            if (Math.abs(d - gapAt) < cfg.HEDGE_GAP / 2)
+                continue;
+
+            Game.hazards.push(new BramblePatch(
+                vertical ? cx : d,
+                vertical ? d : cy,
+                cfg.HEDGE_LIFE_MS,
+                ACT2_BOSSES.matron.THORN_SPROUT_MS,
+                ENEMY_LABELS[this.type]
+            ));
+
+        }
+
+        Game.screenShake = Math.max(Game.screenShake ?? 0, 8);
 
     }
 
@@ -670,7 +772,7 @@ class Greenwarden extends Enemy {
         // attacks have stopped happening.
         this.limbs.forEach((limb, i) => {
 
-            const x = cx - 30 + i * 21;
+            const x = cx - 34 + i * 18;
 
             ctx.fillStyle = limb.hp > 0
                 ? `rgba(120, 220, 110, ${0.35 + (limb.hp / limb.max) * 0.65})`
